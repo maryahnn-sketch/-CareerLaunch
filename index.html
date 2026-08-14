@@ -505,7 +505,7 @@ function extractFirstJsonObject(text){
 async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal){
   let response;
   try{
-    response = await fetch("https://api.anthropic.com/v1/messages", {
+    response = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -626,7 +626,7 @@ async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, si
 async function callClaudeText(system, userPrompt, maxTokens, signal){
   let response;
   try{
-    response = await fetch("https://api.anthropic.com/v1/messages", {
+    response = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
