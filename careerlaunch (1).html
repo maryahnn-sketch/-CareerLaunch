@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CareerLaunch AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --paper:#EEEDE6;
+    --paper-dim:#E4E2D8;
+    --card:#FFFFFF;
+    --ink:#20292C;
+    --ink-soft:#5B6669;
+    --ink-faint:#8B9396;
+    --highlight:#E3A83B;
+    --highlight-soft:rgba(227,168,59,0.24);
+    --highlight-line:rgba(227,168,59,0.55);
+    --sage:#4F7561;
+    --sage-soft:rgba(79,117,97,0.14);
+    --clay:#B5603F;
+    --clay-soft:rgba(181,96,63,0.13);
+    --line:#D7D3C4;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(32,41,44,0.04), 0 8px 24px rgba(32,41,44,0.06);
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+  #app{max-width:100%;min-height:100vh;}
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px;}
+  .wrap-wide{max-width:900px;margin:0 auto;padding:0 24px;}
+
+  h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-0.01em;margin:0;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--highlight);}
+  p{color:var(--ink-soft);}
+  a{color:inherit;}
+
+  button{font-family:var(--sans);cursor:pointer;border:none;background:none;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:15px 26px;border-radius:999px;font-size:15px;font-weight:600;transition:transform .15s ease, box-shadow .15s ease, background .15s ease;min-height:48px;}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+  .btn-primary{background:var(--ink);color:var(--paper);}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(32,41,44,0.18);}
+  .btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-text{padding:8px 4px;font-weight:600;color:var(--ink-soft);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;}
+  .btn-text:hover{color:var(--ink);text-decoration-color:var(--ink);}
+  .btn-sm{padding:9px 16px;font-size:13px;min-height:36px;}
+
+  .screen{padding:64px 0 96px;animation:rise .5s ease both;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){.screen{animation:none;}*{transition:none !important;animation:none !important;}}
+
+  .progress-bar{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--line);padding:14px 0;}
+  .progress-inner{max-width:720px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:10px;}
+  .progress-steps{display:flex;gap:6px;flex:1;}
+  .progress-steps span{height:4px;flex:1;background:var(--line);border-radius:2px;overflow:hidden;position:relative;}
+  .progress-steps span.done{background:var(--ink);}
+  .progress-steps span.current{background:var(--line);}
+  .progress-steps span.current::after{content:'';position:absolute;inset:0;background:var(--highlight);transform-origin:left;animation:fill 1.2s ease forwards;}
+  @keyframes fill{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+  .progress-label{font-family:var(--mono);font-size:11px;color:var(--ink-faint);white-space:nowrap;}
+  .brand-tiny{font-family:var(--serif);font-weight:600;font-size:15px;cursor:pointer;}
+
+  .nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;}
+  .brand{font-family:var(--serif);font-weight:600;font-size:19px;}
+  .brand em{font-style:normal;color:var(--highlight);}
+
+  .hero{padding:56px 0 40px;text-align:left;}
+  .hero h1{font-size:clamp(38px,6vw,60px);line-height:1.04;max-width:780px;}
+  .hero h1 mark{background:none;color:var(--ink);position:relative;display:inline;}
+  .hero h1 mark::after{content:'';position:absolute;left:-2px;right:-2px;bottom:2px;height:0.34em;background:var(--highlight-soft);border-radius:2px;z-index:-1;}
+  .hero p.lede{font-size:18px;max-width:600px;margin-top:20px;}
+  .hero .micro{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);margin-top:18px;}
+  .hero-ctas{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap;}
+
+  .translate-demo{margin-top:64px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);}
+  .translate-demo .before{font-family:var(--serif);font-size:19px;font-style:italic;color:var(--ink);margin-bottom:18px;}
+  .translate-demo .before span{background:var(--highlight-soft);padding:1px 4px;border-radius:3px;}
+  .translate-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;background:var(--sage-soft);color:var(--sage);border:1px solid rgba(79,117,97,0.25);}
+
+  .section{padding:64px 0;border-top:1px solid var(--line);}
+  .section h2{font-size:28px;margin-bottom:8px;}
+  .section .lede{max-width:540px;}
+  .how-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:24px;margin-top:36px;}
+  .how-step .num{font-family:var(--mono);font-size:12px;color:var(--highlight);margin-bottom:8px;}
+  .how-step h3{font-size:17px;margin-bottom:6px;}
+  .how-step p{font-size:14px;}
+  .who-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;}
+  .who-chip{font-size:13.5px;padding:9px 14px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--ink-soft);}
+  .diff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-top:32px;}
+  .diff-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;}
+  .diff-card .not{font-family:var(--mono);font-size:11px;color:var(--clay);text-decoration:line-through;margin-bottom:8px;}
+  .diff-card h3{font-size:16px;}
+  .pricing-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:32px;}
+  @media (max-width:600px){.pricing-row{grid-template-columns:1fr;}}
+  .price-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;}
+  .price-card.featured{border-color:var(--ink);position:relative;}
+  .price-card .amt{font-family:var(--serif);font-size:34px;margin:10px 0;}
+  .price-card ul{margin:14px 0 0;padding-left:18px;font-size:14px;color:var(--ink-soft);}
+  .price-card li{margin-bottom:6px;}
+  .final-cta{padding:80px 0;text-align:center;border-top:1px solid var(--line);}
+  .final-cta h2{font-size:34px;max-width:560px;margin:0 auto 24px;}
+  footer{padding:30px 0 50px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);}
+
+  .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);}
+  textarea#storyInput, textarea.plain-textarea{width:100%;min-height:260px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
+  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:var(--ink-faint);font-style:italic;}
+  .intake-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid var(--line);}
+  .mic-btn{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:var(--sage-soft);color:var(--sage);font-weight:600;font-size:13.5px;border:1px solid rgba(79,117,97,0.3);}
+  .mic-btn.recording{background:var(--clay-soft);color:var(--clay);border-color:rgba(181,96,63,0.35);}
+  .mic-dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
+  .mic-btn.recording .mic-dot{animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
+  .wordcount{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);}
+  .prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;}
+  .prompt-chip{font-size:13px;padding:8px 13px;border-radius:10px;background:var(--card);border:1px dashed var(--line);color:var(--ink-soft);}
+  .prompt-chip:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .privacy-note{font-size:12.5px;color:var(--ink-faint);margin-top:22px;max-width:500px;}
+
+  .analyzing-wrap{text-align:center;padding:100px 0;}
+  .analyzing-wrap .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .analyzing-wrap .msg{font-family:var(--serif);font-size:20px;font-style:italic;}
+
+  .big-stat{font-family:var(--serif);font-size:clamp(32px,5vw,46px);line-height:1.1;margin-bottom:6px;}
+  .big-stat mark{background:none;color:var(--highlight);}
+
+  .skill-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;}
+  .skill-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
+  .skill-name{font-family:var(--serif);font-size:19px;font-weight:600;}
+  .strength-pill{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;padding:4px 10px;border-radius:999px;white-space:nowrap;}
+  .strength-Strong{background:var(--sage-soft);color:var(--sage);}
+  .strength-Moderate{background:var(--highlight-soft);color:#8a6417;}
+  .strength-Developing{background:var(--clay-soft);color:var(--clay);}
+  .strength-NeedsMoreInformation, .strength-Needs{background:var(--paper-dim);color:var(--ink-faint);}
+  .skill-evidence{font-size:14px;color:var(--ink-soft);margin-top:10px;padding:10px 14px;background:var(--paper-dim);border-left:2px solid var(--highlight);border-radius:0 6px 6px 0;}
+  .skill-evidence .lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-faint);display:block;margin-bottom:4px;}
+  .skill-actions{display:flex;gap:8px;margin-top:14px;}
+  .validate-btn{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);}
+  .validate-btn.active-yes{background:var(--sage-soft);border-color:transparent;color:var(--sage);}
+  .validate-btn.active-no{background:var(--clay-soft);border-color:transparent;color:var(--clay);}
+  .skill-card.rejected{opacity:0.5;}
+
+  .path-category{margin-top:44px;}
+  .path-category h3{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:18px;}
+  .path-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;cursor:pointer;transition:border-color .15s ease;}
+  .path-card:hover{border-color:var(--ink-soft);}
+  .path-card.selected{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);}
+  .path-title{font-family:var(--serif);font-size:20px;font-weight:600;margin-bottom:6px;}
+  .path-why{font-size:14px;margin-bottom:12px;}
+  .path-changed{font-size:12.5px;color:var(--highlight);font-style:italic;margin-bottom:10px;}
+  .path-meta{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;margin-top:10px;}
+  .path-meta .k{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:3px;}
+  .path-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+  .mini-tag{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--paper-dim);color:var(--ink-soft);}
+  .transition-Strong{color:var(--sage);}
+  .transition-Moderate{color:#8a6417;}
+  .transition-Developing, .transition-NeedsMoreInformation{color:var(--clay);}
+  .fit-dims{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
+  .fit-dim{font-size:12px;}
+  .fit-dim .k{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;color:var(--ink-faint);display:block;}
+  .sequence-inline{font-size:12.5px;color:var(--ink-faint);margin-top:8px;}
+  .change-summary{background:var(--highlight-soft);border-radius:10px;padding:14px 18px;font-size:14px;color:#6b4d10;margin-bottom:24px;}
+
+  .convo-log{display:flex;flex-direction:column;gap:14px;margin:26px 0;}
+  .convo-bubble{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;font-size:14.5px;}
+  .convo-bubble.ai{border-left:2px solid var(--highlight);}
+  .learned-card{background:var(--card);border:1px solid var(--ink);border-radius:var(--radius);padding:20px 22px;}
+  .learned-card h4{font-family:var(--serif);font-size:17px;margin-bottom:12px;}
+  .learned-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .learned-chip{font-size:12.5px;padding:6px 11px;border-radius:999px;background:var(--sage-soft);color:var(--sage);}
+  .learned-chip.down{background:var(--clay-soft);color:var(--clay);}
+  .convo-input-row{display:flex;gap:10px;margin-top:20px;}
+  .convo-input-row input{flex:1;padding:14px 16px;border-radius:10px;border:1px solid var(--line);font-family:var(--sans);font-size:14.5px;outline:none;background:var(--card);}
+  .convo-input-row input:focus{border-color:var(--ink);}
+  .convo-prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+
+  .priority-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:24px;}
+  .priority-chip{padding:13px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:14px;text-align:left;font-weight:500;}
+  .priority-chip.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+  .paywall-card{background:var(--card);border:1px solid var(--ink);border-radius:20px;padding:40px;box-shadow:var(--shadow);margin-top:20px;}
+  .paywall-card .amt{font-family:var(--serif);font-size:52px;margin:6px 0 18px;}
+  .unlock-list{text-align:left;max-width:420px;margin:22px auto;display:flex;flex-direction:column;gap:10px;font-size:14.5px;color:var(--ink-soft);}
+  .unlock-list li{list-style:none;display:flex;gap:10px;align-items:flex-start;}
+  .unlock-list li::before{content:'✓';color:var(--sage);font-weight:700;}
+  .bring-card{background:var(--paper-dim);border-radius:12px;padding:20px;margin:20px 0;text-align:left;}
+  .bring-card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;}
+  .gap-preview{background:var(--clay-soft);border-radius:12px;padding:16px 18px;text-align:left;margin-bottom:20px;font-size:14px;color:var(--clay);}
+
+  .roadmap-section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;}
+  .roadmap-section h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:12px;}
+  .roadmap-section ul{margin:0;padding-left:20px;font-size:14.5px;color:var(--ink-soft);}
+  .roadmap-section li{margin-bottom:6px;}
+  .ladder-level{margin-bottom:12px;}
+  .ladder-level .lvl-name{font-weight:600;font-size:13.5px;margin-bottom:4px;}
+  .not-zero{font-family:var(--serif);font-style:italic;font-size:19px;text-align:center;padding:26px 0;color:var(--ink);}
+
+  .sequence-track{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 32px;}
+  @media (max-width:640px){.sequence-track{grid-template-columns:1fr;}}
+  .seq-stop{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;}
+  .seq-stop .seq-lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--highlight);letter-spacing:0.06em;margin-bottom:6px;}
+  .seq-stop h4{font-family:var(--serif);font-size:17px;margin-bottom:6px;}
+  .seq-stop p{font-size:13px;margin:0;}
+
+  .phase-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 16px;}
+  .phase-tab{padding:9px 15px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;background:var(--card);}
+  .phase-tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+
+  .kit-block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:16px;}
+  .kit-block h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:12px;}
+  .kit-block p, .kit-block li{font-family:var(--serif);font-size:16.5px;color:var(--ink);line-height:1.6;}
+  .kit-block ul{padding-left:20px;margin:0;}
+  .kit-block li{margin-bottom:6px;}
+  .bullet-row{margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--line);}
+  .bullet-row:last-child{border-bottom:none;}
+  .strengthen-link{font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--highlight);text-decoration:underline;cursor:pointer;margin-top:4px;display:inline-block;}
+  .strengthen-box{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+  .strengthen-box input{flex:1;min-width:180px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-family:var(--sans);font-size:13.5px;}
+  .headline-option{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;}
+  .headline-option.selected{border-color:var(--ink);background:var(--paper-dim);}
+  .headline-option .style-lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+  .headline-option .text{font-family:var(--serif);font-style:italic;font-size:15.5px;color:var(--ink);}
+
+  .dash-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:24px;}
+  @media (min-width:720px){.dash-grid.two-col{grid-template-columns:1fr 1fr;}}
+  .dash-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;}
+  .dash-card h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:10px;}
+  .next-step-card{border-color:var(--ink);}
+  .next-step-card p.big{font-family:var(--serif);font-size:19px;color:var(--ink);margin:0;}
+  .evidence-lib-card{background:var(--paper-dim);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;}
+  .evidence-lib-card .theme{font-weight:700;font-size:12.5px;}
+  .progress-track{height:8px;background:var(--paper-dim);border-radius:4px;overflow:hidden;margin-top:10px;}
+  .progress-track .fill{height:100%;background:var(--sage);}
+  .tool-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+
+  .story-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;}
+  .story-card h4{font-family:var(--serif);font-size:17px;margin-bottom:8px;}
+  .story-card .status-need{font-size:12.5px;color:var(--clay);font-weight:600;margin-bottom:8px;}
+  .story-add-row{display:flex;gap:8px;margin-top:10px;}
+  .story-add-row input{flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13.5px;}
+
+  .jd-result{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;}
+  .jd-result h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;}
+  .fit-badge{display:inline-block;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:700;font-family:var(--mono);}
+
+  .error-box{background:var(--clay-soft);border:1px solid rgba(181,96,63,0.3);border-radius:var(--radius);padding:20px 22px;margin:20px 0;font-size:14px;color:var(--clay);}
+  .error-box button{margin-top:12px;}
+
+  .center{text-align:center;}
+  .mt-16{margin-top:16px;} .mt-32{margin-top:32px;} .mt-40{margin-top:40px;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ============================= STATE (Career Intelligence Profile) ============================= */
+const state = {
+  screen: 'landing',
+  story: '',
+  additionalExperiences: [],
+  skills: [],
+  skillValidation: {}, // name -> 'yes' | 'no'
+  preferences: { interests: [], dislikes: [] },
+  paths: [],
+  reranked: false,
+  changeSummary: '',
+  chosenPath: null,
+  priorities: [],
+  paid: false,
+  roadmap: null,
+  evidenceLibrary: [],
+  kit: null,
+  selectedHeadline: 0,
+  storyBank: null,
+  jdText: '',
+  jdAnalysis: null,
+  convo: [],
+  loadingMsg: '',
+  errorMsg: '',
+  errorRetry: null,
+  recording: false,
+  addExpText: '',
+};
+
+const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
+function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
+function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
+function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
+function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
+
+/* ============================= CLAUDE API HELPER ============================= */
+async function callClaude(system, userPrompt, maxTokens){
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: maxTokens || 1000,
+      system: system,
+      messages: [{ role: "user", content: userPrompt }]
+    })
+  });
+  if(!response.ok){ throw new Error("Request failed"); }
+  const data = await response.json();
+  const text = (data.content || []).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+  if(!text) throw new Error("Empty response");
+  return text;
+}
+function parseJSON(text){
+  let cleaned = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  return JSON.parse(cleaned);
+}
+
+const NO_INVENTION_RULE = `Strict evidence rule: never state or imply a fact about the user that they did not provide — no years of experience, revenue, customer counts, team size, percentages, growth rates, employer names, credentials, education, software proficiency, job titles, project scale, geographic reach, awards, or results. If a detail would strengthen something but wasn't given, leave it out rather than inventing it.`;
+
+/* ============================= RENDER ROOT ============================= */
+function render(){
+  const app = document.getElementById('app');
+  let html = '';
+  const showProgress = STEP_ORDER.includes(state.screen);
+  if(showProgress) html += renderProgress();
+
+  switch(state.screen){
+    case 'landing': html += renderLanding(); break;
+    case 'intake': html += renderIntake(); break;
+    case 'analyzing': html += renderAnalyzing(); break;
+    case 'skills': html += renderSkills(); break;
+    case 'paths': html += renderPaths(); break;
+    case 'conversation': html += renderConversation(); break;
+    case 'choose': html += renderChoose(); break;
+    case 'paywall': html += renderPaywall(); break;
+    case 'roadmap': html += renderRoadmap(); break;
+    case 'kit': html += renderKit(); break;
+    case 'dashboard': html += renderDashboard(); break;
+    case 'addExperience': html += renderAddExperience(); break;
+    case 'storyBank': html += renderStoryBank(); break;
+    case 'jdAnalyzer': html += renderJdAnalyzer(); break;
+  }
+  app.innerHTML = html;
+  attachHandlers();
+  window.scrollTo({top:0, behavior: state.screen==='landing' ? 'auto':'smooth'});
+}
+
+function renderProgress(){
+  const idx = stepIndex();
+  const labels = { intake:'Your story', analyzing:'Analyzing', skills:'Skills', paths:'Career paths', conversation:'Discuss results', choose:'Choose direction', paywall:'Unlock roadmap', roadmap:'Your roadmap', kit:'Positioning', dashboard:'Dashboard' };
+  let steps = '';
+  STEP_ORDER.forEach((s,i)=>{ steps += `<span class="${i<idx?'done':(i===idx?'current':'')}"></span>`; });
+  return `<div class="progress-bar"><div class="progress-inner">
+    <span class="brand-tiny" data-go="${state.paid?'dashboard':'landing'}">CareerLaunch</span>
+    <div class="progress-steps">${steps}</div>
+    <span class="progress-label">${labels[state.screen]||''}</span>
+  </div></div>`;
+}
+
+function subHeader(title){
+  return `<div class="progress-bar"><div class="progress-inner">
+    <span class="brand-tiny" data-go="dashboard">CareerLaunch</span>
+    <span class="progress-label" style="flex:1;text-align:right;">${title}</span>
+  </div></div>`;
+}
+
+/* ============================= LANDING ============================= */
+function renderLanding(){
+  return `
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">CareerLaunch <em>AI</em></div>
+      <button class="btn btn-ghost btn-sm" data-go="intake">Discover My Career Options</button>
+    </nav>
+    <section class="hero">
+      <div class="eyebrow"><span class="dot"></span>Experience Translator</div>
+      <h1>You've done more <mark>than you think.</mark></h1>
+      <p class="lede">Tell CareerLaunch what you've actually done, in your own words. We'll help you uncover the skills inside your experience, explore the career paths they may transfer to, and build a practical path forward.</p>
+      <p class="micro">No perfect resume required. No professional terminology required. Just tell us your story.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary" data-go="intake">Discover My Career Options</button>
+        <button class="btn btn-text" data-scroll="how">See how it works</button>
+      </div>
+      <div class="translate-demo">
+        <div class="before">"I helped run my sister's clothing business — <span>answered WhatsApp messages</span>, <span>ordered products</span>, <span>dealt with angry customers</span>, and <span>trained new girls</span>."</div>
+        <div class="translate-tags">
+          <span class="tag">Customer Service</span><span class="tag">Vendor Coordination</span><span class="tag">Issue Resolution</span><span class="tag">Staff Training</span><span class="tag">Operations Support</span>
+        </div>
+      </div>
+    </section>
+    <section class="section" id="how">
+      <div class="eyebrow"><span class="dot"></span>The process</div>
+      <h2>How it works</h2>
+      <p class="lede">A conversation, not a form — and it keeps learning as you go.</p>
+      <div class="how-steps">
+        <div class="how-step"><div class="num">01</div><h3>Tell us your story</h3><p>Type or talk. Jobs, businesses, family responsibilities, side hustles — whatever feels relevant.</p></div>
+        <div class="how-step"><div class="num">02</div><h3>Discover your skills</h3><p>We identify transferable capabilities, with the evidence for each one shown from your own words.</p></div>
+        <div class="how-step"><div class="num">03</div><h3>Explore possible paths</h3><p>Career directions your skills could transfer to — with why, and what's still uncertain.</p></div>
+        <div class="how-step"><div class="num">04</div><h3>Tell us what matters</h3><p>As you talk, we update what we recommend — and always explain why it changed.</p></div>
+        <div class="how-step"><div class="num">05</div><h3>Build your roadmap</h3><p>A Now → Next → Later sequence and a 7/30/60/90-day action plan, not just a category list.</p></div>
+        <div class="how-step"><div class="num">06</div><h3>Prepare to move</h3><p>Resume language, LinkedIn positioning, and interview stories — built only from validated evidence.</p></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="eyebrow"><span class="dot"></span>Who it's for</div>
+      <h2>Career-ready, even if it doesn't feel that way yet</h2>
+      <div class="who-grid">
+        ${['Career changers','Immigrants translating experience into a new market','Small-business owners returning to employment','Freelancers & gig workers','Parents returning to work','Recent graduates','People without traditional corporate experience',"People who suspect they're underpaid",'Anyone considering consulting or entrepreneurship']
+          .map(w=>`<span class="who-chip">${w}</span>`).join('')}
+      </div>
+    </section>
+    <section class="section">
+      <div class="eyebrow"><span class="dot"></span>Why CareerLaunch is different</div>
+      <h2>Not another quiz, board, or template</h2>
+      <div class="diff-grid">
+        <div class="diff-card"><div class="not">Not a resume builder</div><h3>We find the story before we format it.</h3></div>
+        <div class="diff-card"><div class="not">Not a personality quiz</div><h3>Recommendations are built from evidence in your own words, not archetypes.</h3></div>
+        <div class="diff-card"><div class="not">Not a one-shot chatbot</div><h3>We remember what you've told us and update your plan as you go.</h3></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="eyebrow"><span class="dot"></span>Pricing</div>
+      <h2>Free to discover. Pay to execute.</h2>
+      <div class="pricing-row">
+        <div class="price-card">
+          <div class="eyebrow"><span class="dot"></span>Free</div>
+          <div class="amt">$0</div>
+          <p style="font-size:14px;">Full career discovery — skills, evidence, career paths, and a results conversation.</p>
+          <ul><li>Story intake, type or voice</li><li>Transferable skills with evidence</li><li>Career path preview by category</li><li>Recommendations that update as you talk</li></ul>
+        </div>
+        <div class="price-card featured">
+          <div class="eyebrow"><span class="dot"></span>CareerLaunch Starter</div>
+          <div class="amt">$19.99</div>
+          <p style="font-size:14px;">One-time. Your personal career plan for the path you choose.</p>
+          <ul><li>Career sequence + 7/30/60/90-day plan</li><li>Full gap analysis & learning ladder</li><li>Resume, LinkedIn & interview story bank</li><li>Command-center dashboard</li></ul>
+        </div>
+      </div>
+    </section>
+    <section class="final-cta">
+      <h2>Your experience counts. Let's find out where it can take you.</h2>
+      <button class="btn btn-primary" data-go="intake">Start My Career Discovery</button>
+    </section>
+    <footer>Guidance, not guarantees. CareerLaunch only knows what you share with it — recommendations are a starting point for your own judgment, not a verdict on your potential.</footer>
+  </div>`;
+}
+
+/* ============================= INTAKE ============================= */
+function renderIntake(){
+  const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Step one</div>
+    <h1 style="font-size:36px;">Tell me your story.</h1>
+    <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Tell me what you've actually done — jobs, businesses, volunteering, family responsibilities, side hustles, school projects, community work. Whatever feels relevant.</p>
+    <div class="intake-card mt-32">
+      <textarea id="storyInput" placeholder="Start typing, or tap the microphone to talk instead...">${state.story}</textarea>
+      <div class="intake-toolbar">
+        <button class="mic-btn ${state.recording?'recording':''}" id="micBtn"><span class="mic-dot"></span> ${state.recording ? 'Listening… tap to stop' : 'Just talk'}</button>
+        <span class="wordcount">${wc} words</span>
+      </div>
+    </div>
+    <div id="voiceWarning"></div>
+    <p class="eyebrow mt-32" style="margin-bottom:12px;"><span class="dot"></span>Not sure where to start?</p>
+    <div class="prompts">
+      ${['Have you ever sold anything?','Managed money or a budget?','Trained or onboarded someone?','Handled an angry customer?','Organized an event?','Managed household logistics?','Built a social media page?','Solved a problem without being told how?']
+        .map(p=>`<span class="prompt-chip">${p}</span>`).join('')}
+    </div>
+    <div class="mt-40" style="display:flex;gap:14px;align-items:center;">
+      <button class="btn btn-primary" id="submitStory" ${wc < 8 ? 'disabled':''}>Discover My Skills</button>
+      <button class="btn btn-text" data-go="landing">Back</button>
+    </div>
+    <p class="privacy-note">We only analyze what you write here to identify skills and possible directions. You can edit or delete your story at any time, and every recommendation is guidance — not a guarantee.</p>
+  </div></div>`;
+}
+
+/* ============================= ANALYZING ============================= */
+function renderAnalyzing(){
+  return `<div class="wrap"><div class="analyzing-wrap"><div class="spinner"></div><div class="msg">${state.loadingMsg || 'Reading through what you shared…'}</div></div></div>`;
+}
+
+/* ============================= SKILLS ============================= */
+function renderSkills(){
+  if(state.errorMsg) return renderError();
+  const n = getValidatedSkills().length;
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="big-stat">You have <mark>${n}</mark> transferable<br/>professional skills.</div>
+    <p style="max-width:520px;">Based on what you've shared, you may be more career-ready than you realized. Here's what we found — and why.</p>
+    <div class="mt-40">
+      ${state.skills.map(s=>{
+        const v = state.skillValidation[s.name];
+        return `<div class="skill-card ${v==='no'?'rejected':''}">
+          <div class="skill-top"><div class="skill-name">${s.name}</div><span class="strength-pill strength-${(s.strength||'').replace(/\s+/g,'')}">${s.strength}</span></div>
+          <div class="skill-evidence"><span class="lbl">Why we identified this</span>${s.evidence}</div>
+          <div class="skill-actions">
+            <button class="validate-btn ${v==='yes'?'active-yes':''}" data-validate="${encodeURIComponent(s.name)}" data-val="yes">Yes, that's right</button>
+            <button class="validate-btn ${v==='no'?'active-no':''}" data-validate="${encodeURIComponent(s.name)}" data-val="no">Not quite</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-faint);">Skills marked "Not Quite" won't influence your career paths, roadmap, or resume.</p>
+    <div class="mt-32"><button class="btn btn-primary" id="toPaths">Show Me My Career Paths</button></div>
+  </div></div>`;
+}
+
+/* ============================= PATHS ============================= */
+const CATEGORY_ORDER = ['Strong Evidence','Best Paths to Explore First','Worth Exploring','Strong Alternatives','Growth Path','Growth Directions','Independent Path','Longer-Term / Independent Paths','Lower Interest Based on What You Told Us'];
+function renderPaths(){
+  if(state.errorMsg) return renderError();
+  const byCat = {};
+  state.paths.forEach(p=>{ const c = p.category || 'Worth Exploring'; (byCat[c]=byCat[c]||[]).push(p); });
+  let html = `<div class="wrap-wide"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Career path discovery</div>
+    <h1 style="font-size:34px;">We found ${state.paths.length} career paths you may not have considered.</h1>
+    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Tap one that resonates, or one that doesn't feel like you — you'll get a chance to talk it through next.</p>`;
+  if(state.reranked && state.changeSummary){
+    html += `<div class="change-summary mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
+  }
+  CATEGORY_ORDER.forEach(cat=>{
+    if(!byCat[cat] || !byCat[cat].length) return;
+    html += `<div class="path-category"><h3>${cat}</h3>`;
+    byCat[cat].forEach(p=>{
+      const sel = state.chosenPath && state.chosenPath.title===p.title;
+      const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
+      html += `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
+        <div class="path-title">${p.title}</div>
+        ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
+        <div class="path-why">${p.why}</div>
+        ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
+        <div class="path-meta">
+          <div><span class="k">Transfers</span><div class="path-tags">${(p.transfers||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+          <div><span class="k">Still developing</span><div class="path-tags">${(p.gaps||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+          <div><span class="k">Transition</span><div class="${transClass}" style="font-weight:600;">${p.transition}</div></div>
+        </div>
+        <div class="path-meta">
+          <div><span class="k">Work environment</span>${p.workEnvironment||''}</div>
+          <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+        </div>
+        ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
+          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||'—'}</div>
+          <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
+          <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
+        </div>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `<div class="mt-40"><button class="btn btn-primary" id="toConvo">Let's Talk About These</button></div></div></div>`;
+  return html;
+}
+
+/* ============================= RESULTS CONVERSATION ============================= */
+function renderConversation(){
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Before you choose</div>
+    <h1 style="font-size:32px;">Let's talk about your results.</h1>
+    <p>Anything here surprise you? Anything missing, or not feel like you? Tell me more and I'll refine what I'm seeing — and update your recommendations.</p>
+    <div class="convo-log">
+      ${state.convo.map(c=>{
+        if(c.who==='learned') return renderLearnedCard(c);
+        return `<div class="convo-bubble ${c.who==='ai'?'ai':''}">${c.text}</div>`;
+      }).join('')}
+    </div>
+    <div class="convo-prompts">
+      ${['What surprised you?',"Is there a path you expected but didn't see?","Something here doesn't feel like me",'Tell me more about one of the skills']
+        .map(p=>`<span class="prompt-chip" data-fill="${encodeURIComponent(p)}">${p}</span>`).join('')}
+    </div>
+    <div class="convo-input-row">
+      <input id="convoInput" type="text" placeholder="Tell me what you're thinking…" />
+      <button class="btn btn-primary btn-sm" id="convoSend">Send</button>
+    </div>
+    <div class="mt-40"><button class="btn btn-primary" id="toChoose">Ready to Pick a Direction</button></div>
+  </div></div>`;
+}
+function renderLearnedCard(c){
+  return `<div class="learned-card">
+    <h4>I've learned something new about what you're looking for.</h4>
+    ${c.interests && c.interests.length ? `<div class="learned-row">${c.interests.map(i=>`<span class="learned-chip">✓ ${i}</span>`).join('')}</div>`:''}
+    ${c.dislikes && c.dislikes.length ? `<div class="learned-row">${c.dislikes.map(i=>`<span class="learned-chip down">↓ ${i}</span>`).join('')}</div>`:''}
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-primary btn-sm" data-rerank="1">Update My Recommendations</button>
+      <button class="btn btn-text btn-sm" data-dismiss-learned="1">Keep Talking</button>
+    </div>
+  </div>`;
+}
+
+/* ============================= CHOOSE DIRECTION ============================= */
+const PRIORITIES = ['Higher income','Stability','Remote work','Flexibility','Fast transition','Long-term earning potential','Meaningful work','Entrepreneurship','Work-life balance','Leadership opportunities','Creative work','Working with people','Independent work'];
+function renderChoose(){
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Pick a path</div>
+    <h1 style="font-size:32px;">Which direction do you want to build toward?</h1>
+    <div class="mt-32">
+      ${state.paths.map(p=>{
+        const sel = state.chosenPath && state.chosenPath.title===p.title;
+        return `<div class="path-card ${sel?'selected':''}" data-choose="${encodeURIComponent(p.title)}"><div class="path-title">${p.title}</div><div class="path-why">${p.why}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="eyebrow mt-40" style="margin-bottom:6px;"><span class="dot"></span>What matters most to you?</div>
+    <p style="font-size:13.5px;">Pick as many as apply — this shapes your roadmap and sequence, not which path is "correct."</p>
+    <div class="priority-grid">
+      ${PRIORITIES.map(p=>`<button class="priority-chip ${state.priorities.includes(p)?'active':''}" data-priority="${encodeURIComponent(p)}">${p}</button>`).join('')}
+    </div>
+    <div class="mt-40"><button class="btn btn-primary" id="toPaywall" ${!state.chosenPath?'disabled':''}>Build My Roadmap</button></div>
+  </div></div>`;
+}
+
+/* ============================= PAYWALL ============================= */
+function renderPaywall(){
+  const strengths = getValidatedSkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
+  const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps[0];
+  return `
+  <div class="wrap"><div class="screen center">
+    <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now let's build the path.</div>
+    <h1 style="font-size:30px;">${state.chosenPath ? state.chosenPath.title : 'Your next role'}</h1>
+
+    <div class="bring-card">
+      <h4>What you already bring</h4>
+      <div class="path-tags">${strengths.map(s=>`<span class="mini-tag">${s.name}</span>`).join('')}</div>
+    </div>
+    ${gap ? `<div class="gap-preview"><strong>One area worth strengthening:</strong> ${gap}</div>`:''}
+
+    <div class="paywall-card">
+      <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
+      <div class="amt">$19.99</div>
+      <ul class="unlock-list">
+        <li>Career sequence: Now → Next → Later</li>
+        <li>7 / 30 / 60 / 90-day action plan</li>
+        <li>Full skill-gap plan & learning strategy</li>
+        <li>Resume positioning, never fabricated</li>
+        <li>LinkedIn positioning, multiple strategies</li>
+        <li>Evidence-strengthening prompts</li>
+        <li>Search terms & interview story starters</li>
+        <li>Your personal Command Center dashboard</li>
+      </ul>
+      <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Career Plan — $19.99</button>
+      <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">One-time payment. No subscription.</p>
+      <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Demo checkout — no payment is actually collected in this preview.</p>
+    </div>
+  </div></div>`;
+}
+
+/* ============================= ROADMAP ============================= */
+function renderRoadmap(){
+  if(state.errorMsg) return renderError();
+  const r = state.roadmap;
+  if(!r) return renderAnalyzing();
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Your roadmap</div>
+    <h1 style="font-size:32px;">Your Roadmap to ${state.chosenPath.title}</h1>
+    <div class="not-zero">You're not starting from zero.</div>
+
+    ${r.sequence ? `<div class="eyebrow mt-32"><span class="dot"></span>Your Career Sequence</div>
+    <div class="sequence-track">
+      <div class="seq-stop"><div class="seq-lbl">Now</div><h4>${r.sequence.now.title}</h4><p>${r.sequence.now.desc}</p></div>
+      <div class="seq-stop"><div class="seq-lbl">Next</div><h4>${r.sequence.next.title}</h4><p>${r.sequence.next.desc}</p></div>
+      <div class="seq-stop"><div class="seq-lbl">Later</div><h4>${r.sequence.later.title}</h4><p>${r.sequence.later.desc}</p></div>
+    </div>` : ''}
+
+    <div class="roadmap-section"><h3>Where you are now</h3><p style="color:var(--ink);">${r.whereYouAre}</p></div>
+    <div class="roadmap-section"><h3>What already transfers</h3><ul>${(r.transfers||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    <div class="roadmap-section"><h3>What we need to understand better</h3><ul>${(r.understandBetter||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    <div class="roadmap-section"><h3>What you may need to strengthen</h3><ul>${(r.strengthen||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+
+    <div class="roadmap-section"><h3>Learning ladder</h3>
+      ${(r.learn||[]).map(l=>`<div class="ladder-level"><div class="lvl-name">${l.level}</div><ul>${(l.items||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}
+    </div>
+
+    ${r.plan ? `<div class="roadmap-section">
+      <h3>Your action plan</h3>
+      <div class="ladder-level"><div class="lvl-name">First 7 days</div><ul>${(r.plan.first7||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 8–30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 31–60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 61–90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+    </div>` : ''}
+
+    <div class="roadmap-section"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
+    <div class="roadmap-section"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+    <div class="roadmap-section"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>
+
+    <div class="mt-40"><button class="btn btn-primary" id="toKit">Build My Resume & LinkedIn Language</button></div>
+  </div></div>`;
+}
+
+/* ============================= APPLICATION KIT ============================= */
+function renderKit(){
+  if(state.errorMsg) return renderError();
+  const k = state.kit;
+  if(!k) return renderAnalyzing();
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Application kit</div>
+    <h1 style="font-size:32px;">Positioning your experience.</h1>
+    <p>Built only from what you told us — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
+
+    <div class="kit-block mt-32">
+      <h3>Resume bullets</h3>
+      ${(k.resumeBullets||[]).map((b,i)=>`
+        <div class="bullet-row">
+          <p id="bulletText${i}">${typeof b === 'string' ? b : b.text}</p>
+          ${b.strengthen ? `
+            <span class="strengthen-link" data-strengthen-open="${i}">Help me strengthen this — ${b.strengthen}</span>
+            <div class="strengthen-box" id="strengthenBox${i}" style="display:none;">
+              <input type="text" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" />
+              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}">I Know — Update</button>
+              <button class="btn btn-text btn-sm" data-strengthen-skip="${i}">I'm Not Sure / Skip</button>
+            </div>` : ''}
+        </div>`).join('')}
+    </div>
+
+    <div class="kit-block">
+      <h3>LinkedIn headline — choose a strategy</h3>
+      ${(k.linkedinHeadlines||[]).map((h,i)=>`
+        <div class="headline-option ${state.selectedHeadline===i?'selected':''}" data-headline="${i}">
+          <div class="style-lbl">${h.style}</div>
+          <div class="text">${h.text}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="kit-block"><h3>LinkedIn about</h3><p>${k.linkedinAbout||''}</p></div>
+
+    <div class="mt-40"><button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button></div>
+  </div></div>`;
+}
+
+/* ============================= DASHBOARD (Command Center) ============================= */
+function renderDashboard(){
+  const r = state.roadmap;
+  const strengths = getValidatedSkills().filter(s=>s.strength==='Strong').map(s=>s.name);
+  const building = getValidatedSkills().filter(s=>s.strength!=='Strong').map(s=>s.name);
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Command Center</div>
+    <h1 style="font-size:32px;">Welcome back.</h1>
+
+    <div class="dash-grid two-col mt-32">
+      <div class="dash-card"><h3>Where you're going</h3>
+        <p style="font-family:var(--serif);font-size:19px;margin:0 0 10px;">${state.chosenPath ? state.chosenPath.title : '—'}</p>
+        ${r && r.sequence ? `<div style="font-size:13px;color:var(--ink-soft);">${r.sequence.now.title} &rarr; ${r.sequence.next.title} &rarr; ${r.sequence.later.title}</div>`:''}
+      </div>
+      <div class="dash-card next-step-card"><h3>What should I do next</h3><p class="big">${r ? r.nextStep : 'Unlock your roadmap to see your next step.'}</p></div>
+    </div>
+
+    <div class="dash-grid two-col">
+      <div class="dash-card"><h3>This week</h3><ul>${r&&r.plan ? r.plan.first7.map(i=>`<li>${i}</li>`).join('') : '<li>Unlock your roadmap.</li>'}</ul></div>
+      <div class="dash-card"><h3>30-day progress</h3>
+        <p style="font-size:13.5px;">You're just getting started on this plan.</p>
+        <div class="progress-track"><div class="fill" style="width:8%;"></div></div>
+      </div>
+    </div>
+
+    <div class="dash-grid two-col">
+      <div class="dash-card"><h3>Your strengths</h3><div class="path-tags">${strengths.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None validated yet</span>'}</div></div>
+      <div class="dash-card"><h3>Skills you're building</h3><div class="path-tags">${building.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
+    </div>
+
+    <div class="dash-card mt-16"><h3>Evidence library</h3>
+      ${state.evidenceLibrary.map(e=>`<div class="evidence-lib-card"><span class="theme">${e.theme}</span> — ${e.evidence}</div>`).join('') || '<p style="font-size:13px;">Build your kit to populate your evidence library.</p>'}
+    </div>
+
+    <div class="dash-card mt-16"><h3>Your application kit</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from your validated evidence.</p>
+      <div class="tool-row">
+        <button class="btn btn-ghost btn-sm" id="backToKit">View Resume & LinkedIn</button>
+        <button class="btn btn-ghost btn-sm" id="openStoryBank">Interview Story Bank</button>
+        <button class="btn btn-ghost btn-sm" id="openJd">Analyze a Job Description</button>
+      </div>
+    </div>
+
+    <div class="dash-card mt-16"><h3>What CareerLaunch has learned about you</h3>
+      <div class="path-tags">
+        ${state.priorities.map(p=>`<span class="mini-tag">${p}</span>`).join('')}
+        ${state.preferences.interests.map(p=>`<span class="learned-chip">✓ ${p}</span>`).join('')}
+        ${state.preferences.dislikes.map(p=>`<span class="learned-chip down">↓ ${p}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="mt-32" style="display:flex;gap:14px;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" id="addExpBtn">Add Another Experience</button>
+      <button class="btn btn-text" id="exploreAnother">Explore another path</button>
+    </div>
+  </div></div>`;
+}
+
+/* ============================= ADD ANOTHER EXPERIENCE ============================= */
+function renderAddExperience(){
+  return `${subHeader('Add another experience')}
+  <div class="wrap"><div class="screen">
+    <h1 style="font-size:30px;">What else have you done?</h1>
+    <p style="max-width:500px;">Another job, a side hustle, a volunteer role, a school project, freelance work — anything you didn't mention before.</p>
+    <div class="intake-card mt-32"><textarea class="plain-textarea" id="addExpInput" placeholder="Tell me about it...">${state.addExpText}</textarea></div>
+    <div class="mt-32" style="display:flex;gap:14px;">
+      <button class="btn btn-primary" id="submitAddExp">Update My Profile</button>
+      <button class="btn btn-text" data-go="dashboard">Cancel</button>
+    </div>
+  </div></div>`;
+}
+
+/* ============================= STORY BANK ============================= */
+function renderStoryBank(){
+  if(state.errorMsg) return renderError();
+  if(!state.storyBank) return renderAnalyzing();
+  return `${subHeader('My Story Bank')}
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Interview prep</div>
+    <h1 style="font-size:30px;">My Story Bank</h1>
+    <p>Interview-ready stories, built only from what you've validated — nothing invented.</p>
+    <div class="mt-32">
+      ${state.storyBank.stories.map((s,i)=>`
+        <div class="story-card">
+          <h4>${s.category}</h4>
+          ${s.status==='ready' ? `<p style="font-size:14.5px;">${s.story}</p>` : `
+            <div class="status-need">Not enough evidence yet — ${s.prompt || 'tell me more?'}</div>
+            <div class="story-add-row">
+              <input type="text" id="storyDetail${i}" placeholder="Add a detail..." />
+              <button class="btn btn-primary btn-sm" data-story-add="${i}">Add</button>
+            </div>`}
+        </div>`).join('')}
+    </div>
+    <div class="mt-32"><button class="btn btn-text" data-go="dashboard">Back to Dashboard</button></div>
+  </div></div>`;
+}
+
+/* ============================= JD ANALYZER ============================= */
+function renderJdAnalyzer(){
+  if(state.errorMsg) return renderError();
+  return `${subHeader('Analyze a job description')}
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Architecture preview</div>
+    <h1 style="font-size:30px;">Analyze a job description.</h1>
+    <p style="max-width:520px;">Paste a real job posting. We'll compare it against your validated skills — based only on the text you paste, not live market data.</p>
+    <div class="intake-card mt-32"><textarea class="plain-textarea" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
+    <div class="mt-32"><button class="btn btn-primary" id="submitJd">Analyze Against My Profile</button></div>
+
+    ${state.jdAnalysis ? renderJdResult(state.jdAnalysis) : ''}
+
+    <div class="mt-32"><button class="btn btn-text" data-go="dashboard">Back to Dashboard</button></div>
+  </div></div>`;
+}
+function renderJdResult(a){
+  const badgeClass = 'transition-' + (a.overallFit||'').replace(/\s+/g,'');
+  return `
+  <div class="jd-result mt-32">
+    <h3>Overall fit</h3>
+    <span class="fit-badge ${badgeClass}" style="background:var(--paper-dim);">${a.overallFit}</span>
+  </div>
+  <div class="jd-result"><h3>Market asks for</h3><div class="path-tags">${(a.marketAsks||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+  <div class="jd-result"><h3>You already have</h3><div class="path-tags">${(a.youAlreadyHave||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+  <div class="jd-result"><h3>Worth strengthening</h3><div class="path-tags">${(a.shouldStrengthen||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+  `;
+}
+
+/* ============================= ERROR ============================= */
+function renderError(){
+  return `<div class="wrap"><div class="screen">
+    <div class="error-box"><strong>Something went wrong reaching CareerLaunch's analysis.</strong><br/>${state.errorMsg}
+      <br/><button class="btn btn-primary btn-sm" id="retryBtn">Try Again</button>
+    </div>
+  </div></div>`;
+}
+
+/* ============================= EVENT HANDLERS ============================= */
+function attachHandlers(){
+  document.querySelectorAll('[data-go]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.errorMsg=''; state.screen = el.getAttribute('data-go'); render(); });
+  });
+  document.querySelectorAll('[data-scroll]').forEach(el=>{
+    el.addEventListener('click', ()=>{ const t=document.getElementById(el.getAttribute('data-scroll')); if(t) t.scrollIntoView({behavior:'smooth'}); });
+  });
+
+  // intake
+  const storyInput = document.getElementById('storyInput');
+  if(storyInput){
+    storyInput.addEventListener('input', (e)=>{
+      state.story = e.target.value;
+      const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
+      document.querySelector('.wordcount').textContent = wc + ' words';
+      const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+    });
+  }
+  document.querySelectorAll('.prompts .prompt-chip').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const ta = document.getElementById('storyInput'); if(!ta) return;
+      ta.focus();
+      const q = el.textContent.trim();
+      ta.value = (ta.value ? ta.value.trim() + '\n\n' : '') + q + ' ';
+      state.story = ta.value;
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+      const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
+      document.querySelector('.wordcount').textContent = wc + ' words';
+      const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+    });
+  });
+  const micBtn = document.getElementById('micBtn'); if(micBtn) micBtn.addEventListener('click', toggleVoice);
+  const submitStory = document.getElementById('submitStory'); if(submitStory) submitStory.addEventListener('click', analyzeSkills);
+
+  // skills
+  document.querySelectorAll('[data-validate]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const name = decodeURIComponent(el.getAttribute('data-validate'));
+      const val = el.getAttribute('data-val');
+      state.skillValidation[name] = state.skillValidation[name]===val ? undefined : val;
+      render();
+    });
+  });
+  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', discoverPaths);
+
+  // paths
+  document.querySelectorAll('[data-path]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const title = decodeURIComponent(el.getAttribute('data-path'));
+      const p = state.paths.find(p=>p.title===title);
+      state.chosenPath = (state.chosenPath && state.chosenPath.title===title) ? null : p;
+      render();
+    });
+  });
+  const toConvo = document.getElementById('toConvo');
+  if(toConvo) toConvo.addEventListener('click', ()=>{
+    if(!state.convo.length){
+      state.convo.push({who:'ai', text: "I've laid out the paths I found strongest evidence for first, then a few worth exploring. What's your first reaction — does anything surprise you, or feel off?"});
+    }
+    state.screen = 'conversation'; render();
+  });
+
+  // conversation
+  const convoSend = document.getElementById('convoSend'); if(convoSend) convoSend.addEventListener('click', sendConvo);
+  const convoInput = document.getElementById('convoInput');
+  if(convoInput) convoInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendConvo(); });
+  document.querySelectorAll('.prompt-chip[data-fill]').forEach(el=>{
+    el.addEventListener('click', ()=>{ const input=document.getElementById('convoInput'); if(input) input.value = decodeURIComponent(el.getAttribute('data-fill')); });
+  });
+  const toChoose = document.getElementById('toChoose'); if(toChoose) toChoose.addEventListener('click', ()=>{ state.screen='choose'; render(); });
+  document.querySelectorAll('[data-rerank]').forEach(el=> el.addEventListener('click', rerankPaths));
+  document.querySelectorAll('[data-dismiss-learned]').forEach(el=> el.addEventListener('click', ()=>{
+    const input = document.getElementById('convoInput'); if(input) input.focus();
+  }));
+
+  // choose
+  document.querySelectorAll('[data-choose]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const title = decodeURIComponent(el.getAttribute('data-choose'));
+      state.chosenPath = state.paths.find(p=>p.title===title);
+      render();
+    });
+  });
+  document.querySelectorAll('[data-priority]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const p = decodeURIComponent(el.getAttribute('data-priority'));
+      if(state.priorities.includes(p)) state.priorities = state.priorities.filter(x=>x!==p);
+      else state.priorities.push(p);
+      render();
+    });
+  });
+  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', ()=>{ state.screen='paywall'; render(); });
+
+  // paywall
+  const doCheckout = document.getElementById('doCheckout');
+  if(doCheckout) doCheckout.addEventListener('click', ()=>{ state.paid = true; buildRoadmap(); });
+
+  // roadmap
+  const toKit = document.getElementById('toKit'); if(toKit) toKit.addEventListener('click', buildKit);
+
+  // kit
+  const toDashboard = document.getElementById('toDashboard'); if(toDashboard) toDashboard.addEventListener('click', ()=>{ state.screen='dashboard'; render(); });
+  document.querySelectorAll('[data-headline]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.selectedHeadline = parseInt(el.getAttribute('data-headline'),10); render(); });
+  });
+  document.querySelectorAll('[data-strengthen-open]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const i = el.getAttribute('data-strengthen-open');
+      const box = document.getElementById('strengthenBox'+i);
+      if(box) box.style.display = box.style.display==='none' ? 'flex':'none';
+    });
+  });
+  document.querySelectorAll('[data-strengthen-submit]').forEach(el=>{
+    el.addEventListener('click', ()=>{ strengthenBullet(parseInt(el.getAttribute('data-strengthen-submit'),10)); });
+  });
+  document.querySelectorAll('[data-strengthen-skip]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const i = el.getAttribute('data-strengthen-skip');
+      const box = document.getElementById('strengthenBox'+i);
+      if(box) box.style.display = 'none';
+    });
+  });
+
+  // dashboard
+  const backToKit = document.getElementById('backToKit'); if(backToKit) backToKit.addEventListener('click', ()=>{ state.screen='kit'; render(); });
+  const exploreAnother = document.getElementById('exploreAnother'); if(exploreAnother) exploreAnother.addEventListener('click', ()=>{ state.screen='choose'; render(); });
+  const addExpBtn = document.getElementById('addExpBtn'); if(addExpBtn) addExpBtn.addEventListener('click', ()=>{ state.screen='addExperience'; render(); });
+  const openStoryBank = document.getElementById('openStoryBank'); if(openStoryBank) openStoryBank.addEventListener('click', openStoryBankFn);
+  const openJd = document.getElementById('openJd'); if(openJd) openJd.addEventListener('click', ()=>{ state.screen='jdAnalyzer'; render(); });
+
+  // add experience
+  const addExpInput = document.getElementById('addExpInput');
+  if(addExpInput) addExpInput.addEventListener('input', (e)=>{ state.addExpText = e.target.value; });
+  const submitAddExp = document.getElementById('submitAddExp'); if(submitAddExp) submitAddExp.addEventListener('click', submitAddExperience);
+
+  // story bank
+  document.querySelectorAll('[data-story-add]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const i = parseInt(el.getAttribute('data-story-add'),10);
+      const input = document.getElementById('storyDetail'+i);
+      if(input && input.value.trim()) addStoryDetail(i, input.value.trim());
+    });
+  });
+
+  // jd analyzer
+  const jdInput = document.getElementById('jdInput');
+  if(jdInput) jdInput.addEventListener('input', (e)=>{ state.jdText = e.target.value; });
+  const submitJd = document.getElementById('submitJd'); if(submitJd) submitJd.addEventListener('click', analyzeJd);
+
+  // error retry
+  const retryBtn = document.getElementById('retryBtn');
+  if(retryBtn) retryBtn.addEventListener('click', ()=>{ const retry = state.errorRetry; state.errorMsg=''; state.errorRetry=null; if(retry) retry(); });
+}
+
+/* ============================= VOICE INPUT ============================= */
+let recognition = null;
+function toggleVoice(){
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRec){
+    document.getElementById('voiceWarning').innerHTML = `<p style="font-size:12.5px;color:var(--clay);margin-top:10px;">Voice input isn't available in this browser. Please type your story instead.</p>`;
+    return;
+  }
+  if(state.recording){ if(recognition) recognition.stop(); state.recording = false; render(); return; }
+  recognition = new SpeechRec();
+  recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
+  let finalTranscript = state.story ? state.story + ' ' : '';
+  recognition.onresult = (event)=>{
+    let interim = '';
+    for(let i=event.resultIndex;i<event.results.length;i++){
+      const t = event.results[i][0].transcript;
+      if(event.results[i].isFinal) finalTranscript += t + ' '; else interim += t;
+    }
+    const ta = document.getElementById('storyInput');
+    if(ta){
+      ta.value = finalTranscript + interim; state.story = ta.value;
+      const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
+      const wcEl = document.querySelector('.wordcount'); if(wcEl) wcEl.textContent = wc + ' words';
+      const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+    }
+  };
+  recognition.onerror = ()=>{
+    state.recording = false; render();
+    document.getElementById('voiceWarning').innerHTML = `<p style="font-size:12.5px;color:var(--clay);margin-top:10px;">We couldn't access your microphone. Please check permissions or type your story instead.</p>`;
+  };
+  recognition.onend = ()=>{ state.recording = false; render(); };
+  recognition.start(); state.recording = true; render();
+}
+
+/* ============================= AI FLOW FUNCTIONS ============================= */
+async function analyzeSkills(){
+  state.screen = 'analyzing'; state.loadingMsg = 'Reading through what you shared…'; state.errorMsg=''; render();
+  const system = `You are the Experience Translator inside CareerLaunch AI. A user describes, in their own words, things they've done. Identify transferable professional skills genuinely supported by what they wrote.
+${NO_INVENTION_RULE}
+Rules: 1) Only include skills with real textual evidence. 2) For each skill, give a short evidence note (max 16 words) paraphrasing what they said, warm plain-language ("You described..."). 3) Assign strength: "Strong" (clear/repeated evidence), "Moderate" (some evidence), or "Developing" (light exposure). 4) Return 4 to 7 skills, strongest first. 5) Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"skills":[{"name":"Skill Name","evidence":"You described...","strength":"Strong"}]}`;
+  try{
+    const text = await callClaude(system, fullStoryText(), 1000);
+    const parsed = parseJSON(text);
+    state.skills = parsed.skills || [];
+    state.screen = 'skills'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't analyze your story just now. Nothing was lost — you can try again.";
+    state.errorRetry = analyzeSkills; state.screen = 'skills'; render();
+  }
+}
+
+async function discoverPaths(){
+  state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; render();
+  const validated = getValidatedSkills();
+  const system = `You are the career path engine inside CareerLaunch AI. Given a user's story and validated transferable skills, generate realistic career path options.
+${NO_INVENTION_RULE}
+Rules:
+1) Return 5 to 6 paths across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Include at least one Independent Path if plausible.
+2) Never say someone is unqualified — note what's uncertain instead.
+3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
+4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
+5) For each path give: title (use the entryPoint as the title), category, why (max 20 words, evidence-based), transfers (2-3 skill names from the list), gaps (1-2 short phrases, max 5 words each), transition ("Strong"|"Moderate"|"Developing"|"Needs More Information" = transition practicality), workEnvironment (max 8 words), relevance (subset of ["Employment","Freelance","Consulting","Entrepreneurship"]), fitEvidence/fitInterest/fitLifestyle (one of "Strong","Moderate","Developing","Needs More Information" — interest is "Needs More Information" until the user says otherwise).
+6) Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"paths":[{"title":"","entryPoint":"","progression":"","category":"","why":"","transfers":[""],"gaps":[""],"transition":"","workEnvironment":"","relevance":[""],"fitEvidence":"","fitInterest":"","fitLifestyle":""}]}`;
+  const userPrompt = `User's story:\n${fullStoryText()}\n\nValidated skills:\n${skillsSummaryStr(validated)}`;
+  try{
+    const text = await callClaude(system, userPrompt, 1000);
+    const parsed = parseJSON(text);
+    state.paths = parsed.paths || [];
+    state.reranked = false; state.changeSummary='';
+    state.screen = 'paths'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't map career paths just now. Nothing was lost — you can try again.";
+    state.errorRetry = discoverPaths; state.screen = 'paths'; render();
+  }
+}
+
+async function sendConvo(){
+  const input = document.getElementById('convoInput');
+  if(!input || !input.value.trim()) return;
+  const userText = input.value.trim();
+  state.convo.push({who:'user', text: userText});
+  input.value=''; render();
+  const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
+
+  const system = `You are CareerLaunch AI, discussing career discovery results with a user before they choose a direction. Be warm, specific, and evidence-based — never generic encouragement.
+${NO_INVENTION_RULE}
+If the user reveals a genuine preference (something they want more or less of in their work), extract it in learnedInterests / learnedDislikes as short phrases (max 4 words each, e.g. "business problem-solving", "sales-heavy roles"). Only include something if it's a real signal, not for every message. Keep reply to 2-4 sentences, plain text, no markdown.
+Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"reply":"","learnedInterests":[],"learnedDislikes":[]}`;
+  const context = `Original story: ${state.story}\n\nValidated skills: ${getValidatedSkills().map(s=>s.name).join(', ')}\n\nCareer paths shown: ${state.paths.map(p=>p.title).join(', ')}\n\nAlready known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}`;
+
+  try{
+    const text = await callClaude(system, context, 500);
+    const parsed = parseJSON(text);
+    state.convo.push({who:'ai', text: (parsed.reply||'').trim()});
+    const newInterests = (parsed.learnedInterests||[]).filter(x=>!state.preferences.interests.includes(x));
+    const newDislikes = (parsed.learnedDislikes||[]).filter(x=>!state.preferences.dislikes.includes(x));
+    if(newInterests.length || newDislikes.length){
+      state.preferences.interests = [...state.preferences.interests, ...newInterests];
+      state.preferences.dislikes = [...state.preferences.dislikes, ...newDislikes];
+      state.convo.push({who:'learned', interests:newInterests, dislikes:newDislikes});
+    }
+    render();
+  }catch(err){
+    state.convo.push({who:'ai', text: "I couldn't process that just now — want to try rephrasing, or continue to choosing a direction?"});
+    render();
+  }
+}
+
+async function rerankPaths(){
+  state.screen = 'analyzing'; state.loadingMsg = 'Updating your recommendations…'; state.errorMsg=''; render();
+  const validated = getValidatedSkills();
+  const system = `You are the career reranking engine inside CareerLaunch AI. Given the user's current career paths and what they've told us they prefer, reclassify and lightly refine the paths.
+${NO_INVENTION_RULE}
+Rules:
+1) Reassign each path's category to exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+2) Never delete a path merely because the user dislikes it — move it to "Lower Interest Based on What You Told Us" instead.
+3) For any path whose category changed meaningfully, add a one-sentence "whyChanged" (max 18 words) referencing the specific preference that moved it.
+4) Keep title, entryPoint, progression, why, transfers, gaps, transition, workEnvironment, relevance the same unless a preference clearly affects fitLifestyle or fitInterest — update those two if relevant.
+5) Also return a top-level changeSummary (max 25 words) naming the preferences that drove the reranking.
+6) Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"paths":[{"title":"","entryPoint":"","progression":"","category":"","why":"","whyChanged":"","transfers":[""],"gaps":[""],"transition":"","workEnvironment":"","relevance":[""],"fitEvidence":"","fitInterest":"","fitLifestyle":""}],"changeSummary":""}`;
+  const userPrompt = `Current paths:\n${JSON.stringify(state.paths)}\n\nValidated skills: ${skillsSummaryStr(validated)}\n\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\nPriorities: ${state.priorities.join(', ')}`;
+  try{
+    const text = await callClaude(system, userPrompt, 1000);
+    const parsed = parseJSON(text);
+    state.paths = parsed.paths || state.paths;
+    state.changeSummary = parsed.changeSummary || '';
+    state.reranked = true;
+    state.screen = 'paths'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
+    state.errorRetry = rerankPaths; state.screen = 'paths'; render();
+  }
+}
+
+async function buildRoadmap(){
+  state.screen = 'analyzing'; state.loadingMsg = 'Building your personalized roadmap…'; state.errorMsg=''; render();
+  const system = `You are the roadmap engine inside CareerLaunch AI. Given a user's chosen career path, validated skills, and priorities, build a personalized roadmap.
+${NO_INVENTION_RULE}
+Rules:
+1) Use a learning ladder that does NOT default to expensive education. Only include a "Formal Education" level if genuinely useful or required — otherwise omit it.
+2) Build a Now/Next/Later career sequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with the user's priorities (each: short title, one-sentence desc, max 16 words).
+3) Build a 7/30/60/90-day action plan: first7 (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3). Personalized, not generic filler.
+4) Keep every field concise — this must fit a small token budget.
+5) Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"whereYouAre":"2 sentences max","sequence":{"now":{"title":"","desc":""},"next":{"title":"","desc":""},"later":{"title":"","desc":""}},"transfers":["",""],"understandBetter":["",""],"strengthen":["",""],"learn":[{"level":"Self-Learning","items":["",""]},{"level":"Structured Free Learning","items":[""]}],"plan":{"first7":["","",""],"days8to30":["","",""],"days31to60":["",""],"days61to90":["",""]},"positioning":"2 sentences max","searchTerms":["",""],"nextStep":"one concrete sentence"}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${(state.chosenPath.gaps||[]).join(', ')}\nSkills: ${skillsSummaryStr(getValidatedSkills())}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}`;
+  try{
+    const text = await callClaude(system, userPrompt, 1000);
+    state.roadmap = parseJSON(text);
+    state.screen = 'roadmap'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't build your roadmap just now. Your $19.99 unlock is still active — try again.";
+    state.errorRetry = buildRoadmap; state.screen = 'roadmap'; render();
+  }
+}
+
+async function buildKit(){
+  state.screen = 'analyzing'; state.loadingMsg = 'Positioning your experience professionally…'; state.errorMsg=''; render();
+  const validated = getValidatedSkills();
+  const system = `You are the Application Kit builder inside CareerLaunch AI. Translate a user's validated real experience into professional resume and LinkedIn language for a specific target path.
+${NO_INVENTION_RULE}
+Rules:
+1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly), "Professional Brand-Focused" (reads as a personal brand statement).
+3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence.
+4) Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"resumeBullets":[{"text":"","strengthen":""}],"linkedinHeadlines":[{"style":"Recruiter Search-Focused","text":""},{"style":"Career Transition-Focused","text":""},{"style":"Professional Brand-Focused","text":""}],"linkedinAbout":""}`;
+  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story: ${state.story}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
+  try{
+    const text = await callClaude(system, userPrompt, 1000);
+    state.kit = parseJSON(text);
+    state.evidenceLibrary = validated.map(s=>({theme:s.name, evidence:s.evidence}));
+    state.screen = 'kit'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't generate your positioning language just now. Try again.";
+    state.errorRetry = buildKit; state.screen = 'kit'; render();
+  }
+}
+
+async function strengthenBullet(i){
+  const input = document.getElementById('strengthenInput'+i);
+  const detail = input ? input.value.trim() : '';
+  const box = document.getElementById('strengthenBox'+i);
+  if(!detail){ if(box) box.style.display='none'; return; }
+  const bulletEl = document.getElementById('bulletText'+i);
+  const original = state.kit.resumeBullets[i].text;
+  if(bulletEl) bulletEl.textContent = 'Updating…';
+  const system = `You rewrite a single resume bullet to incorporate one new true detail the user just provided. ${NO_INVENTION_RULE} Only use the exact detail given — do not round, estimate, or embellish beyond it. One line, action-verb led. Respond with plain text only: the rewritten bullet, nothing else.`;
+  const userPrompt = `Original bullet: ${original}\nNew detail from user: ${detail}`;
+  try{
+    const text = await callClaude(system, userPrompt, 150);
+    state.kit.resumeBullets[i] = { text: text.trim() };
+    render();
+  }catch(err){
+    if(bulletEl) bulletEl.textContent = original;
+    if(box) box.style.display='none';
+  }
+}
+
+async function submitAddExperience(){
+  const text = state.addExpText.trim();
+  if(!text) return;
+  const beforeNames = new Set(state.skills.map(s=>s.name));
+  state.additionalExperiences.push(text);
+  state.addExpText = '';
+  state.screen = 'analyzing'; state.loadingMsg = 'Updating your profile with this new experience…'; render();
+  const system = `You are the Experience Translator inside CareerLaunch AI, re-analyzing a user's full history (original story plus newly added experiences) to identify transferable professional skills.
+${NO_INVENTION_RULE}
+Rules: 1) Only include skills with real textual evidence. 2) Evidence note max 16 words, "You described...". 3) Strength: "Strong"|"Moderate"|"Developing". 4) Return 4 to 8 skills, strongest first. 5) Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"skills":[{"name":"","evidence":"","strength":""}]}`;
+  try{
+    const t = await callClaude(system, fullStoryText(), 1000);
+    const parsed = parseJSON(t);
+    const newSkills = parsed.skills || [];
+    const addedNames = newSkills.filter(s=>!beforeNames.has(s.name)).map(s=>s.name);
+    state.skills = newSkills;
+    state.changeSummary = addedNames.length ? `New experience added — we found: ${addedNames.join(', ')}.` : 'New experience added — it reinforced skills you already had.';
+    state.reranked = false;
+    state.screen = 'skills'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't update your profile with that experience just now. Try again.";
+    state.errorRetry = submitAddExperience; state.screen = 'skills'; render();
+  }
+}
+
+async function openStoryBankFn(){
+  state.storyBank = null; state.screen = 'storyBank'; state.errorMsg=''; render();
+  await buildStoryBank();
+}
+async function buildStoryBank(){
+  const validated = getValidatedSkills();
+  const system = `You build an interview Story Bank inside CareerLaunch AI, using only the user's real, validated experience.
+${NO_INVENTION_RULE}
+For each of these fixed categories: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) if there's enough evidence, or mark status "needs_more" with a short prompt (max 14 words) asking for the missing detail.
+Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"stories":[{"category":"","status":"ready","story":"","prompt":""}]}`;
+  const userPrompt = `Story: ${fullStoryText()}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
+  try{
+    const text = await callClaude(system, userPrompt, 1000);
+    state.storyBank = parseJSON(text);
+    render();
+  }catch(err){
+    state.errorMsg = "We couldn't build your story bank just now. Try again.";
+    state.errorRetry = buildStoryBank; render();
+  }
+}
+async function addStoryDetail(i, detail){
+  const cat = state.storyBank.stories[i].category;
+  const el = document.querySelector(`.story-card:nth-child(${i+1})`);
+  const system = `You write one interview story for CareerLaunch AI using only the true detail just given, plus prior known evidence. ${NO_INVENTION_RULE} 2-3 sentences, first person. Respond with plain text only: the story, nothing else.`;
+  const userPrompt = `Category: ${cat}\nKnown context: ${fullStoryText()}\nNew detail from user: ${detail}`;
+  try{
+    const text = await callClaude(system, userPrompt, 200);
+    state.storyBank.stories[i] = { category: cat, status: 'ready', story: text.trim() };
+    render();
+  }catch(err){ /* leave as-is, silent fail on this lightweight feature */ }
+}
+
+async function analyzeJd(){
+  if(!state.jdText.trim()) return;
+  state.errorMsg=''; state.screen = 'analyzing'; state.loadingMsg = 'Comparing the posting against your profile…'; render();
+  const validated = getValidatedSkills();
+  const system = `You compare a single pasted job description against a user's validated skills inside CareerLaunch AI. Base "marketAsks" only on what's actually in the pasted text — never invent industry-wide claims or live labor-market data.
+${NO_INVENTION_RULE}
+Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting. youAlreadyHave = subset of the user's validated skills that match. shouldStrengthen = 2-3 gaps between the posting and the user's skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information" (put this exact value in overallFit).
+Respond ONLY with valid JSON, no markdown fences, no preamble:
+{"marketAsks":[""],"youAlreadyHave":[""],"shouldStrengthen":[""],"overallFit":""}`;
+  const userPrompt = `Job description:\n${state.jdText}\n\nUser's validated skills: ${skillsSummaryStr(validated)}`;
+  try{
+    const text = await callClaude(system, userPrompt, 700);
+    state.jdAnalysis = parseJSON(text);
+    state.screen = 'jdAnalyzer'; render();
+  }catch(err){
+    state.errorMsg = "We couldn't analyze that posting just now. Try again.";
+    state.errorRetry = analyzeJd; state.screen = 'jdAnalyzer'; render();
+  }
+}
+
+/* ============================= INIT ============================= */
+render();
+</script>
+</body>
+</html>
