@@ -277,7 +277,24 @@ const state = {
   changeSummary: '',
   chosenPath: null,
   priorities: [],
-  paid: false,
+  // Explicit state-machine separation (paid-flow reliability fix): entitlement,
+  // roadmap-generation status, and the roadmap data itself are three different
+  // concerns that must never be conflated. paymentStatus is the sole source of
+  // truth for "did the user pay" — once it's 'paid', nothing in this file ever
+  // sets it back, regardless of what happens to roadmap generation afterward.
+  paymentStatus: 'unpaid', // 'unpaid' | 'paid'
+  roadmapStatus: 'idle',   // 'idle' | 'generating' | 'partial' | 'ready' | 'failed' — overall rollup of the 3 sections below
+  // Roadmap architecture fix: generated as 3 independent sections so a failure
+  // in one never discards a section that already succeeded. Each has its own
+  // status, its own error detail (for inline retry UI, not the full-page
+  // error), and its own generation token — incremented every time that
+  // specific section (re)starts, so a response from an old, already-abandoned
+  // attempt can never mutate state.roadmap even if it arrives late.
+  roadmapSections: { foundation: 'idle', actionPlan: 'idle', direction: 'idle' }, // each: 'idle' | 'generating' | 'ready' | 'failed'
+  roadmapSectionError: { foundation: null, actionPlan: null, direction: null },
+  roadmapSectionGeneration: { foundation: 0, actionPlan: 0, direction: 0 },
+  roadmapOrchestratorBusy: false, // guards the buildRoadmap() sequence itself against a duplicate double-click
+  errorRetryLabel: null,   // optional override for the retry button's label
   roadmap: null,
   evidenceLibrary: [],
   kit: null,
@@ -291,38 +308,1321 @@ const state = {
   errorRetry: null,
   recording: false,
   addExpText: '',
+  // Busy locks (reliability item F): prevent duplicate/overlapping AI calls.
+  // `busy` guards the full-screen operations (they replace the triggering
+  // button via a screen change anyway, but this is a defensive second layer).
+  // The other three guard inline controls that stay on-screen while a call
+  // is in flight, where a screen change can't do that job for us.
+  busy: false,
+  convoBusy: false,
+  kitBusyIndex: null,
+  storyBankBusyIndex: null,
 };
+
 
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
 function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
+function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
 
-/* ============================= CLAUDE API HELPER ============================= */
-async function callClaude(system, userPrompt, maxTokens){
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: maxTokens || 1000,
-      system: system,
-      messages: [{ role: "user", content: userPrompt }]
-    })
-  });
-  if(!response.ok){ throw new Error("Request failed"); }
-  const data = await response.json();
-  const text = (data.content || []).filter(b=>b.type==="text").map(b=>b.text).join("\n");
-  if(!text) throw new Error("Empty response");
-  return text;
+// Trust rule #1: a skill the user marked "Not Quite" must never resurface — not as a
+// transfer, not in reasoning text, not in any generated field — even though the raw
+// story text (which we still send for context) contains the evidence for it. This is
+// belt-and-suspenders: rejectedSkillsClause() tells the model up front, and
+// purgeRejectedMentions()/filterToValidatedNames() scrub the model's actual output
+// afterward, so a leak can't survive either a prompt the model half-follows or a
+// model that infers the concept independently from the story text.
+function rejectedSkillsClause(){
+  const rejected = getRejectedSkillNames();
+  if(!rejected.length) return '';
+  return `\nThe user explicitly reviewed and REJECTED these as inaccurate: ${rejected.join(', ')}. Even though the story text below may still describe the underlying activity, treat these as struck from the record: do not name them, imply them, or use their evidence as a transfer, reason, or fit signal anywhere in your response.`;
 }
-function parseJSON(text){
-  let cleaned = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-  return JSON.parse(cleaned);
+function purgeRejectedMentions(text, rejectedNames){
+  if(!text || !rejectedNames || !rejectedNames.length) return text;
+  let result = String(text);
+  rejectedNames.forEach(name=>{
+    if(!name) return;
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const patterns = [
+      new RegExp('\\b'+esc+'\\s+and\\s+','gi'),
+      new RegExp('\\s+and\\s+'+esc+'\\b','gi'),
+      new RegExp(esc+'\\s*,\\s*','gi'),
+      new RegExp('\\s*,\\s*'+esc+'\\b','gi'),
+      new RegExp('\\b'+esc+'\\b','gi'),
+    ];
+    patterns.forEach(p=>{ result = result.replace(p, ''); });
+  });
+  return result.replace(/\s{2,}/g,' ').replace(/\s+([,.;])/g,'$1').replace(/^[,;\s]+/,'').trim();
+}
+function filterToValidatedNames(arr, validatedNames){
+  if(!Array.isArray(arr)) return arr;
+  const lower = validatedNames.map(n=>n.toLowerCase());
+  return arr.filter(item => lower.includes(String(item).toLowerCase()));
+}
+// Recursively purge rejected-skill mentions from every string field of a parsed
+// AI response, so freeform reasoning (why/whyChanged/positioning/etc.) can't leak
+// a rejected skill even if the model's own filtering slips.
+function purgeRejectedFromObject(obj, rejectedNames){
+  if(!rejectedNames || !rejectedNames.length) return obj;
+  if(typeof obj === 'string') return purgeRejectedMentions(obj, rejectedNames);
+  if(Array.isArray(obj)) return obj.map(item => purgeRejectedFromObject(item, rejectedNames));
+  if(obj && typeof obj === 'object'){
+    const out = {};
+    for(const k in obj) out[k] = purgeRejectedFromObject(obj[k], rejectedNames);
+    return out;
+  }
+  return obj;
 }
 
-const NO_INVENTION_RULE = `Strict evidence rule: never state or imply a fact about the user that they did not provide — no years of experience, revenue, customer counts, team size, percentages, growth rates, employer names, credentials, education, software proficiency, job titles, project scale, geographic reach, awards, or results. If a detail would strengthen something but wasn't given, leave it out rather than inventing it.`;
+// Trust rule #2: CareerLaunch has no live labor-market feed and doesn't know the
+// user's location, so it must never assert current remote/hybrid/on-site availability,
+// salary, demand, hiring trends, or course pricing/availability as fact. It can reason
+// about what a role's day-to-day content is typically like, and can note that a stated
+// preference (e.g. wanting remote work) matters and should be checked against real
+// openings — but never claim that availability exists.
+const VERIFIED_INFO_RULE = `Verified-information rule: you have no live labor-market data, course catalog, or the user's location. Never state or imply, as current fact, that remote/hybrid/on-site work is available, that salaries fall in some range, that demand or hiring is high or low, or that a specific course/certification exists or is free — for this path or any path. You may reason about what a role's day-to-day content typically involves and how that content (not its market availability) aligns with the user's stated preferences. If a preference concerns something that varies by employer (like remote/hybrid/on-site, pay, or hours), say the user should verify it when evaluating real openings — never assert it exists. Do not mark a "lifestyle fit" as Strong on the basis of assumed work-arrangement availability.`;
+
+/* ============================= CLAUDE API HELPER ============================= */
+// Dev-only diagnostic: this file calls api.anthropic.com directly with no API key.
+// That only succeeds inside Claude's own artifact-preview environment, which
+// transparently authenticates the call. Opened as a standalone file:// page (or
+// hosted anywhere outside that environment), the request has no credentials and
+// no CORS grant, so it will fail before this app can do anything about it.
+if (window.location.protocol === 'file:') {
+  safeLog('warn',
+    '[CareerLaunch DEV WARNING] This page is running from file:// — the built-in ' +
+    'callClaudeTool() request to api.anthropic.com will fail here because it depends on ' +
+    'the Claude artifact environment to authenticate the call. Test AI features inside ' +
+    'the Claude artifact preview. For a real deployment, replace callClaudeTool() with a ' +
+    'request to your own backend, which holds the Anthropic API key server-side.'
+  );
+}
+
+// Structured error type carrying enough context for (a) the repair-retry prompt,
+// (b) dev-console diagnostics categorized by failure type, and (c) deciding
+// whether a partial/invalid result is worth showing back to the model to fix.
+class StructuredCallError extends Error {
+  constructor(code, category, detail, partial){
+    super(`${code}: ${detail}`);
+    this.code = code;           // NETWORK_ERROR | API_ERROR | RESPONSE_PARSE_ERROR | TRUNCATED_OUTPUT | NO_STRUCTURED_OUTPUT | SCHEMA_VALIDATION_FAILED
+    this.category = category;   // network | http | parse | schema
+    this.detail = detail;
+    this.partial = partial || null;
+  }
+}
+
+// Safe logging helper (surgical fix): this artifact environment's console
+// sandbox doesn't implement every standard method — console.debug threw a
+// real exception here, and because nothing caught it, that exception
+// propagated up through callClaudeTool as if the API call itself had failed,
+// which is why a pure logging call showed up disguised as repair_failed/
+// final_failure. safeLog never throws: it checks the requested method
+// exists, falls back to console.log if not, and swallows anything the
+// logging call itself throws (e.g. a console proxy that exists but errors on
+// invocation, or an argument it can't serialize) so diagnostics can NEVER
+// interrupt product logic, only ever be silently skipped in the worst case.
+function safeLog(method, ...args){
+  try{
+    const fn = (console && typeof console[method] === 'function') ? console[method] : console.log;
+    if(typeof fn === 'function') fn.apply(console, args);
+  }catch(loggingErr){
+    // Logging must never be able to break the app it's diagnosing — swallow
+    // silently rather than risk a second failure on top of whatever we were
+    // trying to log in the first place.
+  }
+}
+
+// Dev-console diagnostics (reliability item H): every failure is logged with which
+// AI operation it was, and which layer caught it — network, http, parse, schema,
+// integrity, or repair-failure — without ever putting technical detail, prompts,
+// or raw model output into the customer-facing UI.
+function logDiag(operation, category, detail){
+  safeLog('error', `[CareerLaunch][${operation}][${category}]`, detail);
+}
+
+// Primary reliability layer (item 3): force the model to answer through a
+// schema-constrained tool call instead of free-text-formatted-as-JSON. This is
+// the strongest structured-output guarantee the Messages API offers — the model
+// can't wander into prose, forget a closing brace, or wrap the answer in
+// commentary, because `tool_choice` forces exactly one call to exactly one
+// tool, and the API returns `input` as an already-parsed object, never a string
+// we have to re-parse ourselves.
+// Reliability item 2: a safe structural summary of what the API actually sent
+// back — content block types, stop reason, whether a tool_use block exists,
+// its name, and the top-level KEYS (never values) of its input. Never logs
+// story text, evidence, or any other user content, and never logs full field
+// values — only shape, so it's safe for a dev console even with real user data
+// in play.
+function summarizeResponse(data, expectedToolName){
+  const blocks = (data.content || []).map(b => b.type);
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+  return {
+    stop_reason: data.stop_reason,
+    content_block_types: blocks,
+    expected_tool_name: expectedToolName,
+    tool_use_present: !!toolUse,
+    tool_use_name: toolUse ? toolUse.name : null,
+    tool_input_top_level_keys: (toolUse && toolUse.input && typeof toolUse.input === 'object') ? Object.keys(toolUse.input) : null,
+  };
+}
+
+// Shared structured-response layer fix: extracts exactly one complete,
+// brace-balanced JSON object from a larger string that may contain
+// commentary before and/or after it. This is a strict scanner, not a loose
+// parser — it tracks string/escape state so braces inside JSON string values
+// don't throw off the depth count, and it never returns a substring unless
+// braces are fully balanced. It does NOT attempt to fix, complete, or guess
+// at broken JSON: if no balanced object is found, or the extracted substring
+// still fails JSON.parse, that's a genuine failure, not something this
+// papers over. Used only as a fallback when tool_choice wasn't honored — see
+// callClaudeTool.
+function extractFirstJsonObject(text){
+  const start = text.indexOf('{');
+  if(start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+  for(let i = start; i < text.length; i++){
+    const ch = text[i];
+    if(escapeNext){ escapeNext = false; continue; }
+    if(inString){
+      if(ch === '\\'){ escapeNext = true; continue; }
+      if(ch === '"'){ inString = false; }
+      continue;
+    }
+    if(ch === '"'){ inString = true; continue; }
+    if(ch === '{'){ depth++; }
+    else if(ch === '}'){
+      depth--;
+      if(depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null; // no complete, balanced object found — genuinely incomplete/malformed
+}
+
+async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal){
+  let response;
+  try{
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: maxTokens || 1000,
+        system: system,
+        messages: [{ role: "user", content: userPrompt }],
+        tools: [tool],
+        tool_choice: { type: "tool", name: tool.name }
+      })
+      // Deliberately NOT passing `signal` here — see runCancelable for why.
+      // This artifact environment's fetch relays each request to the host
+      // frame over window.postMessage, and AbortSignal is not structured-
+      // cloneable, so including one throws synchronously ("AbortSignal
+      // object could not be cloned") before any request is even attempted.
+      // That was a real, live failure on every roadmap section call — the
+      // only calls that ever passed a genuine AbortController.signal here.
+      // The `signal` parameter is still accepted (unused) so callers/
+      // callStructured don't need to change; timeout protection is provided
+      // entirely by the bounded race in runCancelable instead.
+    });
+  }catch(networkErr){
+    // Kept for forward-compatibility with environments where signal IS
+    // passed and DOES support real fetch cancellation — inert here since we
+    // no longer send a signal, but harmless to leave in place.
+    if(networkErr.name === 'AbortError'){
+      throw new StructuredCallError('TIMEOUT', 'network', 'Request was aborted because its time budget ran out.');
+    }
+    // TypeError: Failed to fetch — almost always CORS/network/offline-file rejection
+    throw new StructuredCallError('NETWORK_ERROR', 'network',
+      'Network-level failure calling Claude API (often CORS, connectivity, or running outside the Claude artifact environment): ' + networkErr.message);
+  }
+
+  if(!response.ok){
+    let bodyText = '';
+    try{ bodyText = await response.text(); }catch(readErr){ /* body unavailable */ }
+    throw new StructuredCallError('API_ERROR', 'http', `${response.status} ${response.statusText}: ${bodyText || '(no body)'}`);
+  }
+
+  let data;
+  try{
+    data = await response.json();
+  }catch(parseErr){
+    throw new StructuredCallError('RESPONSE_PARSE_ERROR', 'parse', 'Could not parse the API response body as JSON: ' + parseErr.message);
+  }
+
+  safeLog('log', `[CareerLaunch][${operation || 'unknown'}][response_shape]`, summarizeResponse(data, tool.name));
+
+  // If the model was cut off mid-answer, whatever structured content exists may
+  // be incomplete even if syntactically present — treat this as a failure that
+  // should trigger a repair retry (with instructions to be more concise) rather
+  // than silently accepting a half-built result.
+  if(data.stop_reason === 'max_tokens'){
+    throw new StructuredCallError('TRUNCATED_OUTPUT', 'parse',
+      'Response was cut off at the token limit before the structured output completed. This is the most common cause of "not valid JSON" failures when a call asks for a lot of content (e.g. several career paths with many fields each).');
+  }
+
+  const toolUse = (data.content || []).find(b => b.type === 'tool_use' && b.name === tool.name);
+  if(toolUse && toolUse.input && typeof toolUse.input === 'object'){
+    return toolUse.input;
+  }
+
+  // Fallback: forced tool_choice is NOT a hard guarantee in this environment —
+  // confirmed live and repeatedly (this is model/API-level nondeterminism, not
+  // an implementation defect in how we request it: every call here sets
+  // tools+tool_choice identically via this one shared function, so the
+  // request itself is correct). When it happens, don't fail immediately —
+  // try to recover a JSON object from the text. Content recovered this way
+  // skipped the API's own schema/enum enforcement (that only applies to real
+  // tool_use), which is exactly why callStructured normalizes and validates
+  // it just as strictly as a "real" tool response before trusting it.
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  if(text){
+    const cleaned = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    // Fast path: the whole thing is valid JSON on its own (most common case
+    // when the model does answer with bare JSON, just not via tool_use).
+    try{
+      return JSON.parse(cleaned);
+    }catch(parseErr){
+      // Shared-layer fix: a response can be genuinely valid JSON with plain-
+      // language commentary before and/or after it (e.g. "Based on what you
+      // shared, here's the analysis: {...} Let me know if you'd like
+      // changes!") — that trailing/leading prose alone made the fast path
+      // above fail, even though the JSON itself was fine. Extract exactly
+      // one complete, brace-balanced JSON object from within the text (never
+      // a partial/repaired guess) and parse ONLY that substring. This still
+      // requires syntactically valid JSON — schema validation runs on the
+      // result afterward exactly as it would for a clean tool_use response,
+      // so this makes parsing more tolerant without making acceptance any
+      // less strict.
+      const extracted = extractFirstJsonObject(cleaned);
+      if(extracted){
+        try{
+          return JSON.parse(extracted);
+        }catch(extractErr){
+          throw new StructuredCallError('RESPONSE_PARSE_ERROR', 'parse',
+            'Model returned plain text instead of the forced tool call, and no complete valid JSON object could be extracted from it: ' + extractErr.message, text);
+        }
+      }
+      throw new StructuredCallError('RESPONSE_PARSE_ERROR', 'parse',
+        'Model returned plain text instead of the forced tool call, and that text was not valid JSON either: ' + parseErr.message, text);
+    }
+  }
+
+  throw new StructuredCallError('NO_STRUCTURED_OUTPUT', 'parse',
+    'Model did not return the expected structured tool call or any usable text. stop_reason=' + data.stop_reason);
+}
+
+// sendConvo reliability fix: a conversational reply is inherently natural
+// language, not data — forcing it through a tool-call/JSON shape (as before)
+// meant that when the model answered in plain text anyway (confirmed live,
+// same tool_choice-isn't-guaranteed issue seen elsewhere), the old JSON
+// fallback correctly refused to parse prose as JSON and discarded a
+// perfectly good reply. This path never asks for structure at all — it takes
+// whatever text comes back, which is exactly what a reply naturally is.
+// Preference extraction is a separate, small, structured call (profileDeltaTool)
+// that can fail independently without ever taking the reply down with it.
+async function callClaudeText(system, userPrompt, maxTokens, signal){
+  let response;
+  try{
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: maxTokens || 500,
+        system: system,
+        messages: [{ role: "user", content: userPrompt }]
+      })
+      // Same fix as callClaudeTool: no `signal` passed to fetch — an
+      // AbortSignal cannot cross this environment's postMessage-based fetch
+      // transport (not structured-cloneable). Parameter kept for interface
+      // stability; unused here for the same reason.
+    });
+  }catch(networkErr){
+    if(networkErr.name === 'AbortError'){
+      throw new StructuredCallError('TIMEOUT', 'network', 'Request was aborted because its time budget ran out.');
+    }
+    throw new StructuredCallError('NETWORK_ERROR', 'network',
+      'Network-level failure calling Claude API (often CORS, connectivity, or running outside the Claude artifact environment): ' + networkErr.message);
+  }
+
+  if(!response.ok){
+    let bodyText = '';
+    try{ bodyText = await response.text(); }catch(readErr){ /* body unavailable */ }
+    throw new StructuredCallError('API_ERROR', 'http', `${response.status} ${response.statusText}: ${bodyText || '(no body)'}`);
+  }
+
+  let data;
+  try{
+    data = await response.json();
+  }catch(parseErr){
+    throw new StructuredCallError('RESPONSE_PARSE_ERROR', 'parse', 'Could not parse the API response body as JSON: ' + parseErr.message);
+  }
+
+  safeLog('log', `[CareerLaunch][sendConvo][response_shape]`, { stop_reason: data.stop_reason, content_block_types: (data.content||[]).map(b=>b.type) });
+
+  if(data.stop_reason === 'max_tokens'){
+    throw new StructuredCallError('TRUNCATED_OUTPUT', 'parse', 'Response was cut off at the token limit before finishing.');
+  }
+
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  if(!text){
+    throw new StructuredCallError('NO_STRUCTURED_OUTPUT', 'parse', 'No usable text in the response. stop_reason=' + data.stop_reason);
+  }
+  return text;
+}
+
+// One retry on any failure — network hiccup, truncation, empty response —
+// since there's no schema to reshape here, just a plain-text regenerate.
+async function callTextWithRetry(operation, system, userPrompt, maxTokens){
+  try{
+    return await callClaudeText(system, userPrompt, maxTokens);
+  }catch(firstErr){
+    logDiag(operation, firstErr.category || 'unknown', firstErr.message || String(firstErr));
+    try{
+      const text = await callClaudeText(system, userPrompt, maxTokens);
+      safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Plain-text retry produced a usable reply after: ${firstErr.code}`);
+      return text;
+    }catch(secondErr){
+      logDiag(operation, 'repair_failed', secondErr.message || String(secondErr));
+      throw secondErr;
+    }
+  }
+}
+
+// Reliability items 5-9: three-tier recovery, cheapest and most content-
+// preserving option tried first.
+//   Tier 1 — normal generation, then client-side normalization (enum casing/
+//     whitespace, string-vs-array coercion) BEFORE validation. This alone
+//     fixes the most common live failure mode: a response that fell back to
+//     unstructured text (see callClaudeTool above) contains real, usable
+//     career reasoning but didn't get the API's own enum/shape enforcement.
+//   Tier 2 — if tier 1 still fails schema validation (meaning we DID get a
+//     structured, parseable result — just not fully schema-compliant), send
+//     ONLY that invalid result to a small "reshape, don't regenerate" call:
+//     it is explicitly told to fix structure/casing/missing-field-formatting
+//     using nothing but the content already given, never to invent new paths
+//     or reasoning. This is what "preserve valid career reasoning" (item 7)
+//     actually means in code — the original substance is the input, not the
+//     story.
+//   Tier 3 — if tier 1 failed for a non-schema reason (network/parse/
+//     truncation, so there's no usable partial to reshape), or tier 2 itself
+//     fails, fall back to a full regenerate-with-repair-note at a boosted
+//     token budget for size-related failures. This is the same mechanism as
+//     before, now used only as a last resort rather than the first retry.
+// State is never mutated by this function — callers only assign to `state`
+// after it resolves successfully, which is what preserves last-known-good
+// state automatically.
+const REPAIR_BUDGET_CAP = 4000;
+
+// Timeout fix, corrected: the original version here used Promise.race
+// against a plain timer, which rejected the OUTER promise but left the
+// underlying fetch — and any repair tier after it — running in the
+// background (a real reported bug: a repair request kept going after
+// final_failure had already fired). A follow-up attempt "fixed" that by
+// threading a real AbortController.signal through every tier's fetch —
+// which caused a DIFFERENT, worse live bug: this artifact environment's
+// fetch relays each request to the host frame over window.postMessage, and
+// AbortSignal is not structured-cloneable, so passing one into fetch() threw
+// synchronously ("AbortSignal object could not be cloned") on every roadmap
+// section call — the only calls that ever built a real AbortController.
+//
+// True fetch-level cancellation isn't available in this environment, full
+// stop — there's no signal variant that works here. So this relies entirely
+// on the bounded outer race: the caller's await always settles within `ms`
+// regardless of what the underlying request does. If the abandoned inner
+// promise later resolves, nothing is still awaiting it (the caller already
+// moved into its catch/finally), so it cannot apply a stale result to state;
+// the per-section generation-token checks in each build*Section function are
+// a second, independent guard against that same class of staleness. See
+// callClaudeTool/callClaudeText for the matching fetch-level fix (signal is
+// simply never passed to fetch at all, there or here).
+function runCancelable(buildPromise, ms){
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new StructuredCallError('TIMEOUT', 'network', `Operation did not respond within ${ms}ms.`));
+    }, ms);
+  });
+  return Promise.race([buildPromise(undefined), timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal){
+  function runValidation(rawResult){
+    let result = rawResult;
+    if(normalizeFn) result = normalizeFn(result);
+    if(validateFn){
+      const check = validateFn(result);
+      // Attach the RAW (pre-normalize) result as the repair seed, not the
+      // filtered one — normalizeSkillsResult (and similar) can DROP malformed
+      // items entirely, and a repair call needs to see what was actually
+      // there (e.g. a skill's evidence text minus its missing name) to fix
+      // it, not just the items that already survived filtering.
+      if(!check.ok) throw new StructuredCallError('SCHEMA_VALIDATION_FAILED', 'schema', check.reason, rawResult);
+    }
+    return result;
+  }
+
+  // Tier 1
+  let tier1Err;
+  try{
+    const raw = await callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal);
+    return runValidation(raw);
+  }catch(err){
+    tier1Err = err;
+    logDiag(operation, err.category || 'unknown', err.message || String(err));
+  }
+
+  // Tier 2 — only makes sense when tier 1 actually produced a structured (if
+  // non-compliant) result to reshape. A network/http/truncation/unparseable
+  // failure has nothing usable to send here, so it skips straight to tier 3.
+  if(tier1Err.category === 'schema' && tier1Err.partial){
+    try{
+      let reshapeSystem = `You are a strict data formatter for CareerLaunch AI. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
+      if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
+      const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
+      const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal);
+      const result = runValidation(raw);
+      safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Format-only reshape recovered a valid result (original content preserved) after: ${tier1Err.code}`);
+      return result;
+    }catch(tier2Err){
+      logDiag(operation, 'reshape_failed', tier2Err.message || String(tier2Err));
+      // fall through to tier 3
+    }
+  }
+
+  // Tier 3 — full regenerate, boosted budget if the original failure looked
+  // size-related, with the invalid/partial content included so the model is
+  // fixing its own last answer rather than starting blind.
+  try{
+    let repairNote = `Your previous response was invalid (${tier1Err.code || 'ERROR'}): ${tier1Err.detail || tier1Err.message}. Call the SAME tool again with a corrected, COMPLETE result that matches the schema and instructions exactly — every required field must be present, and every enum field must match one of its allowed values EXACTLY (same wording and capitalization).`;
+    if(extraRepairHint) repairNote += ` ${extraRepairHint}`;
+    const sizeRelated = tier1Err.code === 'TRUNCATED_OUTPUT' || tier1Err.code === 'RESPONSE_PARSE_ERROR' || tier1Err.code === 'NO_STRUCTURED_OUTPUT';
+    const repairMaxTokens = sizeRelated ? Math.min(Math.ceil(maxTokens * 1.6), REPAIR_BUDGET_CAP) : maxTokens;
+    if(sizeRelated){
+      repairNote += ` Your previous response appears to have been cut off before finishing — this retry has a larger output budget, but also shorten text fields and/or return fewer list items where the schema allows it.`;
+    }
+    if(tier1Err.partial){
+      try{ repairNote += `\n\nYour previous (invalid) output was:\n${JSON.stringify(tier1Err.partial)}`; }catch(e){ /* not serializable, skip */ }
+    }
+    const finalPrompt = `${userPrompt}\n\n---\nREPAIR REQUEST: ${repairNote}`;
+    const raw = await callClaudeTool(system, finalPrompt, tool, repairMaxTokens, operation + ':repair', signal);
+    const result = runValidation(raw);
+    safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Full repair retry produced a valid result after: ${tier1Err.code} (budget ${maxTokens} -> ${repairMaxTokens})`);
+    return result;
+  }catch(tier3Err){
+    logDiag(operation, 'repair_failed', tier3Err.message || String(tier3Err));
+    throw tier3Err;
+  }
+}
+
+const NO_INVENTION_RULE = `Strict evidence rule: never state or imply a fact about the user that they did not provide — no years of experience, revenue, customer counts, team size, percentages, growth rates, employer names, credentials, education, software proficiency, job titles, project scale, geographic reach, awards, or results. If a detail would strengthen something but wasn't given, leave it out rather than inventing it.
+Evidence must stay literal (do not silently upgrade it into a broader claim): "managing household bills" must not become "managing family finances"; "helping with school events" must not become "community involvement". Keep two layers separate — the evidence text is what the user actually said, paraphrased closely; any professional interpretation of what that might indicate belongs only in the skill/path NAME or reasoning field, never folded into the evidence text itself as if it were an additional fact.
+When describing what a type of role typically involves (pace, people-interaction level, environment), phrase it as a general tendency for that kind of role ("this type of role often involves..."), not a settled fact about a specific job — actual duties vary by employer.`;
+
+// Best-effort evidence-traceability check (supports reliability item G4 and
+// integrity items A/B): flags a generated number that doesn't appear anywhere
+// in the user's own story/evidence text, since a fabricated statistic is one of
+// the most concrete, mechanically-detectable forms of invented fact. This is a
+// heuristic, not a full fact-checker — it catches invented numbers, not every
+// possible unsupported claim — so it's used to trigger a repair retry, not as a
+// silent auto-fix.
+function findUnsupportedNumerals(text, sourceText){
+  if(!text) return [];
+  const nums = String(text).match(/\b\d+(\.\d+)?\b/g) || [];
+  const source = String(sourceText || '');
+  const unsupported = nums.filter(n => !source.includes(n));
+  return [...new Set(unsupported)];
+}
+
+/* ============================= TOOL SCHEMAS (structured-output enforcement) ============================= */
+const STRENGTH_ENUM = ['Strong','Moderate','Developing','Needs More Information'];
+const PATH_CATEGORY_ENUM = ['Strong Evidence','Worth Exploring','Growth Path','Independent Path'];
+
+// Reliability items 4-7: since forced tool_choice is NOT a reliable guarantee
+// in this environment (confirmed live), content that arrives via the text-JSON
+// fallback in callClaudeTool never went through the API's own schema/enum
+// enforcement — only our prose instructions did. That's the most likely source
+// of a live SCHEMA_VALIDATION_FAILED on an otherwise-usable response: a value
+// like "moderate" instead of "Moderate", "strong evidence" instead of "Strong
+// Evidence", or a single string where an array was expected. These helpers fix
+// that class of mismatch deterministically, client-side, before validation
+// even runs — no extra API call, and the model's actual career reasoning is
+// never discarded or regenerated over a casing difference.
+function normalizeEnum(raw, enumList){
+  if(enumList.includes(raw)) return raw;
+  if(typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+  const match = enumList.find(e => e.toLowerCase() === trimmed.toLowerCase());
+  return match || raw; // no confident match: leave as-is so validation still catches it
+}
+// Live bug fix: a model answering "Weak" for fitInterest is semantically
+// clear and USABLE — it's a synonym, not a malformed value — but it isn't
+// literally one of STRENGTH_ENUM's exact strings, so the plain case-
+// insensitive matching in normalizeEnum correctly declines to guess and
+// leaves it as-is, which then fails validation. This is a second, narrower
+// normalization step specifically for fit/strength-type fields: map a small,
+// deliberately conservative list of common semantic synonyms onto the
+// canonical scale CareerLaunch already uses (STRENGTH_ENUM), before falling
+// back to normalizeEnum's casing-only match. Only obvious equivalents are
+// listed — nothing here guesses at a genuinely ambiguous or contradictory
+// value, which is left alone so validation still catches it.
+const FIT_VALUE_SYNONYMS = {
+  'weak': 'Developing', 'poor': 'Developing', 'low': 'Developing', 'limited': 'Developing', 'minimal': 'Developing',
+  'not aligned': 'Developing', 'misaligned': 'Developing', 'poor match': 'Developing', 'incompatible': 'Developing', 'conflicting': 'Developing', 'conflicts': 'Developing', 'not a match': 'Developing',
+  'medium': 'Moderate', 'fair': 'Moderate', 'average': 'Moderate', 'mixed': 'Moderate', 'ok': 'Moderate', 'okay': 'Moderate',
+  'partially aligned': 'Moderate', 'partial match': 'Moderate', 'somewhat aligned': 'Moderate', 'partial': 'Moderate',
+  'good': 'Strong', 'high': 'Strong', 'excellent': 'Strong', 'great': 'Strong', 'solid': 'Strong',
+  'aligned': 'Strong', 'well aligned': 'Strong', 'well-aligned': 'Strong', 'compatible': 'Strong', 'match': 'Strong', 'good match': 'Strong', 'strong match': 'Strong', 'good fit': 'Strong',
+  'unknown': 'Needs More Information', 'unclear': 'Needs More Information', 'n/a': 'Needs More Information', 'na': 'Needs More Information', 'none': 'Needs More Information', '': 'Needs More Information',
+  'uncertain': 'Needs More Information', 'tbd': 'Needs More Information', 'not enough information': 'Needs More Information', 'not enough info': 'Needs More Information',
+};
+function normalizeFitValue(raw){
+  if(typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+  if(STRENGTH_ENUM.includes(trimmed)) return trimmed; // already canonical — fast path
+  const lower = trimmed.toLowerCase();
+  if(Object.prototype.hasOwnProperty.call(FIT_VALUE_SYNONYMS, lower)) return FIT_VALUE_SYNONYMS[lower];
+  return normalizeEnum(trimmed, STRENGTH_ENUM); // fall back to casing-only match; leaves genuinely unrecognized values untouched
+}
+function ensureArray(v){
+  if(Array.isArray(v)) return v;
+  if(v === undefined || v === null || v === '') return [];
+  return [v];
+}
+// Item-level resilience for paths (mirrors the skills fix): a usable path
+// needs a minimum set of fields — everything else (gaps, workEnvironment,
+// relevance, fitEvidence) is optional and rendered with a safe fallback in
+// the UI already, so it's deliberately NOT required here. Requiring fields
+// the product tolerates being absent only increases the chance one omission
+// sinks an otherwise-good path.
+const MIN_VALID_PATHS = 3;
+function isValidPathItem(p){
+  return !!p && typeof p === 'object'
+    && isNonEmptyStr(p.title)
+    && PATH_CATEGORY_ENUM.concat(RERANK_CATEGORY_ENUM).includes(p.category)
+    && isNonEmptyStr(p.why)
+    && STRENGTH_ENUM.includes(p.transition)
+    && isNonEmptyStr(p.entryPoint)
+    && isNonEmptyStr(p.progression)
+    && Array.isArray(p.transfers);
+}
+// Which specific required field made an item fail — used only for the dev
+// diagnostic log, never shown to the user, and never includes story/evidence
+// text, just field names.
+function firstInvalidPathField(p){
+  if(!p || typeof p !== 'object') return 'not an object';
+  if(!isNonEmptyStr(p.title)) return 'title';
+  if(!PATH_CATEGORY_ENUM.concat(RERANK_CATEGORY_ENUM).includes(p.category)) return 'category';
+  if(!isNonEmptyStr(p.why)) return 'why';
+  if(!STRENGTH_ENUM.includes(p.transition)) return 'transition';
+  if(!isNonEmptyStr(p.entryPoint)) return 'entryPoint';
+  if(!isNonEmptyStr(p.progression)) return 'progression';
+  if(!Array.isArray(p.transfers)) return 'transfers';
+  return 'unknown';
+}
+function normalizePathItem(p){
+  if(!p || typeof p !== 'object') return p;
+  const out = {
+    ...p,
+    title: typeof p.title === 'string' ? p.title.trim() : p.title,
+    category: normalizeEnum(p.category, PATH_CATEGORY_ENUM.concat(RERANK_CATEGORY_ENUM)),
+    transition: normalizeFitValue(p.transition), // never defaults a missing value — only maps an already-present value onto the canonical scale
+    transfers: ensureArray(p.transfers),
+    gaps: ensureArray(p.gaps),
+    relevance: ensureArray(p.relevance),
+  };
+  if(p.fitEvidence !== undefined) out.fitEvidence = normalizeFitValue(p.fitEvidence);
+  if(p.fitInterest !== undefined) out.fitInterest = normalizeFitValue(p.fitInterest);
+  if(p.fitLifestyle !== undefined) out.fitLifestyle = normalizeFitValue(p.fitLifestyle);
+  return out;
+}
+// Tolerates the model wrapping the array under an unexpected key, or returning
+// a bare array, in addition to the expected {paths:[...]} shape — a cheap
+// safety net for the text-fallback path where no schema enforced the wrapper
+// key either. Then, item by item: normalize casing/shape, keep anything that
+// clears the minimum bar, DROP (never invent a replacement for) anything that
+// doesn't. "repaired" counts items that only became valid because
+// normalization fixed something (casing, string-vs-array) — a cheap, honest
+// proxy for "silently repaired" vs "was already fine".
+function normalizePathsResult(result){
+  let rawPaths;
+  if(Array.isArray(result)) rawPaths = result;
+  else if(result && typeof result === 'object'){
+    rawPaths = result.paths;
+    if(!Array.isArray(rawPaths)) rawPaths = result.careerPaths || result.results || null;
+  }
+  if(!Array.isArray(rawPaths)) return result;
+
+  const total = rawPaths.length;
+  let repaired = 0;
+  const valid = [];
+  const droppedFields = [];
+  for(const rawItem of rawPaths){
+    const normalized = normalizePathItem(rawItem);
+    if(isValidPathItem(normalized)){
+      let changed = false;
+      try{ changed = JSON.stringify(rawItem) !== JSON.stringify(normalized); }catch(e){ /* ignore */ }
+      if(changed) repaired++;
+      valid.push(normalized);
+    } else {
+      droppedFields.push(firstInvalidPathField(normalized));
+    }
+  }
+  safeLog('log', `[CareerLaunch][paths][item_validation] returned=${total} valid=${valid.length} repaired=${repaired} discarded=${total - valid.length}${droppedFields.length ? ` (dropped field(s): ${droppedFields.join(', ')})` : ''}`);
+  const base = Array.isArray(result) ? {} : result;
+  return { ...base, paths: valid };
+}
+// Root-cause fix: rerankPaths sends each path's ORIGINAL category (from
+// PATH_CATEGORY_ENUM: "Strong Evidence" / "Worth Exploring" / "Growth Path" /
+// "Independent Path") as input context, but the rerank schema requires a
+// DIFFERENT 5-value set (RERANK_CATEGORY_ENUM). The prompt's "even if its
+// category stays the same as before" wording can read as "reuse that exact
+// label" — which, when it happens, does so for every item at once (all 4
+// paths get the "unchanged" treatment in the same response), producing
+// valid=0 rather than a scattered single-item failure. Since these two
+// category systems have a genuine, unambiguous 1:1 conceptual
+// correspondence (they were designed as parallel stages of the same
+// classification), mapping one onto the other is a safe, obvious
+// normalization — not a guess at ambiguous intent.
+const RERANK_CATEGORY_CROSSWALK = {
+  'strong evidence': 'Best Paths to Explore First',
+  'worth exploring': 'Strong Alternatives',
+  'growth path': 'Growth Directions',
+  'independent path': 'Longer-Term / Independent Paths',
+};
+function normalizeRerankCategory(raw){
+  if(typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+  if(RERANK_CATEGORY_ENUM.includes(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if(Object.prototype.hasOwnProperty.call(RERANK_CATEGORY_CROSSWALK, lower)) return RERANK_CATEGORY_CROSSWALK[lower];
+  return normalizeEnum(trimmed, RERANK_CATEGORY_ENUM); // casing-only fallback; leaves genuinely unrecognized values untouched
+}
+// Live bug fix: rerankPaths items were previously checked all-or-nothing in
+// validateRerankResult — one path with a synonymous-but-non-canonical fit
+// value (e.g. "Weak") failed the ENTIRE rerank, even though the other items
+// were fine and even though the underlying path data isn't lost either way
+// (mergeRerankIntoPaths already keeps a path's prior category/fit values
+// unchanged if no valid delta exists for it — see below). This now mirrors
+// the skills/paths item-level pattern: normalize each item (including the
+// FIT_VALUE_SYNONYMS and RERANK_CATEGORY_CROSSWALK mappings above), keep
+// anything that clears the bar, drop anything that doesn't, and log counts
+// AND which field(s) caused each drop (names only) without ever logging
+// story/user content. `knownTitles` is passed in via closure from
+// rerankPaths so a title that doesn't match any existing path can be
+// filtered out here too, consistent with everything else.
+// Live bug fix: rerankPaths items were previously checked all-or-nothing —
+// an invalid fitLifestyle (or fitInterest) discarded the ENTIRE item,
+// including an otherwise-perfectly-good title/category reclassification.
+// That's backwards: title+category are the actual point of a rerank call
+// (that's what the user sees move between sections); fitInterest/fitLifestyle
+// are optional display refinements. So now: title+category alone determine
+// whether an item is usable; an invalid fit field is stripped from that item
+// individually (never invents a value) rather than sinking the whole thing —
+// mergeRerankIntoPaths already falls back to the path's PRIOR fit value when
+// the delta omits one, so stripping is equivalent to "no update this round,"
+// never a fabricated judgment. This is on top of the FIT_VALUE_SYNONYMS /
+// RERANK_CATEGORY_CROSSWALK mappings above, which still normalize obvious
+// variants to a real value first — stripping is the last resort, not the
+// first move.
+function normalizeRerankResult(result, knownTitles){
+  if(!result || typeof result !== 'object') return result;
+  let ranked = result.rankedPaths;
+  if(!Array.isArray(ranked)) ranked = result.paths || null;
+  if(!Array.isArray(ranked)) return result;
+
+  const knownLower = (knownTitles || []).map(t => String(t).toLowerCase());
+  const total = ranked.length;
+  let normalizedCount = 0;
+  let discardedCount = 0;
+  const valid = [];
+  const droppedFieldSet = new Set();
+  // Diagnostics for the fit-value fields specifically (item 2 of the request):
+  // recognized = already canonical, normalized = fixed via synonym/casing map,
+  // invalid = no confident mapping found (field stripped, not the item).
+  let fitRecognized = 0, fitNormalized = 0, fitInvalid = 0;
+  const invalidFitSamples = new Set();
+
+  function checkFitField(rawValue){
+    if(rawValue === undefined) return { value: undefined, ok: true };
+    if(typeof rawValue === 'string' && STRENGTH_ENUM.includes(rawValue.trim())){
+      fitRecognized++;
+      return { value: rawValue.trim(), ok: true };
+    }
+    const mapped = normalizeFitValue(rawValue);
+    if(STRENGTH_ENUM.includes(mapped)){
+      fitNormalized++;
+      return { value: mapped, ok: true };
+    }
+    fitInvalid++;
+    if(typeof rawValue === 'string' && rawValue.trim()) invalidFitSamples.add(rawValue.trim());
+    return { value: undefined, ok: false }; // stripped, not fabricated
+  }
+
+  for(const rawItem of ranked){
+    if(!rawItem || typeof rawItem !== 'object'){ discardedCount++; droppedFieldSet.add('not an object'); continue; }
+    const item = {
+      ...rawItem,
+      title: typeof rawItem.title === 'string' ? rawItem.title.trim() : rawItem.title,
+      category: normalizeRerankCategory(rawItem.category),
+    };
+
+    const fitInterestCheck = checkFitField(rawItem.fitInterest);
+    if(fitInterestCheck.ok) item.fitInterest = fitInterestCheck.value; else { delete item.fitInterest; droppedFieldSet.add('fitInterest'); }
+    const fitLifestyleCheck = checkFitField(rawItem.fitLifestyle);
+    if(fitLifestyleCheck.ok) item.fitLifestyle = fitLifestyleCheck.value; else { delete item.fitLifestyle; droppedFieldSet.add('fitLifestyle'); }
+
+    const titleOk = isNonEmptyStr(item.title) && (knownLower.length === 0 || knownLower.includes(item.title.toLowerCase()));
+    const categoryOk = RERANK_CATEGORY_ENUM.includes(item.category);
+
+    if(titleOk && categoryOk){
+      let changed = false;
+      try{ changed = JSON.stringify(rawItem) !== JSON.stringify(item); }catch(e){ /* ignore */ }
+      if(changed) normalizedCount++;
+      valid.push(item);
+    } else {
+      discardedCount++;
+      if(!isNonEmptyStr(item.title) || (knownLower.length && !knownLower.includes(String(item.title).toLowerCase()))) droppedFieldSet.add('title');
+      if(!categoryOk) droppedFieldSet.add('category');
+    }
+  }
+  safeLog('log', `[CareerLaunch][rerank][item_validation] returned=${total} valid=${valid.length} normalized=${normalizedCount} discarded=${discardedCount}${droppedFieldSet.size ? ` dropped field(s): ${[...droppedFieldSet].join(', ')}` : ''}`);
+  if(fitNormalized || fitInvalid){
+    safeLog('log', `[CareerLaunch][rerank][fit_normalization] recognized=${fitRecognized} normalized=${fitNormalized} invalid=${fitInvalid}${invalidFitSamples.size ? ` invalid_value_sample=${[...invalidFitSamples].slice(0,3).join('|')}` : ''}`);
+  }
+  return { ...result, rankedPaths: valid };
+}
+
+
+const skillsTool = {
+  name: 'report_skills',
+  description: 'Report the transferable professional skills identified in the user\'s story, each with literal evidence and an evidence-calibrated strength rating.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      skills: {
+        type: 'array', minItems: 1, maxItems: 8,
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', maxLength: 60 },
+            evidence: { type: 'string', maxLength: 160, description: 'Close paraphrase of what the user literally said — no generalizing or upgrading.' },
+            strength: { type: 'string', enum: STRENGTH_ENUM }
+          },
+          required: ['name','evidence','strength']
+        }
+      }
+    },
+    required: ['skills']
+  }
+};
+
+// Path schema for INITIAL discovery only (before any preference data exists).
+// fitInterest/fitLifestyle and whyChanged are deliberately NOT part of this
+// schema — asking the model to fill them before it knows a single user
+// preference wastes output budget on a placeholder value we'd overwrite
+// anyway. discoverPaths() sets both fit fields to "Needs More Information"
+// client-side for free; rerankPaths() has its own compact schema (see below)
+// that fills them in for real once preferences exist.
+// `required` intentionally lists only what the UI actually needs to render a
+// usable card (see isValidPathItem above) — gaps/workEnvironment/relevance/
+// fitEvidence stay as optional properties the model can still fill in, but a
+// missing one no longer sinks the whole path.
+const pathFieldsSchema = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', maxLength: 50 },
+    entryPoint: { type: 'string', maxLength: 40 },
+    progression: { type: 'string', maxLength: 40 },
+    category: { type: 'string' },
+    why: { type: 'string', maxLength: 140 },
+    transfers: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+    gaps: { type: 'array', items: { type: 'string' }, maxItems: 2 },
+    transition: { type: 'string', enum: STRENGTH_ENUM, description: 'REQUIRED on every path. Must be exactly one of: "Strong" | "Moderate" | "Developing" | "Needs More Information". Never omit this field.' },
+    workEnvironment: { type: 'string', maxLength: 50 },
+    relevance: { type: 'array', items: { type: 'string', enum: ['Employment','Freelance','Consulting','Entrepreneurship'] } },
+    fitEvidence: { type: 'string', enum: STRENGTH_ENUM },
+  },
+  required: ['title','entryPoint','progression','category','why','transfers','transition']
+};
+
+const pathsTool = {
+  name: 'report_career_paths',
+  description: 'Report realistic career path options mapped from the user\'s validated transferable skills.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      paths: { type: 'array', minItems: 4, maxItems: 5, items: pathFieldsSchema }
+    },
+    required: ['paths']
+  }
+};
+
+// Reliability follow-up (surgical fix): the original rerankTool asked the model
+// to re-emit every field of every path — title, transfers, gaps, entryPoint,
+// progression, workEnvironment, relevance, transition, fitEvidence, plus the
+// two fields that actually needed to change. That's the same ~13-field-per-path
+// payload as full path generation, and it was truncating under the token
+// budget even on the repair retry. Reranking never needs to regenerate fields
+// that don't change — it only needs to reclassify. So the schema below returns
+// a compact delta per path (title as the stable key, category, and only the
+// fields a preference could plausibly affect), and rerankPaths() merges that
+// delta into the already-valid path objects already sitting in state — the
+// unchanged fields are never sent to or returned by the model at all.
+const RERANK_CATEGORY_ENUM = ['Best Paths to Explore First','Strong Alternatives','Growth Directions','Longer-Term / Independent Paths','Lower Interest Based on What You Told Us'];
+const rerankTool = {
+  name: 'report_reranked_paths',
+  description: 'Report ONLY the category (and, if changed, whyChanged/fitInterest/fitLifestyle) for each existing career path after learning new user preferences. Do NOT re-describe the path — the full path objects already exist and are matched back up by title.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      changeSummary: { type: 'string', maxLength: 180 },
+      rankedPaths: {
+        type: 'array', minItems: 1, maxItems: 5,
+        items: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Must exactly match an existing path title.' },
+            category: { type: 'string', enum: RERANK_CATEGORY_ENUM },
+            whyChanged: { type: 'string', maxLength: 140, description: 'Only if category changed meaningfully.' },
+            fitInterest: { type: 'string', enum: STRENGTH_ENUM, description: 'Only if a preference changed this.' },
+            fitLifestyle: { type: 'string', enum: STRENGTH_ENUM, description: 'Only if a preference changed this.' },
+          },
+          required: ['title','category']
+        }
+      }
+    },
+    required: ['changeSummary','rankedPaths']
+  }
+};
+
+// Reliability fix: the reply itself is no longer forced through a tool call
+// (see callClaudeText below) — this schema now covers ONLY the small,
+// well-defined extraction task of pulling a structured preference signal out
+// of a conversation turn, completely decoupled from whether the reply itself
+// came back as a clean tool call or plain text. "preferences" is a generic
+// bucket for a stated preference that isn't cleanly an interest or dislike
+// (e.g. "wants stability") — merged into interests downstream, since both
+// feed the same reranking signal.
+const profileDeltaTool = {
+  name: 'report_profile_delta',
+  description: 'Extract any genuine new preference signal from one conversation turn, as a compact structured delta for the Career Intelligence Profile.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      interests: { type: 'array', items: { type: 'string', maxLength: 40 }, maxItems: 4 },
+      dislikes: { type: 'array', items: { type: 'string', maxLength: 40 }, maxItems: 4 },
+      preferences: { type: 'array', items: { type: 'string', maxLength: 40 }, maxItems: 4 },
+      summary: { type: 'string', maxLength: 140 },
+    },
+    required: ['interests','dislikes','preferences','summary']
+  }
+};
+
+// Roadmap architecture fix: the single roadmapTool below asked for 10 required
+// top-level fields in one call — whereYouAre, sequence{now,next,later} (3
+// nested objects), transfers, understandBetter, strengthen, learn[] (nested
+// array of {level,items}), plan{first7,days8to30,days31to60,days61to90} (4
+// more arrays), positioning, searchTerms, nextStep — roughly 20+ leaf values
+// that all had to complete within one token budget. That's what was
+// truncating and failing schema validation live. Split into three
+// independently-generated, independently-retryable sections that merge
+// deterministically into the same final state.roadmap shape the UI already
+// renders, so renderRoadmap needed no redesign — only tolerance for a section
+// being temporarily absent.
+
+const roadmapFoundationTool = {
+  name: 'report_roadmap_foundation',
+  description: 'Report the Career Foundation section of the roadmap: where the user stands, what transfers, and what is still uncertain.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      whereYouAre: { type: 'string', maxLength: 220 },
+      transfers: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+      needsMoreInfo: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+      gaps: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+    },
+    required: ['whereYouAre','transfers','needsMoreInfo','gaps']
+  }
+};
+
+const roadmapActionPlanTool = {
+  name: 'report_roadmap_action_plan',
+  description: 'Report the Action Plan section of the roadmap: a 7/30/60/90-day sequence of concrete steps.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      first7Days: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 4 },
+      days8to30: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 4 },
+      days31to60: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 3 },
+      days61to90: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 3 },
+      nextBestStep: { type: 'string', maxLength: 140 },
+    },
+    required: ['first7Days','days8to30','days31to60','days61to90','nextBestStep']
+  }
+};
+
+const roadmapDirectionTool = {
+  name: 'report_roadmap_direction',
+  description: 'Report the Direction & Learning section of the roadmap: the Now/Next/Later career sequence, learning strategy, search terms, and positioning guidance.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      careerSequence: {
+        type: 'object',
+        properties: {
+          now: { type: 'object', properties: { title:{type:'string', maxLength: 40}, desc:{type:'string', maxLength: 90} }, required:['title','desc'] },
+          next: { type: 'object', properties: { title:{type:'string', maxLength: 40}, desc:{type:'string', maxLength: 90} }, required:['title','desc'] },
+          later: { type: 'object', properties: { title:{type:'string', maxLength: 40}, desc:{type:'string', maxLength: 90} }, required:['title','desc'] },
+        },
+        required: ['now','next','later']
+      },
+      learningStrategy: { type: 'array', items: { type: 'object', properties: { level:{type:'string', maxLength: 30}, items:{type:'array', items:{type:'string', maxLength: 70}, maxItems: 3} }, required:['level','items'] }, maxItems: 3 },
+      searchTerms: { type: 'array', items: { type: 'string', maxLength: 30 }, maxItems: 4 },
+      positioning: { type: 'string', maxLength: 220 },
+    },
+    required: ['careerSequence','learningStrategy','searchTerms','positioning']
+  }
+};
+
+const kitTool = {
+  name: 'report_application_kit',
+  description: 'Report resume bullets and LinkedIn positioning built only from the user\'s validated evidence.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      resumeBullets: {
+        type: 'array', minItems: 2, maxItems: 4,
+        items: { type: 'object', properties: { text: { type: 'string', maxLength: 160 }, strengthen: { type: 'string', maxLength: 60 } }, required: ['text'] }
+      },
+      linkedinHeadlines: {
+        type: 'array', minItems: 3, maxItems: 3,
+        items: { type: 'object', properties: { style: { type: 'string' }, text: { type: 'string', maxLength: 160 } }, required: ['style','text'] }
+      },
+      linkedinAbout: { type: 'string', maxLength: 500 }
+    },
+    required: ['resumeBullets','linkedinHeadlines','linkedinAbout']
+  }
+};
+
+const bulletRepairTool = {
+  name: 'report_rewritten_bullet',
+  description: 'Report the rewritten resume bullet incorporating exactly one new user-provided detail.',
+  input_schema: { type: 'object', properties: { text: { type: 'string', maxLength: 180 } }, required: ['text'] }
+};
+
+const storyBankTool = {
+  name: 'report_story_bank',
+  description: 'Report interview-ready stories for each fixed category, using only validated evidence.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      stories: {
+        type: 'array', minItems: 7, maxItems: 7,
+        items: {
+          type: 'object',
+          properties: {
+            category: { type: 'string' },
+            status: { type: 'string', enum: ['ready','needs_more'] },
+            story: { type: 'string', maxLength: 260 },
+            prompt: { type: 'string', maxLength: 100 }
+          },
+          required: ['category','status']
+        }
+      }
+    },
+    required: ['stories']
+  }
+};
+
+const singleStoryTool = {
+  name: 'report_story',
+  description: 'Report one interview story built from the newly provided detail plus prior known evidence.',
+  input_schema: { type: 'object', properties: { story: { type: 'string', maxLength: 260 } }, required: ['story'] }
+};
+
+const jdTool = {
+  name: 'report_jd_analysis',
+  description: 'Report how a single pasted job description compares to the user\'s validated skills.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      marketAsks: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 6 },
+      youAlreadyHave: { type: 'array', items: { type: 'string' }, maxItems: 6 },
+      shouldStrengthen: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+      overallFit: { type: 'string', enum: ['Strong Match','Worth Considering','Stretch Opportunity','Needs More Information'] }
+    },
+    required: ['marketAsks','youAlreadyHave','shouldStrengthen','overallFit']
+  }
+};
+
+// Operation-specific output-token budgets (reliability fix, architecture-level).
+// A prior pass moved most calls to a shared value near 1000 and assumed the
+// artifact environment silently capped everyone at 1000 anyway — live testing
+// disproved that: dropping discoverPaths to 900 (below the old flat 1000)
+// measurably caused new truncation, which means the requested value DOES
+// matter here. So budgets below are set from an actual per-schema audit
+// (worst case: every optional item present, every string at its schema
+// maxLength, full item-count), each with roughly 2-3x headroom on top of that
+// worst case — not guessed, and not uniform.
+//
+// AUDIT (worst case, ~4 chars/token estimate, JSON key/punctuation overhead included):
+//   sendConvo      ~190 tok  (reply 500 chars + 2 short arrays)
+//   analyzeSkills  ~440 tok  (7 skills x name+evidence(160c)+strength)
+//   discoverPaths  ~800 tok  (5 paths x 11 fields, no fit-interest/lifestyle —
+//                             those are no longer generated at all, see pathFieldsSchema)
+//   rerankPaths    ~310 tok  (5 paths x compact delta: title+category+whyChanged?+2 fit fields?)
+//   buildRoadmap   ~600 tok  (sequence + gap arrays + 7/30/60/90 plan + positioning)
+//   buildKit       ~530 tok  (4 bullets + 3 headlines + about)
+//   buildStoryBank ~760 tok  (7 REQUIRED categories x up to 260-char story + 100-char prompt)
+//   analyzeJd      ~120 tok  (4-6 short keyword arrays + one enum)
+//   bulletRepair   ~45 tok   (single 180-char bullet)
+//   singleStory    ~65 tok   (single 260-char story)
+//   roadmapFoundation ~140 tok (whereYouAre 220c + 3 short arrays)
+//   roadmapActionPlan ~355 tok (14 items x 80c max + nextBestStep 140c — was
+//                               unbounded per-item length before this pass,
+//                               which is what actually caused the live
+//                               TRUNCATED_OUTPUT: the schema let the model
+//                               write full sentences per action item)
+//   roadmapDirection  ~405 tok (3-stop sequence + learning ladder + searchTerms
+//                               + positioning — same fix: nested learningStrategy
+//                               items and the sequence title/desc had no
+//                               maxLength before, and searchTerms/level had none
+//                               either)
+const TOKEN_BUDGETS = {
+  convo: 500,
+  skills: 1000,
+  paths: 2000,       // was the truncation site — largest schema, largest headroom
+  rerank: 700,
+  roadmapFoundation: 700,   // was one 2000-token "roadmap" call — split into 3 much smaller ones
+  roadmapActionPlan: 900,   // was 800 — bumped alongside the new maxLength bounds for headroom
+  roadmapDirection: 1200,   // was 1000 — bumped alongside the new maxLength bounds for headroom
+  kit: 1800,
+  storyBank: 2000,   // 7 required items is the other schema worth real headroom on
+  jd: 1200,
+  bulletRepair: 200,
+  singleStory: 300,
+  profileDelta: 400, // small, separate extraction call — see sendConvo
+};
+
+/* ============================= VALIDATORS (schema + relational integrity, reliability item G) ============================= */
+function isNonEmptyStr(v){ return typeof v === 'string' && v.trim().length > 0; }
+
+// Item-level resilience for skills (shared by analyzeSkills and
+// submitAddExperience, since both use skillsTool/validateSkillsResult): one
+// malformed skill object must never sink an otherwise-usable assessment. This
+// checks a single skill against the minimum bar — non-empty name, non-empty
+// evidence, valid strength — used to both filter (normalizeSkillsResult) and
+// defensively re-check (validateSkillsResult) below.
+const MIN_VALID_SKILLS = 2;
+function isValidSkillItem(s){
+  return !!s && typeof s === 'object'
+    && isNonEmptyStr(s.name)
+    && isNonEmptyStr(s.evidence)
+    && STRENGTH_ENUM.includes(normalizeFitValue(s.strength));
+}
+// Normalizes strength casing/synonyms (same tolerance as paths/rerank), then
+// DROPS any skill that still doesn't meet the minimum bar — never invents a
+// replacement, only removes. This runs before validation, so a response with
+// several good skills and one malformed one passes immediately with the good
+// ones intact; only a response with too FEW usable skills after filtering
+// escalates to the existing reshape/full-repair tiers in callStructured,
+// which is the "attempt a narrow repair only if useful" behavior — repair is
+// not worth an extra API call when we already have enough valid skills to
+// show a useful assessment.
+function normalizeSkillsResult(result){
+  if(!result || !Array.isArray(result.skills)) return result;
+  const total = result.skills.length;
+  const valid = result.skills
+    .map(s => (s && typeof s === 'object') ? { ...s, strength: normalizeFitValue(s.strength) } : s)
+    .filter(isValidSkillItem);
+  safeLog('log', `[CareerLaunch][skills][item_validation] returned=${total} valid=${valid.length} discarded=${total - valid.length}`);
+  return { ...result, skills: valid };
+}
+
+function validateSkillsResult(result){
+  if(!result || !Array.isArray(result.skills)) return { ok:false, reason:'skills array is missing' };
+  // By this point normalizeSkillsResult has already filtered out anything
+  // malformed — this loop is a defensive re-check, not the primary
+  // enforcement point, in case validateSkillsResult is ever called without
+  // the normalize step running first.
+  for(const s of result.skills){
+    if(!isValidSkillItem(s)) return { ok:false, reason:'a skill is missing a name, evidence, or a valid strength value' };
+  }
+  if(result.skills.length < MIN_VALID_SKILLS){
+    return { ok:false, reason:`only ${result.skills.length} valid skill(s) found after filtering out malformed items — need at least ${MIN_VALID_SKILLS} for a useful assessment` };
+  }
+  return { ok:true };
+}
+
+// Reused by both analyzeSkills and submitAddExperience (same schema, same
+// failure mode): reinforces the exact shape in plain language, for the case
+// where the model fell back to unstructured text and skipped the API's own
+// schema enforcement entirely — the improved repair instruction requested
+// after the live "a skill is missing a name" failure.
+const SKILLS_REPAIR_HINT = `The schema requires skills: [{name, evidence, strength}] — every single item in that array MUST have a non-empty "name". Never return a skill object without a name; if you're not confident enough in an item to name it, leave it out entirely rather than including it with a missing or empty name.`;
+
+// Same pattern as SKILLS_REPAIR_HINT: the field most likely to get silently
+// dropped by a model that fell back to unstructured text (bypassing the
+// schema's own enum enforcement) is "transition" — reinforce it explicitly
+// in plain language for the repair passes.
+const PATHS_REPAIR_HINT = `Every path object MUST include transition — one of exactly "Strong" | "Moderate" | "Developing" | "Needs More Information", never omitted, never any other wording. Also required on every path: title, entryPoint, progression, category, why, and transfers (as an array). If you cannot supply all of those for a given path, leave that path out entirely rather than submitting it incomplete.`;
+const RERANK_REPAIR_HINT = `The "category" field for every rankedPaths entry MUST be exactly one of these five strings: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us". Do NOT reuse an original path's old category label (such as "Strong Evidence", "Worth Exploring", "Growth Path", or "Independent Path") — those are a different, earlier classification and are not valid values here, even for a path whose ranking stays similar.`;
+// Diagnosis: repair responses were dropping first7Days/learningStrategy
+// specifically because the generic repair note only said "return a
+// corrected, complete result" — it never named which fields a truncated or
+// off-format response is most likely to have lost. These hints call out the
+// exact required field names so a repair attempt can't "forget" one while
+// fixing something else.
+const ACTION_PLAN_REPAIR_HINT = `The schema requires ALL FOUR time-period arrays — first7Days, days8to30, days31to60, days61to90 — plus nextBestStep. Never omit any of the four arrays, even if you need to shorten individual items (each item max ~80 characters) to fit. A short but complete response covering all four periods is required, not a longer response missing one.`;
+const DIRECTION_REPAIR_HINT = `The schema requires learningStrategy as an array (it may be empty if there's genuinely nothing to add, but the field itself must always be present) — never omit it. Also always required: careerSequence with now/next/later, searchTerms, and positioning. Keep every item short (learning items max ~70 characters, sequence descriptions max ~90) so the complete response fits.`;
+
+function validatePathsResult(result){
+  if(!result || !Array.isArray(result.paths)) return { ok:false, reason:'paths array is missing' };
+  // By this point normalizePathsResult has already filtered out anything
+  // malformed — this loop is a defensive re-check, not the primary
+  // enforcement point, in case validatePathsResult is ever called without
+  // the normalize step running first.
+  for(const p of result.paths){
+    if(!isValidPathItem(p)) return { ok:false, reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
+  }
+  if(result.paths.length < MIN_VALID_PATHS){
+    return { ok:false, reason:`only ${result.paths.length} valid path(s) found after filtering out malformed items — need at least ${MIN_VALID_PATHS} for a useful set of options` };
+  }
+  return { ok:true };
+}
+
+// By this point normalizeRerankResult has already filtered every item down
+// to ones that are structurally sound AND have canonical fit values (mapping
+// synonyms like "Weak" first) — so this only needs to check there's at least
+// one usable result left. Zero valid items is the only case actually worth
+// a repair round-trip; one bad item among several good ones never reaches
+// here as a failure at all, because normalize already dropped just that one.
+function validateRerankResult(result){
+  if(!result || !Array.isArray(result.rankedPaths) || result.rankedPaths.length === 0){
+    return { ok:false, reason:'no valid rankedPaths entries remained after filtering out malformed items' };
+  }
+  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
+  return { ok:true };
+}
+
+// Merges the compact rerank delta back into the already-valid path objects.
+// Unchanged fields (transfers, gaps, entryPoint, progression, workEnvironment,
+// relevance, transition, fitEvidence, why) are never touched — they simply
+// stay whatever they already were. If the model omits a path entirely from
+// rankedPaths, that path is kept exactly as-is rather than dropped, so no path
+// data can ever disappear because of a rerank call.
+function mergeRerankIntoPaths(existingPaths, rankedPaths){
+  const deltaByTitle = {};
+  rankedPaths.forEach(rp => { deltaByTitle[String(rp.title).toLowerCase()] = rp; });
+  return existingPaths.map(p => {
+    const delta = deltaByTitle[String(p.title).toLowerCase()];
+    if(!delta) return p;
+    return {
+      ...p,
+      category: delta.category || p.category,
+      whyChanged: delta.whyChanged || undefined,
+      fitInterest: delta.fitInterest || p.fitInterest,
+      fitLifestyle: delta.fitLifestyle || p.fitLifestyle,
+    };
+  });
+}
+
+// Item-level resilience for the profile delta (mirrors skills/paths): a
+// malformed entry in one array must never sink the others, and an empty
+// result (nothing new signaled this turn) is a perfectly valid outcome, not
+// a failure — this must stay lenient since most turns legitimately have no
+// new preference to extract.
+function isValidProfileItem(v){ return typeof v === 'string' && v.trim().length > 0; }
+function normalizeProfileDeltaResult(result){
+  if(!result || typeof result !== 'object') return result;
+  const clean = (arr) => Array.isArray(arr) ? arr.filter(isValidProfileItem).map(s => s.trim()) : [];
+  return {
+    interests: clean(result.interests),
+    dislikes: clean(result.dislikes),
+    preferences: clean(result.preferences),
+    summary: typeof result.summary === 'string' ? result.summary.trim() : '',
+  };
+}
+function validateProfileDeltaResult(result){
+  if(!result || typeof result !== 'object') return { ok:false, reason:'profile delta result is missing' };
+  if(!Array.isArray(result.interests) || !Array.isArray(result.dislikes) || !Array.isArray(result.preferences)){
+    return { ok:false, reason:'interests/dislikes/preferences must be arrays' };
+  }
+  return { ok:true };
+}
+
+function validateRoadmapFoundationResult(result){
+  if(!result) return { ok:false, reason:'foundation result is empty' };
+  if(!isNonEmptyStr(result.whereYouAre)) return { ok:false, reason:'whereYouAre is missing' };
+  if(!Array.isArray(result.transfers)) return { ok:false, reason:'transfers is missing or not an array' };
+  if(!Array.isArray(result.needsMoreInfo)) return { ok:false, reason:'needsMoreInfo is missing or not an array' };
+  if(!Array.isArray(result.gaps)) return { ok:false, reason:'gaps is missing or not an array' };
+  return { ok:true };
+}
+
+function validateRoadmapActionPlanResult(result){
+  if(!result) return { ok:false, reason:'action plan result is empty' };
+  for(const k of ['first7Days','days8to30','days31to60','days61to90']){
+    if(!Array.isArray(result[k])) return { ok:false, reason:`${k} is missing or not an array` };
+  }
+  if(!isNonEmptyStr(result.nextBestStep)) return { ok:false, reason:'nextBestStep is missing' };
+  return { ok:true };
+}
+
+function validateRoadmapDirectionResult(result){
+  if(!result) return { ok:false, reason:'direction result is empty' };
+  if(!result.careerSequence || !result.careerSequence.now || !result.careerSequence.next || !result.careerSequence.later){
+    return { ok:false, reason:'careerSequence missing now/next/later' };
+  }
+  if(!Array.isArray(result.learningStrategy)) return { ok:false, reason:'learningStrategy is missing or not an array' };
+  if(!Array.isArray(result.searchTerms)) return { ok:false, reason:'searchTerms is missing or not an array' };
+  if(!isNonEmptyStr(result.positioning)) return { ok:false, reason:'positioning is missing' };
+  return { ok:true };
+}
+
+function validateKitResult(result, sourceEvidenceText){
+  if(!result || !Array.isArray(result.resumeBullets) || result.resumeBullets.length === 0) return { ok:false, reason:'resumeBullets missing or empty' };
+  if(!Array.isArray(result.linkedinHeadlines) || result.linkedinHeadlines.length !== 3) return { ok:false, reason:'linkedinHeadlines must have exactly 3 entries' };
+  if(!isNonEmptyStr(result.linkedinAbout)) return { ok:false, reason:'linkedinAbout is missing' };
+  // Evidence-traceability heuristic (items A/B/G4): a number in generated resume
+  // copy that never appears in the user's own story is very likely fabricated.
+  for(const b of result.resumeBullets){
+    const bad = findUnsupportedNumerals(b.text, sourceEvidenceText);
+    if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}") — remove it, don't invent metrics` };
+  }
+  const badAbout = findUnsupportedNumerals(result.linkedinAbout, sourceEvidenceText);
+  if(badAbout.length) return { ok:false, reason:`linkedinAbout contains a number not present in the user's evidence ("${badAbout.join(', ')}")` };
+  return { ok:true };
+}
+
+function validateStoryBankResult(result){
+  if(!result || !Array.isArray(result.stories) || result.stories.length === 0) return { ok:false, reason:'stories array missing or empty' };
+  for(const s of result.stories){
+    if(!isNonEmptyStr(s.category)) return { ok:false, reason:'a story entry is missing a category' };
+    if(!['ready','needs_more'].includes(s.status)) return { ok:false, reason:`a story entry has an invalid status: ${s.status}` };
+    if(s.status === 'ready' && !isNonEmptyStr(s.story)) return { ok:false, reason:'a story marked ready has no story text' };
+  }
+  return { ok:true };
+}
+
+function validateJdResult(result){
+  if(!result || !Array.isArray(result.marketAsks) || result.marketAsks.length === 0) return { ok:false, reason:'marketAsks missing or empty' };
+  if(!Array.isArray(result.youAlreadyHave) || !Array.isArray(result.shouldStrengthen)) return { ok:false, reason:'youAlreadyHave/shouldStrengthen must be arrays' };
+  if(!['Strong Match','Worth Considering','Stretch Opportunity','Needs More Information'].includes(result.overallFit)) return { ok:false, reason:`invalid overallFit value: ${result.overallFit}` };
+  return { ok:true };
+}
+
+function validateTextResult(field){
+  return function(result){
+    if(!result || !isNonEmptyStr(result[field])) return { ok:false, reason:`${field} is missing or empty` };
+    return { ok:true };
+  };
+}
+
 
 /* ============================= RENDER ROOT ============================= */
 function render(){
@@ -358,7 +1658,7 @@ function renderProgress(){
   let steps = '';
   STEP_ORDER.forEach((s,i)=>{ steps += `<span class="${i<idx?'done':(i===idx?'current':'')}"></span>`; });
   return `<div class="progress-bar"><div class="progress-inner">
-    <span class="brand-tiny" data-go="${state.paid?'dashboard':'landing'}">CareerLaunch</span>
+    <span class="brand-tiny" data-go="${state.paymentStatus==='paid'?'dashboard':'landing'}">CareerLaunch</span>
     <div class="progress-steps">${steps}</div>
     <span class="progress-label">${labels[state.screen]||''}</span>
   </div></div>`;
@@ -569,19 +1869,21 @@ function renderConversation(){
         if(c.who==='learned') return renderLearnedCard(c);
         return `<div class="convo-bubble ${c.who==='ai'?'ai':''}">${c.text}</div>`;
       }).join('')}
+      ${state.convoBusy ? `<div class="convo-bubble ai" style="color:var(--ink-faint);font-style:italic;">Thinking…</div>` : ''}
     </div>
     <div class="convo-prompts">
       ${['What surprised you?',"Is there a path you expected but didn't see?","Something here doesn't feel like me",'Tell me more about one of the skills']
         .map(p=>`<span class="prompt-chip" data-fill="${encodeURIComponent(p)}">${p}</span>`).join('')}
     </div>
     <div class="convo-input-row">
-      <input id="convoInput" type="text" placeholder="Tell me what you're thinking…" />
-      <button class="btn btn-primary btn-sm" id="convoSend">Send</button>
+      <input id="convoInput" type="text" placeholder="Tell me what you're thinking…" ${state.convoBusy?'disabled':''} />
+      <button class="btn btn-primary btn-sm" id="convoSend" ${state.convoBusy?'disabled':''}>${state.convoBusy?'Sending…':'Send'}</button>
     </div>
-    <div class="mt-40"><button class="btn btn-primary" id="toChoose">Ready to Pick a Direction</button></div>
+    <div class="mt-40"><button class="btn btn-primary" id="toChoose" ${state.convoBusy?'disabled':''}>Ready to Pick a Direction</button></div>
   </div></div>`;
 }
 function renderLearnedCard(c){
+
   return `<div class="learned-card">
     <h4>I've learned something new about what you're looking for.</h4>
     ${c.interests && c.interests.length ? `<div class="learned-row">${c.interests.map(i=>`<span class="learned-chip">✓ ${i}</span>`).join('')}</div>`:''}
@@ -619,6 +1921,7 @@ function renderChoose(){
 function renderPaywall(){
   const strengths = getValidatedSkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
   const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps[0];
+  const alreadyPaid = state.paymentStatus === 'paid';
   return `
   <div class="wrap"><div class="screen center">
     <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now let's build the path.</div>
@@ -631,66 +1934,96 @@ function renderPaywall(){
     ${gap ? `<div class="gap-preview"><strong>One area worth strengthening:</strong> ${gap}</div>`:''}
 
     <div class="paywall-card">
-      <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
-      <div class="amt">$19.99</div>
-      <ul class="unlock-list">
-        <li>Career sequence: Now → Next → Later</li>
-        <li>7 / 30 / 60 / 90-day action plan</li>
-        <li>Full skill-gap plan & learning strategy</li>
-        <li>Resume positioning, never fabricated</li>
-        <li>LinkedIn positioning, multiple strategies</li>
-        <li>Evidence-strengthening prompts</li>
-        <li>Search terms & interview story starters</li>
-        <li>Your personal Command Center dashboard</li>
-      </ul>
-      <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Career Plan — $19.99</button>
-      <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">One-time payment. No subscription.</p>
-      <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Demo checkout — no payment is actually collected in this preview.</p>
+      ${alreadyPaid ? `
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Already Unlocked</div>
+        <p style="font-size:14px;">You've already purchased CareerLaunch Starter — no additional charge for exploring another path.</p>
+        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
+      ` : `
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
+        <div class="amt">$19.99</div>
+        <ul class="unlock-list">
+          <li>Career sequence: Now → Next → Later</li>
+          <li>7 / 30 / 60 / 90-day action plan</li>
+          <li>Full skill-gap plan & learning strategy</li>
+          <li>Resume positioning, never fabricated</li>
+          <li>LinkedIn positioning, multiple strategies</li>
+          <li>Evidence-strengthening prompts</li>
+          <li>Search terms & interview story starters</li>
+          <li>Your personal Command Center dashboard</li>
+        </ul>
+        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Career Plan — $19.99</button>
+        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">One-time payment. No subscription.</p>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Demo checkout — no payment is actually collected in this preview.</p>
+      `}
     </div>
   </div></div>`;
 }
 
 /* ============================= ROADMAP ============================= */
 function renderRoadmap(){
+  // A Foundation failure is the only case that still routes to the full-page
+  // error/retry (state.errorMsg) — it's the "core" section per the roadmap
+  // architecture fix, and there's nothing meaningful to show without it.
+  // Action Plan / Direction failures never set state.errorMsg, specifically
+  // so a paying user keeps seeing whatever already succeeded instead of
+  // losing it behind a full-page error.
   if(state.errorMsg) return renderError();
   const r = state.roadmap;
   if(!r) return renderAnalyzing();
+  const sections = state.roadmapSections;
+  const sectionErrors = state.roadmapSectionError;
+
+  const actionPlanBlock = sections.actionPlan === 'ready' ? `<div class="roadmap-section">
+      <h3>Your action plan</h3>
+      <div class="ladder-level"><div class="lvl-name">First 7 days</div><ul>${(r.plan.first7||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 8–30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 31–60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 61–90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+    </div>
+    <div class="roadmap-section"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>`
+    : renderRoadmapSectionRetry('Your action plan', 'actionPlan', sections.actionPlan, sectionErrors.actionPlan);
+
+  const directionBlock = sections.direction === 'ready' ? `
+    <div class="eyebrow mt-32"><span class="dot"></span>Your Career Sequence</div>
+    <div class="sequence-track">
+      <div class="seq-stop"><div class="seq-lbl">Now</div><h4>${r.sequence.now.title}</h4><p>${r.sequence.now.desc}</p></div>
+      <div class="seq-stop"><div class="seq-lbl">Next</div><h4>${r.sequence.next.title}</h4><p>${r.sequence.next.desc}</p></div>
+      <div class="seq-stop"><div class="seq-lbl">Later</div><h4>${r.sequence.later.title}</h4><p>${r.sequence.later.desc}</p></div>
+    </div>
+    <div class="roadmap-section"><h3>Learning ladder</h3>
+      ${(r.learn||[]).map(l=>`<div class="ladder-level"><div class="lvl-name">${l.level}</div><ul>${(l.items||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}
+    </div>
+    <div class="roadmap-section"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
+    <div class="roadmap-section"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>`
+    : renderRoadmapSectionRetry('Your career sequence & learning strategy', 'direction', sections.direction, sectionErrors.direction);
+
   return `
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Your roadmap</div>
     <h1 style="font-size:32px;">Your Roadmap to ${state.chosenPath.title}</h1>
     <div class="not-zero">You're not starting from zero.</div>
 
-    ${r.sequence ? `<div class="eyebrow mt-32"><span class="dot"></span>Your Career Sequence</div>
-    <div class="sequence-track">
-      <div class="seq-stop"><div class="seq-lbl">Now</div><h4>${r.sequence.now.title}</h4><p>${r.sequence.now.desc}</p></div>
-      <div class="seq-stop"><div class="seq-lbl">Next</div><h4>${r.sequence.next.title}</h4><p>${r.sequence.next.desc}</p></div>
-      <div class="seq-stop"><div class="seq-lbl">Later</div><h4>${r.sequence.later.title}</h4><p>${r.sequence.later.desc}</p></div>
-    </div>` : ''}
+    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your $19.99 purchase is complete and won't be charged again. Most of your roadmap is ready below — one section needs a retry.</div>` : ''}
+
+    ${directionBlock}
 
     <div class="roadmap-section"><h3>Where you are now</h3><p style="color:var(--ink);">${r.whereYouAre}</p></div>
     <div class="roadmap-section"><h3>What already transfers</h3><ul>${(r.transfers||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
     <div class="roadmap-section"><h3>What we need to understand better</h3><ul>${(r.understandBetter||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
     <div class="roadmap-section"><h3>What you may need to strengthen</h3><ul>${(r.strengthen||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
 
-    <div class="roadmap-section"><h3>Learning ladder</h3>
-      ${(r.learn||[]).map(l=>`<div class="ladder-level"><div class="lvl-name">${l.level}</div><ul>${(l.items||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}
-    </div>
-
-    ${r.plan ? `<div class="roadmap-section">
-      <h3>Your action plan</h3>
-      <div class="ladder-level"><div class="lvl-name">First 7 days</div><ul>${(r.plan.first7||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 8–30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 31–60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 61–90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-    </div>` : ''}
-
-    <div class="roadmap-section"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
-    <div class="roadmap-section"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-    <div class="roadmap-section"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>
+    ${actionPlanBlock}
 
     <div class="mt-40"><button class="btn btn-primary" id="toKit">Build My Resume & LinkedIn Language</button></div>
   </div></div>`;
+}
+function renderRoadmapSectionRetry(label, sectionKey, status, errorText){
+  const busy = status === 'generating';
+  return `<div class="roadmap-section">
+    <h3>${label}</h3>
+    <p style="font-size:14px;">${busy ? 'Generating…' : (errorText || "This section hasn't been generated yet.")}</p>
+    ${!busy ? `<button class="btn btn-ghost btn-sm" data-retry-section="${sectionKey}">Retry ${label}</button>` : ''}
+  </div>`;
 }
 
 /* ============================= APPLICATION KIT ============================= */
@@ -712,9 +2045,9 @@ function renderKit(){
           ${b.strengthen ? `
             <span class="strengthen-link" data-strengthen-open="${i}">Help me strengthen this — ${b.strengthen}</span>
             <div class="strengthen-box" id="strengthenBox${i}" style="display:none;">
-              <input type="text" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" />
-              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}">I Know — Update</button>
-              <button class="btn btn-text btn-sm" data-strengthen-skip="${i}">I'm Not Sure / Skip</button>
+              <input type="text" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" ${state.kitBusyIndex===i?'disabled':''} />
+              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
+              <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
             </div>` : ''}
         </div>`).join('')}
     </div>
@@ -823,8 +2156,8 @@ function renderStoryBank(){
           ${s.status==='ready' ? `<p style="font-size:14.5px;">${s.story}</p>` : `
             <div class="status-need">Not enough evidence yet — ${s.prompt || 'tell me more?'}</div>
             <div class="story-add-row">
-              <input type="text" id="storyDetail${i}" placeholder="Add a detail..." />
-              <button class="btn btn-primary btn-sm" data-story-add="${i}">Add</button>
+              <input type="text" id="storyDetail${i}" placeholder="Add a detail..." ${state.storyBankBusyIndex===i?'disabled':''} />
+              <button class="btn btn-primary btn-sm" data-story-add="${i}" ${state.storyBankBusyIndex!==null?'disabled':''}>${state.storyBankBusyIndex===i?'Adding…':'Add'}</button>
             </div>`}
         </div>`).join('')}
     </div>
@@ -865,7 +2198,7 @@ function renderJdResult(a){
 function renderError(){
   return `<div class="wrap"><div class="screen">
     <div class="error-box"><strong>Something went wrong reaching CareerLaunch's analysis.</strong><br/>${state.errorMsg}
-      <br/><button class="btn btn-primary btn-sm" id="retryBtn">Try Again</button>
+      <br/><button class="btn btn-primary btn-sm" id="retryBtn">${state.errorRetryLabel || 'Try Again'}</button>
     </div>
   </div></div>`;
 }
@@ -873,7 +2206,7 @@ function renderError(){
 /* ============================= EVENT HANDLERS ============================= */
 function attachHandlers(){
   document.querySelectorAll('[data-go]').forEach(el=>{
-    el.addEventListener('click', ()=>{ state.errorMsg=''; state.screen = el.getAttribute('data-go'); render(); });
+    el.addEventListener('click', ()=>{ state.errorMsg=''; state.errorRetryLabel=null; state.screen = el.getAttribute('data-go'); render(); });
   });
   document.querySelectorAll('[data-scroll]').forEach(el=>{
     el.addEventListener('click', ()=>{ const t=document.getElementById(el.getAttribute('data-scroll')); if(t) t.scrollIntoView({behavior:'smooth'}); });
@@ -966,10 +2299,17 @@ function attachHandlers(){
 
   // paywall
   const doCheckout = document.getElementById('doCheckout');
-  if(doCheckout) doCheckout.addEventListener('click', ()=>{ state.paid = true; buildRoadmap(); });
+  if(doCheckout) doCheckout.addEventListener('click', handleCheckout);
 
   // roadmap
   const toKit = document.getElementById('toKit'); if(toKit) toKit.addEventListener('click', buildKit);
+  document.querySelectorAll('[data-retry-section]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const section = el.getAttribute('data-retry-section');
+      if(section === 'actionPlan') buildRoadmapActionPlan();
+      else if(section === 'direction') buildRoadmapDirection();
+    });
+  });
 
   // kit
   const toDashboard = document.getElementById('toDashboard'); if(toDashboard) toDashboard.addEventListener('click', ()=>{ state.screen='dashboard'; render(); });
@@ -1022,7 +2362,7 @@ function attachHandlers(){
 
   // error retry
   const retryBtn = document.getElementById('retryBtn');
-  if(retryBtn) retryBtn.addEventListener('click', ()=>{ const retry = state.errorRetry; state.errorMsg=''; state.errorRetry=null; if(retry) retry(); });
+  if(retryBtn) retryBtn.addEventListener('click', ()=>{ const retry = state.errorRetry; state.errorMsg=''; state.errorRetry=null; state.errorRetryLabel=null; if(retry) retry(); });
 }
 
 /* ============================= VOICE INPUT ============================= */
@@ -1061,196 +2401,479 @@ function toggleVoice(){
 
 /* ============================= AI FLOW FUNCTIONS ============================= */
 async function analyzeSkills(){
+  if(state.busy) return;
+  state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Reading through what you shared…'; state.errorMsg=''; render();
   const system = `You are the Experience Translator inside CareerLaunch AI. A user describes, in their own words, things they've done. Identify transferable professional skills genuinely supported by what they wrote.
 ${NO_INVENTION_RULE}
-Rules: 1) Only include skills with real textual evidence. 2) For each skill, give a short evidence note (max 16 words) paraphrasing what they said, warm plain-language ("You described..."). 3) Assign strength: "Strong" (clear/repeated evidence), "Moderate" (some evidence), or "Developing" (light exposure). 4) Return 4 to 7 skills, strongest first. 5) Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"skills":[{"name":"Skill Name","evidence":"You described...","strength":"Strong"}]}`;
+Rules: 1) Only include skills with real textual evidence. 2) evidence: a close paraphrase (max 16 words) of what they said, warm plain-language ("You described..."), staying literal — do not generalize it into a broader claim. 3) Calibrate strength honestly: "Strong" only for clear, repeated, or elaborated evidence; "Moderate" for a single plain mention without elaboration; "Developing" for something implied or mentioned only in passing; "Needs More Information" if the evidence is too thin to be confident but the activity is still plausibly relevant. Do not default to "Strong" just because an activity was mentioned once. 4) Return 4 to 7 skills, strongest first.`;
   try{
-    const text = await callClaude(system, fullStoryText(), 1000);
-    const parsed = parseJSON(text);
-    state.skills = parsed.skills || [];
-    state.screen = 'skills'; render();
+    const result = await callStructured('analyzeSkills', system, fullStoryText(), skillsTool, TOKEN_BUDGETS.skills, validateSkillsResult, normalizeSkillsResult, SKILLS_REPAIR_HINT);
+    state.skills = result.skills;
+    state.screen = 'skills';
   }catch(err){
+    logDiag('analyzeSkills', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't analyze your story just now. Nothing was lost — you can try again.";
-    state.errorRetry = analyzeSkills; state.screen = 'skills'; render();
+    state.errorRetry = analyzeSkills; state.screen = 'skills';
+  }finally{
+    state.busy = false; render();
   }
 }
 
 async function discoverPaths(){
+  if(state.busy) return;
+  state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; render();
   const validated = getValidatedSkills();
+  const rejected = getRejectedSkillNames();
+  const validatedNames = validated.map(s=>s.name);
   const system = `You are the career path engine inside CareerLaunch AI. Given a user's story and validated transferable skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
 Rules:
-1) Return 5 to 6 paths across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Include at least one Independent Path if plausible.
+1) Return 4 to 5 high-quality paths (quality over quantity) across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Aim to cover: the strongest employment path, one strong alternative, one growth direction, and one independent/freelance/entrepreneurship path when plausible. A 5th path is fine only if it adds real variety.
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
-5) For each path give: title (use the entryPoint as the title), category, why (max 20 words, evidence-based), transfers (2-3 skill names from the list), gaps (1-2 short phrases, max 5 words each), transition ("Strong"|"Moderate"|"Developing"|"Needs More Information" = transition practicality), workEnvironment (max 8 words), relevance (subset of ["Employment","Freelance","Consulting","Entrepreneurship"]), fitEvidence/fitInterest/fitLifestyle (one of "Strong","Moderate","Developing","Needs More Information" — interest is "Needs More Information" until the user says otherwise).
-6) Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"paths":[{"title":"","entryPoint":"","progression":"","category":"","why":"","transfers":[""],"gaps":[""],"transition":"","workEnvironment":"","relevance":[""],"fitEvidence":"","fitInterest":"","fitLifestyle":""}]}`;
-  const userPrompt = `User's story:\n${fullStoryText()}\n\nValidated skills:\n${skillsSummaryStr(validated)}`;
+5) transfers must ONLY use skill names copied exactly from the "Validated skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
+6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
+7) title = the entryPoint; why max 18 words, evidence-based, no filler; transfers = 2-3 exact names from the validated skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise.${rejectedSkillsClause()}`;
+  const userPrompt = `User's story:\n${fullStoryText()}\n\nValidated skills (the only names allowed in "transfers"):\n${skillsSummaryStr(validated)}`;
   try{
-    const text = await callClaude(system, userPrompt, 1000);
-    const parsed = parseJSON(text);
-    state.paths = parsed.paths || [];
+    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, validatePathsResult, normalizePathsResult, PATHS_REPAIR_HINT);
+    let paths = result.paths;
+    // Defense-in-depth (runs on a repaired result exactly the same as a first-try
+    // one — no shortcut around these checks either way): strip any rejected
+    // skill from transfers and scrub rejected-skill mentions out of freeform
+    // reasoning text before this ever reaches the UI.
+    paths = paths.map(p => ({
+      ...p,
+      transfers: filterToValidatedNames(p.transfers, validatedNames),
+      // Filled in client-side, not generated: no preference data exists yet
+      // at this point in the flow, so there's nothing real to compute here —
+      // rerankPaths() replaces these with real values once the user has told
+      // us something. Setting them now (rather than asking the model to) is
+      // both more honest and saves the exact output budget that was causing
+      // the truncation this fix addresses.
+      fitInterest: 'Needs More Information',
+      fitLifestyle: 'Needs More Information',
+    }));
+    paths = purgeRejectedFromObject(paths, rejected);
+    state.paths = paths;
     state.reranked = false; state.changeSummary='';
-    state.screen = 'paths'; render();
+    state.screen = 'paths';
   }catch(err){
+    logDiag('discoverPaths', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't map career paths just now. Nothing was lost — you can try again.";
-    state.errorRetry = discoverPaths; state.screen = 'paths'; render();
+    state.errorRetry = discoverPaths; state.screen = 'paths';
+  }finally{
+    state.busy = false; render();
   }
 }
 
 async function sendConvo(){
+  if(state.convoBusy) return;
   const input = document.getElementById('convoInput');
   if(!input || !input.value.trim()) return;
   const userText = input.value.trim();
-  state.convo.push({who:'user', text: userText});
+  state.convo.push({who:'user', text: userText}); // item 7: original message preserved regardless of what happens next
+  state.convoBusy = true;
   input.value=''; render();
-  const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
 
-  const system = `You are CareerLaunch AI, discussing career discovery results with a user before they choose a direction. Be warm, specific, and evidence-based — never generic encouragement.
+  const rejected = getRejectedSkillNames();
+
+  // Step 1: the conversational reply — plain text, not a forced tool call.
+  // Preferred, not guaranteed to be "structured," because it was never
+  // supposed to be data in the first place.
+  const replySystem = `You are CareerLaunch AI, discussing career discovery results with a user before they choose a direction. Be warm, specific, and evidence-based — never generic encouragement.
 ${NO_INVENTION_RULE}
-If the user reveals a genuine preference (something they want more or less of in their work), extract it in learnedInterests / learnedDislikes as short phrases (max 4 words each, e.g. "business problem-solving", "sales-heavy roles"). Only include something if it's a real signal, not for every message. Keep reply to 2-4 sentences, plain text, no markdown.
-Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"reply":"","learnedInterests":[],"learnedDislikes":[]}`;
-  const context = `Original story: ${state.story}\n\nValidated skills: ${getValidatedSkills().map(s=>s.name).join(', ')}\n\nCareer paths shown: ${state.paths.map(p=>p.title).join(', ')}\n\nAlready known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}`;
+${VERIFIED_INFO_RULE}
+Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble, no field labels.${rejectedSkillsClause()}`;
+  const replyContext = `Original story: ${state.story}\n\nValidated skills: ${getValidatedSkills().map(s=>s.name).join(', ')}\n\nCareer paths shown: ${state.paths.map(p=>p.title).join(', ')}\n\nAlready known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}`;
 
+  let cleanReply;
   try{
-    const text = await callClaude(system, context, 500);
-    const parsed = parseJSON(text);
-    state.convo.push({who:'ai', text: (parsed.reply||'').trim()});
-    const newInterests = (parsed.learnedInterests||[]).filter(x=>!state.preferences.interests.includes(x));
-    const newDislikes = (parsed.learnedDislikes||[]).filter(x=>!state.preferences.dislikes.includes(x));
+    const replyText = await callTextWithRetry('sendConvo', replySystem, replyContext, TOKEN_BUDGETS.convo);
+    cleanReply = purgeRejectedMentions(replyText, rejected);
+    state.convo.push({who:'ai', text: cleanReply});
+  }catch(err){
+    // Only a genuinely unusable response (nothing came back at all, even
+    // after one retry) shows the "couldn't process" message — a usable reply
+    // never reaches this branch.
+    logDiag('sendConvo', 'final_failure', err.message || String(err));
+    state.convo.push({who:'ai', text: "I couldn't process that just now — want to try rephrasing, or continue to choosing a direction?"});
+    state.convoBusy = false; render();
+    const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
+    return;
+  }
+  render(); // reply is shown now, independent of whatever happens with extraction below
+
+  // Step 2: a small, separate, structured extraction of any preference
+  // signal. Decoupled on purpose — this can fail (even after its own
+  // repair attempts) without ever retracting or blocking the reply already
+  // shown, and the conversation simply continues either way.
+  try{
+    const deltaSystem = `You extract structured preference signals for CareerLaunch AI's Career Intelligence Profile from one turn of a career-discovery conversation. Only include a genuine new preference signal — something the user wants more or less of in their work — never invent one. If nothing new was signaled, return empty arrays and an empty summary. Never repeat a preference already known.${rejectedSkillsClause()}`;
+    const deltaPrompt = `Already known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}\nAssistant's reply: ${cleanReply}`;
+    const delta = await callStructured('sendConvoProfileDelta', deltaSystem, deltaPrompt, profileDeltaTool, TOKEN_BUDGETS.profileDelta, validateProfileDeltaResult, normalizeProfileDeltaResult);
+    const cleanDelta = purgeRejectedFromObject(delta, rejected);
+    const incomingInterests = [...cleanDelta.interests, ...cleanDelta.preferences]; // "preferences" folds into the same interests signal reranking already consumes
+    const newInterests = incomingInterests.filter(x=>!state.preferences.interests.includes(x) && !rejected.some(r=>r.toLowerCase()===String(x).toLowerCase()));
+    const newDislikes = cleanDelta.dislikes.filter(x=>!state.preferences.dislikes.includes(x) && !rejected.some(r=>r.toLowerCase()===String(x).toLowerCase()));
     if(newInterests.length || newDislikes.length){
       state.preferences.interests = [...state.preferences.interests, ...newInterests];
       state.preferences.dislikes = [...state.preferences.dislikes, ...newDislikes];
       state.convo.push({who:'learned', interests:newInterests, dislikes:newDislikes});
     }
-    render();
   }catch(err){
-    state.convo.push({who:'ai', text: "I couldn't process that just now — want to try rephrasing, or continue to choosing a direction?"});
-    render();
+    // Item 8: logged only — never shown to the user, never retracts the
+    // reply, and the conversation proceeds normally either way.
+    logDiag('sendConvoProfileDelta', 'final_failure', err.message || String(err));
+    safeLog('warn', '[CareerLaunch][sendConvoProfileDelta] Profile mutation could not be completed this turn — conversation continues unaffected.');
+  }finally{
+    state.convoBusy = false; render();
+    const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
   }
 }
 
 async function rerankPaths(){
+  if(state.busy) return;
+  state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Updating your recommendations…'; state.errorMsg=''; render();
   const validated = getValidatedSkills();
-  const system = `You are the career reranking engine inside CareerLaunch AI. Given the user's current career paths and what they've told us they prefer, reclassify and lightly refine the paths.
+  const rejected = getRejectedSkillNames();
+  const validatedNames = validated.map(s=>s.name);
+  const knownTitles = state.paths.map(p=>p.title);
+  const system = `You are the career reranking engine inside CareerLaunch AI. The user's career paths already exist in full — you are NOT re-describing them, only reclassifying them.
 ${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
 Rules:
-1) Reassign each path's category to exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
-2) Never delete a path merely because the user dislikes it — move it to "Lower Interest Based on What You Told Us" instead.
-3) For any path whose category changed meaningfully, add a one-sentence "whyChanged" (max 18 words) referencing the specific preference that moved it.
-4) Keep title, entryPoint, progression, why, transfers, gaps, transition, workEnvironment, relevance the same unless a preference clearly affects fitLifestyle or fitInterest — update those two if relevant.
-5) Also return a top-level changeSummary (max 25 words) naming the preferences that drove the reranking.
-6) Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"paths":[{"title":"","entryPoint":"","progression":"","category":"","why":"","whyChanged":"","transfers":[""],"gaps":[""],"transition":"","workEnvironment":"","relevance":[""],"fitEvidence":"","fitInterest":"","fitLifestyle":""}],"changeSummary":""}`;
-  const userPrompt = `Current paths:\n${JSON.stringify(state.paths)}\n\nValidated skills: ${skillsSummaryStr(validated)}\n\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\nPriorities: ${state.priorities.join(', ')}`;
+1) For EVERY path listed below, return one entry in rankedPaths with its title (copied EXACTLY as given) and its new category — one of exactly these five strings: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us". These are NOT the same labels the paths originally had (e.g. "Strong Evidence", "Worth Exploring") — always translate to one of the five above, never reuse an original label verbatim, even for a path whose ranking conceptually stays similar.
+2) Never omit a path — every existing path needs an entry, even if its relative ranking doesn't change much.
+3) Never move a path out of consideration just because the user dislikes it — move it to "Lower Interest Based on What You Told Us" instead of dropping it.
+4) Only include whyChanged (max 18 words) when the category actually changed meaningfully for that path — omit the field otherwise.
+5) Only include fitInterest and/or fitLifestyle when a stated preference clearly changes that specific rating for that path — omit them otherwise. Do NOT re-send transfers, gaps, entryPoint, progression, workEnvironment, relevance, transition, fitEvidence, or why — those already exist and are not part of this response.
+6) changeSummary (max 25 words) names the preferences that drove the reranking.${rejectedSkillsClause()}`;
+  // The full path content still goes to the model as INPUT (for reasoning
+  // context) — only the OUTPUT schema is compact. Input tokens aren't what
+  // was truncating; the model's own generated output was.
+  const compactPaths = state.paths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers, fitInterest: p.fitInterest, fitLifestyle: p.fitLifestyle }));
+  const userPrompt = `Existing paths (for context — reclassify only, do not re-describe):\n${JSON.stringify(compactPaths)}\n\nValidated skills: ${skillsSummaryStr(validated)}\n\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\nPriorities: ${state.priorities.join(', ')}`;
   try{
-    const text = await callClaude(system, userPrompt, 1000);
-    const parsed = parseJSON(text);
-    state.paths = parsed.paths || state.paths;
-    state.changeSummary = parsed.changeSummary || '';
+    const result = await callStructured('rerankPaths', system, userPrompt, rerankTool, TOKEN_BUDGETS.rerank, validateRerankResult, (r)=>normalizeRerankResult(r, knownTitles), RERANK_REPAIR_HINT);
+    let paths = mergeRerankIntoPaths(state.paths, result.rankedPaths);
+    // Defense-in-depth: transfers are no longer regenerated by this call (they
+    // were already filtered when the path was first created), but we still
+    // re-verify them against the current validated list, and scrub any
+    // rejected-skill mention out of the newly-added whyChanged/changeSummary
+    // text — the only new freeform text this call produces.
+    paths = paths.map(p => ({ ...p, transfers: filterToValidatedNames(p.transfers, validatedNames) }));
+    paths = purgeRejectedFromObject(paths, rejected);
+    state.paths = paths;
+    state.changeSummary = purgeRejectedMentions(result.changeSummary, rejected);
     state.reranked = true;
-    state.screen = 'paths'; render();
+    state.screen = 'paths';
   }catch(err){
+    logDiag('rerankPaths', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
-    state.errorRetry = rerankPaths; state.screen = 'paths'; render();
+    state.errorRetry = rerankPaths; state.screen = 'paths';
+  }finally{
+    state.busy = false; render();
   }
 }
 
-async function buildRoadmap(){
-  state.screen = 'analyzing'; state.loadingMsg = 'Building your personalized roadmap…'; state.errorMsg=''; render();
-  const system = `You are the roadmap engine inside CareerLaunch AI. Given a user's chosen career path, validated skills, and priorities, build a personalized roadmap.
+// Paid-flow reliability fix: entitlement is granted exactly once, here, and
+// is never touched again by anything downstream. handleCheckout is itself
+// idempotent — if it's somehow invoked again after the user is already paid
+// (e.g. a stray extra click before the DOM updates), it does NOT re-run
+// "checkout" or touch paymentStatus a second time; it just makes sure
+// roadmap generation is (re)started, which is exactly what a legitimate
+// retry should do anyway.
+function handleCheckout(){
+  if(state.paymentStatus !== 'paid'){
+    state.paymentStatus = 'paid';
+  }
+  state.roadmapStatus = 'idle';
+  state.roadmapSections = { foundation: 'idle', actionPlan: 'idle', direction: 'idle' };
+  state.roadmapSectionError = { foundation: null, actionPlan: null, direction: null };
+  buildRoadmap();
+}
+
+// Per-section timeout. Diagnosis: this was 20000ms, applied by runCancelable
+// around the ENTIRE callStructured call for a section — which can internally
+// run up to 3 sequential real API round-trips (primary attempt, reshape,
+// full repair). 20s is enough for any ONE of those calls given how small
+// these schemas are, but not reliably enough for two or three of them back
+// to back — that's why a timeout could fire while a repair response "later
+// still arrived and logged": the repair was a legitimate, still-in-flight
+// network call, not a hang, and the outer race simply ran out before that
+// real sequence could finish. Generation tokens in each build*Section
+// function (myGen checks) already guarantee a late/abandoned response can
+// never mutate state after that happens — this widened window just makes it
+// far less likely to happen at all for a normal multi-tier repair.
+const ROADMAP_SECTION_TIMEOUT_MS = 45000;
+
+function finalizeRoadmapStatus(){
+  if(state.roadmapSections.foundation !== 'ready'){
+    state.roadmapStatus = 'failed';
+  } else if(state.roadmapSections.actionPlan === 'ready' && state.roadmapSections.direction === 'ready'){
+    state.roadmapStatus = 'ready';
+  } else {
+    state.roadmapStatus = 'partial';
+  }
+}
+
+// Career Foundation — the "core" section (item 2 & 3): whereYouAre, what
+// already transfers, what's still uncertain, and initial gaps. Only a
+// Foundation failure is treated as the whole roadmap being unusable; a
+// failure here surfaces through the normal full-page error/retry, since
+// there's nothing meaningful to show without it.
+async function buildRoadmapFoundation(){
+  if(state.busy) return false;
+  const myGen = ++state.roadmapSectionGeneration.foundation;
+  state.busy = true;
+  state.roadmapSections.foundation = 'generating';
+  state.roadmapSectionError.foundation = null;
+  state.loadingMsg = 'Understanding your starting point…'; state.errorMsg=''; state.errorRetryLabel=null; render();
+  const rejected = getRejectedSkillNames();
+  const system = `You are the roadmap engine inside CareerLaunch AI, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
-Rules:
-1) Use a learning ladder that does NOT default to expensive education. Only include a "Formal Education" level if genuinely useful or required — otherwise omit it.
-2) Build a Now/Next/Later career sequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with the user's priorities (each: short title, one-sentence desc, max 16 words).
-3) Build a 7/30/60/90-day action plan: first7 (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3). Personalized, not generic filler.
-4) Keep every field concise — this must fit a small token budget.
-5) Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"whereYouAre":"2 sentences max","sequence":{"now":{"title":"","desc":""},"next":{"title":"","desc":""},"later":{"title":"","desc":""}},"transfers":["",""],"understandBetter":["",""],"strengthen":["",""],"learn":[{"level":"Self-Learning","items":["",""]},{"level":"Structured Free Learning","items":[""]}],"plan":{"first7":["","",""],"days8to30":["","",""],"days31to60":["",""],"days61to90":["",""]},"positioning":"2 sentences max","searchTerms":["",""],"nextStep":"one concrete sentence"}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${(state.chosenPath.gaps||[]).join(', ')}\nSkills: ${skillsSummaryStr(getValidatedSkills())}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}`;
+${VERIFIED_INFO_RULE}
+Rules: 1) whereYouAre: 2 sentences max, grounded in their validated skills. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\nValidated skills: ${skillsSummaryStr(getValidatedSkills())}`;
   try{
-    const text = await callClaude(system, userPrompt, 1000);
-    state.roadmap = parseJSON(text);
-    state.screen = 'roadmap'; render();
+    const result = await runCancelable(
+      (signal) => callStructured('buildRoadmapFoundation', system, userPrompt, roadmapFoundationTool, TOKEN_BUDGETS.roadmapFoundation, validateRoadmapFoundationResult, undefined, undefined, signal),
+      ROADMAP_SECTION_TIMEOUT_MS
+    );
+    if(myGen !== state.roadmapSectionGeneration.foundation) return false; // stale — a newer attempt has since started
+    const clean = purgeRejectedFromObject(result, rejected);
+    state.roadmap = state.roadmap || {};
+    Object.assign(state.roadmap, {
+      whereYouAre: clean.whereYouAre,
+      transfers: clean.transfers,
+      understandBetter: clean.needsMoreInfo,
+      strengthen: clean.gaps,
+    });
+    state.roadmapSections.foundation = 'ready';
+    return true;
   }catch(err){
-    state.errorMsg = "We couldn't build your roadmap just now. Your $19.99 unlock is still active — try again.";
-    state.errorRetry = buildRoadmap; state.screen = 'roadmap'; render();
+    if(myGen !== state.roadmapSectionGeneration.foundation) return false; // stale failure — ignore
+    logDiag('buildRoadmapFoundation', 'final_failure', err.message || String(err));
+    state.roadmapSections.foundation = 'failed';
+    state.roadmapSectionError.foundation = "Good news first: your $19.99 purchase went through — that part is done, and you will not be charged again. We just couldn't build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
+    return false;
+  }finally{
+    if(myGen === state.roadmapSectionGeneration.foundation) state.busy = false;
+    render();
+  }
+}
+
+// Action Plan — the 7/30/60/90-day sequence. A failure here does NOT discard
+// Foundation; it's reported inline on the roadmap screen with its own retry.
+async function buildRoadmapActionPlan(){
+  if(state.busy) return false;
+  const myGen = ++state.roadmapSectionGeneration.actionPlan;
+  state.busy = true;
+  state.roadmapSections.actionPlan = 'generating';
+  state.roadmapSectionError.actionPlan = null;
+  state.loadingMsg = 'Building your action plan…'; render();
+  const rejected = getRejectedSkillNames();
+  const system = `You are the roadmap engine inside CareerLaunch AI, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
+${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
+Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief.`;
+  const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
+  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}`;
+  try{
+    const result = await runCancelable(
+      (signal) => callStructured('buildRoadmapActionPlan', system, userPrompt, roadmapActionPlanTool, TOKEN_BUDGETS.roadmapActionPlan, validateRoadmapActionPlanResult, undefined, ACTION_PLAN_REPAIR_HINT, signal),
+      ROADMAP_SECTION_TIMEOUT_MS
+    );
+    if(myGen !== state.roadmapSectionGeneration.actionPlan) return false;
+    const clean = purgeRejectedFromObject(result, rejected);
+    state.roadmap = state.roadmap || {};
+    Object.assign(state.roadmap, {
+      plan: { first7: clean.first7Days, days8to30: clean.days8to30, days31to60: clean.days31to60, days61to90: clean.days61to90 },
+      nextStep: clean.nextBestStep,
+    });
+    state.roadmapSections.actionPlan = 'ready';
+    return true;
+  }catch(err){
+    if(myGen !== state.roadmapSectionGeneration.actionPlan) return false;
+    logDiag('buildRoadmapActionPlan', 'final_failure', err.message || String(err));
+    state.roadmapSections.actionPlan = 'failed';
+    state.roadmapSectionError.actionPlan = "We couldn't build your action plan this time — your $19.99 purchase and everything else already generated are safe. Retry just this section below.";
+    return false;
+  }finally{
+    if(myGen === state.roadmapSectionGeneration.actionPlan) state.busy = false;
+    render();
+  }
+}
+
+// Direction & Learning — Now/Next/Later sequence, learning strategy, search
+// terms, positioning. Same isolation as Action Plan: a failure here never
+// discards Foundation or Action Plan.
+async function buildRoadmapDirection(){
+  if(state.busy) return false;
+  const myGen = ++state.roadmapSectionGeneration.direction;
+  state.busy = true;
+  state.roadmapSections.direction = 'generating';
+  state.roadmapSectionError.direction = null;
+  state.loadingMsg = 'Mapping your next steps…'; render();
+  const rejected = getRejectedSkillNames();
+  const system = `You are the roadmap engine inside CareerLaunch AI, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
+${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
+Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally. Every item must be a short phrase, not a paragraph — this response must stay compact.`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}`;
+  try{
+    const result = await runCancelable(
+      (signal) => callStructured('buildRoadmapDirection', system, userPrompt, roadmapDirectionTool, TOKEN_BUDGETS.roadmapDirection, validateRoadmapDirectionResult, undefined, DIRECTION_REPAIR_HINT, signal),
+      ROADMAP_SECTION_TIMEOUT_MS
+    );
+    if(myGen !== state.roadmapSectionGeneration.direction) return false;
+    const clean = purgeRejectedFromObject(result, rejected);
+    state.roadmap = state.roadmap || {};
+    Object.assign(state.roadmap, {
+      sequence: clean.careerSequence,
+      learn: clean.learningStrategy,
+      searchTerms: clean.searchTerms,
+      positioning: clean.positioning,
+    });
+    state.roadmapSections.direction = 'ready';
+    return true;
+  }catch(err){
+    if(myGen !== state.roadmapSectionGeneration.direction) return false;
+    logDiag('buildRoadmapDirection', 'final_failure', err.message || String(err));
+    state.roadmapSections.direction = 'failed';
+    state.roadmapSectionError.direction = "We couldn't map your next steps this time — your $19.99 purchase and everything else already generated are safe. Retry just this section below.";
+    return false;
+  }finally{
+    if(myGen === state.roadmapSectionGeneration.direction) state.busy = false;
+    render();
+  }
+}
+
+// Orchestrates the three sections in sequence (Foundation first, since the
+// other two lean on its output for context). Each section preserves whatever
+// the previous ones already produced — a later failure never discards an
+// earlier success. Only a Foundation failure routes to the full-page
+// error/retry; Action Plan / Direction failures leave the user on the
+// roadmap screen with whatever succeeded, plus an inline retry for the
+// missing piece.
+async function buildRoadmap(){
+  if(state.roadmapOrchestratorBusy) return;
+  state.roadmapOrchestratorBusy = true;
+  state.screen = 'analyzing';
+  try{
+    const foundationOk = await buildRoadmapFoundation();
+    if(!foundationOk){
+      finalizeRoadmapStatus();
+      state.errorMsg = state.roadmapSectionError.foundation;
+      state.errorRetryLabel = 'Retry Building My Roadmap';
+      state.errorRetry = buildRoadmap;
+      state.screen = 'roadmap';
+      render();
+      return;
+    }
+    await buildRoadmapActionPlan();
+    await buildRoadmapDirection();
+    finalizeRoadmapStatus();
+    state.screen = 'roadmap';
+    render();
+  }finally{
+    state.roadmapOrchestratorBusy = false;
   }
 }
 
 async function buildKit(){
+  if(state.busy) return;
+  state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Positioning your experience professionally…'; state.errorMsg=''; render();
   const validated = getValidatedSkills();
+  const rejected = getRejectedSkillNames();
+  const evidenceText = fullStoryText() + ' ' + validated.map(s=>s.evidence).join(' ');
   const system = `You are the Application Kit builder inside CareerLaunch AI. Translate a user's validated real experience into professional resume and LinkedIn language for a specific target path.
 ${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
 Rules:
-1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
+1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. Never include a number/statistic the user didn't provide. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly), "Professional Brand-Focused" (reads as a personal brand statement).
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence.
-4) Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"resumeBullets":[{"text":"","strengthen":""}],"linkedinHeadlines":[{"style":"Recruiter Search-Focused","text":""},{"style":"Career Transition-Focused","text":""},{"style":"Professional Brand-Focused","text":""}],"linkedinAbout":""}`;
-  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story: ${state.story}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
+4) Only draw on the "Validated skills" list below — the user has explicitly reviewed and confirmed these. Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
+  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only — use ONLY the validated skills below as source material for claims): ${state.story}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
-    const text = await callClaude(system, userPrompt, 1000);
-    state.kit = parseJSON(text);
+    const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
+    state.kit = purgeRejectedFromObject(result, rejected);
     state.evidenceLibrary = validated.map(s=>({theme:s.name, evidence:s.evidence}));
-    state.screen = 'kit'; render();
+    state.screen = 'kit';
   }catch(err){
+    logDiag('buildKit', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't generate your positioning language just now. Try again.";
-    state.errorRetry = buildKit; state.screen = 'kit'; render();
+    state.errorRetry = buildKit; state.screen = 'kit';
+  }finally{
+    state.busy = false; render();
   }
 }
 
 async function strengthenBullet(i){
+  if(state.kitBusyIndex !== null) return;
   const input = document.getElementById('strengthenInput'+i);
   const detail = input ? input.value.trim() : '';
   const box = document.getElementById('strengthenBox'+i);
   if(!detail){ if(box) box.style.display='none'; return; }
   const bulletEl = document.getElementById('bulletText'+i);
   const original = state.kit.resumeBullets[i].text;
+  state.kitBusyIndex = i;
   if(bulletEl) bulletEl.textContent = 'Updating…';
-  const system = `You rewrite a single resume bullet to incorporate one new true detail the user just provided. ${NO_INVENTION_RULE} Only use the exact detail given — do not round, estimate, or embellish beyond it. One line, action-verb led. Respond with plain text only: the rewritten bullet, nothing else.`;
+  render();
+  const rejected = getRejectedSkillNames();
+  const system = `You rewrite a single resume bullet to incorporate one new true detail the user just provided. ${NO_INVENTION_RULE} ${VERIFIED_INFO_RULE} Only use the exact detail given — do not round, estimate, or embellish beyond it. One line, action-verb led.${rejectedSkillsClause()}`;
   const userPrompt = `Original bullet: ${original}\nNew detail from user: ${detail}`;
   try{
-    const text = await callClaude(system, userPrompt, 150);
-    state.kit.resumeBullets[i] = { text: text.trim() };
-    render();
+    const result = await callStructured('strengthenBullet', system, userPrompt, bulletRepairTool, TOKEN_BUDGETS.bulletRepair, validateTextResult('text'));
+    state.kit.resumeBullets[i] = { text: purgeRejectedMentions(result.text.trim(), rejected) };
   }catch(err){
-    if(bulletEl) bulletEl.textContent = original;
+    logDiag('strengthenBullet', 'final_failure', err.message || String(err));
+    state.kit.resumeBullets[i] = { text: original };
     if(box) box.style.display='none';
+  }finally{
+    state.kitBusyIndex = null; render();
   }
 }
 
 async function submitAddExperience(){
+  if(state.busy) return;
   const text = state.addExpText.trim();
   if(!text) return;
+  state.busy = true;
   const beforeNames = new Set(state.skills.map(s=>s.name));
   state.additionalExperiences.push(text);
   state.addExpText = '';
   state.screen = 'analyzing'; state.loadingMsg = 'Updating your profile with this new experience…'; render();
   const system = `You are the Experience Translator inside CareerLaunch AI, re-analyzing a user's full history (original story plus newly added experiences) to identify transferable professional skills.
 ${NO_INVENTION_RULE}
-Rules: 1) Only include skills with real textual evidence. 2) Evidence note max 16 words, "You described...". 3) Strength: "Strong"|"Moderate"|"Developing". 4) Return 4 to 8 skills, strongest first. 5) Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"skills":[{"name":"","evidence":"","strength":""}]}`;
+Rules: 1) Only include skills with real textual evidence. 2) evidence: a close paraphrase (max 16 words), "You described...", staying literal. 3) Calibrate strength honestly per the criteria above — don't default to "Strong" for a single brief mention. 4) Return 4 to 8 skills, strongest first.`;
   try{
-    const t = await callClaude(system, fullStoryText(), 1000);
-    const parsed = parseJSON(t);
-    const newSkills = parsed.skills || [];
+    const result = await callStructured('submitAddExperience', system, fullStoryText(), skillsTool, TOKEN_BUDGETS.skills, validateSkillsResult, normalizeSkillsResult, SKILLS_REPAIR_HINT);
+    const newSkills = result.skills;
     const addedNames = newSkills.filter(s=>!beforeNames.has(s.name)).map(s=>s.name);
     state.skills = newSkills;
     state.changeSummary = addedNames.length ? `New experience added — we found: ${addedNames.join(', ')}.` : 'New experience added — it reinforced skills you already had.';
     state.reranked = false;
-    state.screen = 'skills'; render();
+    state.screen = 'skills';
   }catch(err){
+    logDiag('submitAddExperience', 'final_failure', err.message || String(err));
+    // Last-known-good state preserved: state.skills/additionalExperiences from
+    // before this call are untouched (we never assigned to them above), so a
+    // retry starts from the same profile rather than a corrupted one — except
+    // the newly-added story text itself, which we deliberately keep (the user
+    // did tell us that; only the re-analysis of it failed).
     state.errorMsg = "We couldn't update your profile with that experience just now. Try again.";
-    state.errorRetry = submitAddExperience; state.screen = 'skills'; render();
+    state.errorRetry = submitAddExperience; state.screen = 'skills';
+  }finally{
+    state.busy = false; render();
   }
 }
 
@@ -1259,51 +2882,70 @@ async function openStoryBankFn(){
   await buildStoryBank();
 }
 async function buildStoryBank(){
+  if(state.busy) return;
+  state.busy = true;
   const validated = getValidatedSkills();
+  const rejected = getRejectedSkillNames();
   const system = `You build an interview Story Bank inside CareerLaunch AI, using only the user's real, validated experience.
 ${NO_INVENTION_RULE}
-For each of these fixed categories: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) if there's enough evidence, or mark status "needs_more" with a short prompt (max 14 words) asking for the missing detail.
-Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"stories":[{"category":"","status":"ready","story":"","prompt":""}]}`;
+For each of these fixed categories, in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) with status "ready", or if there isn't enough evidence, set status "needs_more" with a short prompt (max 14 words) asking for the missing detail. Only draw on the "Validated skills" list below — the story text is provided for tone/context, but any skill or activity the user has rejected must not be used as evidence for a story.${rejectedSkillsClause()}`;
   const userPrompt = `Story: ${fullStoryText()}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
-    const text = await callClaude(system, userPrompt, 1000);
-    state.storyBank = parseJSON(text);
-    render();
+    const result = await callStructured('buildStoryBank', system, userPrompt, storyBankTool, TOKEN_BUDGETS.storyBank, validateStoryBankResult);
+    state.storyBank = purgeRejectedFromObject(result, rejected);
   }catch(err){
+    logDiag('buildStoryBank', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't build your story bank just now. Try again.";
-    state.errorRetry = buildStoryBank; render();
+    state.errorRetry = buildStoryBank;
+  }finally{
+    state.busy = false; render();
   }
 }
 async function addStoryDetail(i, detail){
+  if(state.storyBankBusyIndex !== null) return;
+  state.storyBankBusyIndex = i;
+  render();
   const cat = state.storyBank.stories[i].category;
-  const el = document.querySelector(`.story-card:nth-child(${i+1})`);
-  const system = `You write one interview story for CareerLaunch AI using only the true detail just given, plus prior known evidence. ${NO_INVENTION_RULE} 2-3 sentences, first person. Respond with plain text only: the story, nothing else.`;
+  const rejected = getRejectedSkillNames();
+  const system = `You write one interview story for CareerLaunch AI using only the true detail just given, plus prior known evidence. ${NO_INVENTION_RULE} 2-3 sentences, first person.${rejectedSkillsClause()}`;
   const userPrompt = `Category: ${cat}\nKnown context: ${fullStoryText()}\nNew detail from user: ${detail}`;
   try{
-    const text = await callClaude(system, userPrompt, 200);
-    state.storyBank.stories[i] = { category: cat, status: 'ready', story: text.trim() };
-    render();
-  }catch(err){ /* leave as-is, silent fail on this lightweight feature */ }
+    const result = await callStructured('addStoryDetail', system, userPrompt, singleStoryTool, TOKEN_BUDGETS.singleStory, validateTextResult('story'));
+    state.storyBank.stories[i] = { category: cat, status: 'ready', story: purgeRejectedMentions(result.story.trim(), rejected) };
+  }catch(err){
+    logDiag('addStoryDetail', 'final_failure', err.message || String(err));
+    // Leave the story entry exactly as it was (needs_more) — no partial/fake
+    // story gets substituted in, and the user can try adding the detail again.
+  }finally{
+    state.storyBankBusyIndex = null; render();
+  }
 }
 
 async function analyzeJd(){
+  if(state.busy) return;
   if(!state.jdText.trim()) return;
+  state.busy = true;
   state.errorMsg=''; state.screen = 'analyzing'; state.loadingMsg = 'Comparing the posting against your profile…'; render();
   const validated = getValidatedSkills();
-  const system = `You compare a single pasted job description against a user's validated skills inside CareerLaunch AI. Base "marketAsks" only on what's actually in the pasted text — never invent industry-wide claims or live labor-market data.
+  const validatedNames = validated.map(s=>s.name);
+  const rejected = getRejectedSkillNames();
+  const system = `You compare a single pasted job description against a user's validated skills inside CareerLaunch AI. Base "marketAsks" only on what's actually in the pasted text below — that specific posting is a legitimate source for itself, but never generalize it into a claim about the wider market, other employers, salary, or demand.
 ${NO_INVENTION_RULE}
-Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting. youAlreadyHave = subset of the user's validated skills that match. shouldStrengthen = 2-3 gaps between the posting and the user's skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information" (put this exact value in overallFit).
-Respond ONLY with valid JSON, no markdown fences, no preamble:
-{"marketAsks":[""],"youAlreadyHave":[""],"shouldStrengthen":[""],"overallFit":""}`;
-  const userPrompt = `Job description:\n${state.jdText}\n\nUser's validated skills: ${skillsSummaryStr(validated)}`;
+${VERIFIED_INFO_RULE}
+Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text itself. youAlreadyHave = ONLY skill names copied exactly from the "User's validated skills" list below that genuinely match something in the posting — never a rejected skill, never one inferred from outside the posting. shouldStrengthen = 2-3 gaps between the posting and the user's validated skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information".${rejectedSkillsClause()}`;
+  const userPrompt = `Job description:\n${state.jdText}\n\nUser's validated skills (the only names allowed in "youAlreadyHave"): ${skillsSummaryStr(validated)}`;
   try{
-    const text = await callClaude(system, userPrompt, 700);
-    state.jdAnalysis = parseJSON(text);
-    state.screen = 'jdAnalyzer'; render();
+    const result = await callStructured('analyzeJd', system, userPrompt, jdTool, TOKEN_BUDGETS.jd, validateJdResult);
+    const cleaned = purgeRejectedFromObject(result, rejected);
+    cleaned.youAlreadyHave = filterToValidatedNames(cleaned.youAlreadyHave, validatedNames);
+    state.jdAnalysis = cleaned;
+    state.screen = 'jdAnalyzer';
   }catch(err){
+    logDiag('analyzeJd', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't analyze that posting just now. Try again.";
-    state.errorRetry = analyzeJd; state.screen = 'jdAnalyzer'; render();
+    state.errorRetry = analyzeJd; state.screen = 'jdAnalyzer';
+  }finally{
+    state.busy = false; render();
   }
 }
 
