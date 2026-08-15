@@ -82,7 +82,7 @@
   .translate-demo{margin-top:64px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);}
   .translate-demo .before{font-family:var(--serif);font-size:19px;font-style:italic;color:var(--ink);margin-bottom:18px;}
   .translate-demo .before span{background:var(--highlight-soft);padding:1px 4px;border-radius:3px;}
-  .translate-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .xray-label{   font-family:var(--mono);   font-size:10.5px;   letter-spacing:0.08em;   text-transform:uppercase;   color:var(--ink-faint);   margin:18px 0 10px; }  .xray-bridge{   margin:22px 0;   padding:10px 14px;   border-radius:10px;   background:var(--highlight-soft);   color:var(--highlight);   font-size:12px;   font-weight:600;   text-align:center; }  .translate-tags{display:flex;flex-wrap:wrap;gap:8px;}
   .tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;background:var(--sage-soft);color:var(--sage);border:1px solid rgba(79,117,97,0.25);}
 
   .section{padding:64px 0;border-top:1px solid var(--line);}
@@ -1680,16 +1680,16 @@ function renderLanding(){
     </nav>
     <section class="hero">
       <div class="eyebrow"><span class="dot"></span>Experience Translator</div>
-      <h1>You've done more <mark>than you think.</mark></h1>
-      <p class="lede">Tell CareerLaunch what you've actually done, in your own words. We'll help you uncover the skills inside your experience, explore the career paths they may transfer to, and build a practical path forward.</p>
-      <p class="micro">No perfect resume required. No professional terminology required. Just tell us your story.</p>
+      <h1>You've done the work.<br><mark>We give it a name.</mark></h1>
+      <p class="lede"><p class="lede">Tell CareerLaunch what you've actually done, in your own words. We'll uncover the professional skills already inside your experience and help you see where they could take you.</p> We'll help you uncover the skills inside your experience, explore the career paths they may transfer to, and build a practical path forward.</p>
+      <p class="micro">No perfect resume required. No professional terminology required. Your real experience is enough to start.</p>
       <div class="hero-ctas">
         <button class="btn btn-primary" data-go="intake">Discover My Career Options</button>
         <button class="btn btn-text" data-scroll="how">See how it works</button>
       </div>
       <div class="translate-demo">
-        <div class="before">"I helped run my sister's clothing business — <span>answered WhatsApp messages</span>, <span>ordered products</span>, <span>dealt with angry customers</span>, and <span>trained new girls</span>."</div>
-        <div class="translate-tags">
+        <div class="before"><div class="before"> — <span>answered WhatsApp messages</span>, <span>ordered products</span>, <span>dealt with angry customers</span>, and <span>trained new girls</span>."</div>
+        <div class="xray-bridge">CareerLaunch translates your experience</div> <div class="xray-label">WHAT YOUR EXPERIENCE SHOWS</div> <div class="translate-tags">
           <span class="tag">Customer Service</span><span class="tag">Vendor Coordination</span><span class="tag">Issue Resolution</span><span class="tag">Staff Training</span><span class="tag">Operations Support</span>
         </div>
       </div>
@@ -1743,7 +1743,7 @@ function renderLanding(){
       </div>
     </section>
     <section class="final-cta">
-      <h2>Your experience counts. Let's find out where it can take you.</h2>
+      <h2>You've done the work. Let's give it a name.</h2>
       <button class="btn btn-primary" data-go="intake">Start My Career Discovery</button>
     </section>
     <footer>Guidance, not guarantees. CareerLaunch only knows what you share with it — recommendations are a starting point for your own judgment, not a verdict on your potential.</footer>
