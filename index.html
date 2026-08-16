@@ -323,8 +323,13 @@ const state = {
 
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
-function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
+function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
 function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
+function acceptPendingSkills(){
+  state.skills.forEach(s => {
+    if(state.skillValidation[s.name] !== 'no') state.skillValidation[s.name] = 'yes';
+  });
+}
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
 
@@ -1858,7 +1863,7 @@ function renderAnalyzing(){
 /* ============================= SKILLS ============================= */
 function renderSkills(){
   if(state.errorMsg) return renderError();
-  const n = getValidatedSkills().length;
+  const n = state.skills.filter(s => state.skillValidation[s.name] !== 'no').length;
   return `
   <div class="wrap"><div class="screen">
     <div class="big-stat">You have <mark>${n}</mark> transferable<br/>professional skills.</div>
@@ -1877,6 +1882,7 @@ function renderSkills(){
       }).join('')}
     </div>
     <p style="font-size:12.5px;color:var(--ink-faint);">Skills marked "Not Quite" won't influence your career paths, roadmap, or resume.</p>
+    <p style="font-size:12px;color:var(--ink-faint);margin-top:10px;">Anything you leave unmarked will be included when you continue. Mark "Not quite" to exclude a skill.</p>
     <div class="mt-32"><button class="btn btn-primary" id="toPaths">Show Me My Career Paths</button></div>
   </div></div>`;
 }
@@ -1915,7 +1921,7 @@ function renderPaths(){
           <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
         </div>
         ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
-          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||'—'}</div>
+          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'—'}</div>
           <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
           <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
         </div>`:''}
@@ -2317,7 +2323,7 @@ function attachHandlers(){
       render();
     });
   });
-  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', discoverPaths);
+  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', ()=>{ acceptPendingSkills(); discoverPaths(); });
 
   // paths
   document.querySelectorAll('[data-path]').forEach(el=>{
@@ -2924,7 +2930,7 @@ Rules:
 1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. Never include a number/statistic the user didn't provide. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly), "Professional Brand-Focused" (reads as a personal brand statement).
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence.
-4) Only draw on the "Validated skills" list below — the user has explicitly reviewed and confirmed these. Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
+4) Only draw on the "Validated skills" list below — the user accepted these for use in their analysis (and rejected any marked "Not quite"). Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
   const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only — use ONLY the validated skills below as source material for claims): ${state.story}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
     const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
