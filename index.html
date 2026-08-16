@@ -266,59 +266,256 @@
 
 <script>
 /* ============================= STATE (Career Intelligence Profile) ============================= */
-const state = {
-  screen: 'landing',
-  story: '',
-  additionalExperiences: [],
-  skills: [],
-  skillValidation: {}, // name -> 'yes' | 'no'
-  preferences: { interests: [], dislikes: [] },
-  paths: [],
-  reranked: false,
-  changeSummary: '',
-  chosenPath: null,
-  priorities: [],
-  // Explicit state-machine separation (paid-flow reliability fix): entitlement,
-  // roadmap-generation status, and the roadmap data itself are three different
-  // concerns that must never be conflated. paymentStatus is the sole source of
-  // truth for "did the user pay" — once it's 'paid', nothing in this file ever
-  // sets it back, regardless of what happens to roadmap generation afterward.
-  paymentStatus: 'unpaid', // 'unpaid' | 'paid'
-  roadmapStatus: 'idle',   // 'idle' | 'generating' | 'partial' | 'ready' | 'failed' — overall rollup of the 3 sections below
-  // Roadmap architecture fix: generated as 3 independent sections so a failure
-  // in one never discards a section that already succeeded. Each has its own
-  // status, its own error detail (for inline retry UI, not the full-page
-  // error), and its own generation token — incremented every time that
-  // specific section (re)starts, so a response from an old, already-abandoned
-  // attempt can never mutate state.roadmap even if it arrives late.
-  roadmapSections: { foundation: 'idle', actionPlan: 'idle', direction: 'idle' }, // each: 'idle' | 'generating' | 'ready' | 'failed'
-  roadmapSectionError: { foundation: null, actionPlan: null, direction: null },
-  roadmapSectionGeneration: { foundation: 0, actionPlan: 0, direction: 0 },
-  roadmapOrchestratorBusy: false, // guards the buildRoadmap() sequence itself against a duplicate double-click
-  errorRetryLabel: null,   // optional override for the retry button's label
-  roadmap: null,
-  evidenceLibrary: [],
-  kit: null,
-  selectedHeadline: 0,
-  storyBank: null,
-  jdText: '',
-  jdAnalysis: null,
-  convo: [],
-  loadingMsg: '',
-  errorMsg: '',
-  errorRetry: null,
-  recording: false,
-  addExpText: '',
-  // Busy locks (reliability item F): prevent duplicate/overlapping AI calls.
-  // `busy` guards the full-screen operations (they replace the triggering
-  // button via a screen change anyway, but this is a defensive second layer).
-  // The other three guard inline controls that stay on-screen while a call
-  // is in flight, where a screen change can't do that job for us.
-  busy: false,
-  convoBusy: false,
-  kitBusyIndex: null,
-  storyBankBusyIndex: null,
-};
+function createDefaultState(){
+  return {
+    screen: 'landing',
+    story: '',
+    additionalExperiences: [],
+    skills: [],
+    skillValidation: {}, // name -> 'yes' | 'no'
+    preferences: { interests: [], dislikes: [] },
+    paths: [],
+    reranked: false,
+    changeSummary: '',
+    chosenPath: null,
+    priorities: [],
+    // Explicit state-machine separation (paid-flow reliability fix): entitlement,
+    // roadmap-generation status, and the roadmap data itself are three different
+    // concerns that must never be conflated. paymentStatus is the sole source of
+    // truth for "did the user pay" — once it's 'paid', nothing in this file ever
+    // sets it back, regardless of what happens to roadmap generation afterward.
+    paymentStatus: 'unpaid', // 'unpaid' | 'paid'
+    roadmapStatus: 'idle',   // 'idle' | 'generating' | 'partial' | 'ready' | 'failed' — overall rollup of the 3 sections below
+    // Roadmap architecture fix: generated as 3 independent sections so a failure
+    // in one never discards a section that already succeeded. Each has its own
+    // status, its own error detail (for inline retry UI, not the full-page
+    // error), and its own generation token — incremented every time that
+    // specific section (re)starts, so a response from an old, already-abandoned
+    // attempt can never mutate state.roadmap even if it arrives late.
+    roadmapSections: { foundation: 'idle', actionPlan: 'idle', direction: 'idle' }, // each: 'idle' | 'generating' | 'ready' | 'failed'
+    roadmapSectionError: { foundation: null, actionPlan: null, direction: null },
+    roadmapSectionGeneration: { foundation: 0, actionPlan: 0, direction: 0 },
+    roadmapOrchestratorBusy: false, // guards the buildRoadmap() sequence itself against a duplicate double-click
+    errorRetryLabel: null,   // optional override for the retry button's label
+    roadmap: null,
+    evidenceLibrary: [],
+    kit: null,
+    selectedHeadline: 0,
+    storyBank: null,
+    jdText: '',
+    jdAnalysis: null,
+    convo: [],
+    loadingMsg: '',
+    errorMsg: '',
+    errorRetry: null,
+    recording: false,
+    addExpText: '',
+    // Busy locks (reliability item F): prevent duplicate/overlapping AI calls.
+    // `busy` guards the full-screen operations (they replace the triggering
+    // button via a screen change anyway, but this is a defensive second layer).
+    // The other three guard inline controls that stay on-screen while a call
+    // is in flight, where a screen change can't do that job for us.
+    busy: false,
+    convoBusy: false,
+    kitBusyIndex: null,
+    storyBankBusyIndex: null,
+  };
+}
+
+const state = createDefaultState();
+
+/* ============================= PROFILE SERIALIZATION (V1) ============================= */
+// Local-only persistence layer — not wired to storage or network yet.
+const PROFILE_SCHEMA_VERSION = 1;
+const TRANSIENT_SCREENS = new Set(['analyzing']);
+const ROADMAP_SECTION_KEYS = ['foundation', 'actionPlan', 'direction'];
+const ROADMAP_SECTION_TERMINAL = new Set(['idle', 'ready', 'failed']);
+
+function jsonClone(value){
+  return JSON.parse(JSON.stringify(value));
+}
+
+function isPlainObject(value){
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneStringArray(value){
+  if(!Array.isArray(value)) return [];
+  return value.filter(item => typeof item === 'string').map(item => item);
+}
+
+function cloneSkillValidation(value){
+  if(!isPlainObject(value)) return {};
+  const out = {};
+  for(const name in value){
+    if(value[name] === 'yes' || value[name] === 'no') out[name] = value[name];
+  }
+  return out;
+}
+
+function pruneSkillValidationForSkills(skillValidation, skills){
+  const names = new Set((Array.isArray(skills) ? skills : []).map(s => s && s.name).filter(Boolean));
+  const out = {};
+  for(const name in skillValidation){
+    if(names.has(name)) out[name] = skillValidation[name];
+  }
+  return out;
+}
+
+function roadmapSectionHasContent(sectionKey, roadmap){
+  if(!roadmap || typeof roadmap !== 'object') return false;
+  if(sectionKey === 'foundation') return typeof roadmap.whereYouAre === 'string' && roadmap.whereYouAre.length > 0;
+  if(sectionKey === 'actionPlan') return !!(roadmap.plan && typeof roadmap.plan === 'object');
+  if(sectionKey === 'direction') return !!(roadmap.sequence && typeof roadmap.sequence === 'object');
+  return false;
+}
+
+function normalizeRoadmapSectionsForSerialize(sections, roadmap){
+  const base = createDefaultState().roadmapSections;
+  const out = { ...base };
+  for(const key of ROADMAP_SECTION_KEYS){
+    const raw = sections && sections[key];
+    if(raw === 'generating'){
+      out[key] = roadmapSectionHasContent(key, roadmap) ? 'ready' : 'idle';
+    } else if(ROADMAP_SECTION_TERMINAL.has(raw) || raw === 'partial'){
+      out[key] = raw === 'partial' ? 'ready' : raw;
+    } else {
+      out[key] = base[key];
+    }
+  }
+  return out;
+}
+
+function rollupRoadmapStatus(sections){
+  if(sections.foundation !== 'ready') return 'failed';
+  if(sections.actionPlan === 'ready' && sections.direction === 'ready') return 'ready';
+  if(sections.actionPlan === 'ready' || sections.direction === 'ready') return 'partial';
+  return 'idle';
+}
+
+function normalizeRoadmapStatusForSerialize(status, sections){
+  if(status === 'generating') return rollupRoadmapStatus(sections);
+  if(status === 'ready' || status === 'partial' || status === 'failed' || status === 'idle') return status;
+  return rollupRoadmapStatus(sections);
+}
+
+function resolvePersistedScreen(screen, profileLike){
+  if(screen && !TRANSIENT_SCREENS.has(screen)) return screen;
+  if(profileLike.kit) return 'kit';
+  if(profileLike.roadmap) return 'roadmap';
+  if(profileLike.paymentStatus === 'paid') return 'roadmap';
+  if(profileLike.chosenPath && Array.isArray(profileLike.priorities) && profileLike.priorities.length) return 'paywall';
+  if(Array.isArray(profileLike.convo) && profileLike.convo.length) return 'conversation';
+  if(Array.isArray(profileLike.paths) && profileLike.paths.length) return 'paths';
+  if(Array.isArray(profileLike.skills) && profileLike.skills.length) return 'skills';
+  if(typeof profileLike.story === 'string' && profileLike.story.trim()) return 'intake';
+  return 'landing';
+}
+
+function serializeProfile(sourceState){
+  if(!sourceState || typeof sourceState !== 'object') return null;
+  const normalizedSections = normalizeRoadmapSectionsForSerialize(sourceState.roadmapSections, sourceState.roadmap);
+  const normalizedRoadmapStatus = normalizeRoadmapStatusForSerialize(sourceState.roadmapStatus, normalizedSections);
+  const skills = Array.isArray(sourceState.skills) ? jsonClone(sourceState.skills) : [];
+  const skillValidation = pruneSkillValidationForSkills(
+    cloneSkillValidation(sourceState.skillValidation),
+    skills
+  );
+  const preferences = isPlainObject(sourceState.preferences)
+    ? { interests: cloneStringArray(sourceState.preferences.interests), dislikes: cloneStringArray(sourceState.preferences.dislikes) }
+    : { interests: [], dislikes: [] };
+  // V1 only — preserves round-trip behavior; NOT a trustworthy entitlement source.
+  // Will later be replaced/revalidated by server-verified purchase state.
+  const paymentStatus = sourceState.paymentStatus === 'paid' ? 'paid' : 'unpaid';
+  return {
+    schemaVersion: PROFILE_SCHEMA_VERSION,
+    savedAt: new Date().toISOString(),
+    currentScreen: resolvePersistedScreen(sourceState.screen, sourceState),
+    story: typeof sourceState.story === 'string' ? sourceState.story : '',
+    additionalExperiences: cloneStringArray(sourceState.additionalExperiences),
+    skills,
+    skillValidation,
+    preferences,
+    priorities: cloneStringArray(sourceState.priorities),
+    paths: Array.isArray(sourceState.paths) ? jsonClone(sourceState.paths) : [],
+    reranked: !!sourceState.reranked,
+    changeSummary: typeof sourceState.changeSummary === 'string' ? sourceState.changeSummary : '',
+    chosenPath: sourceState.chosenPath && typeof sourceState.chosenPath === 'object' ? jsonClone(sourceState.chosenPath) : null,
+    convo: Array.isArray(sourceState.convo) ? jsonClone(sourceState.convo) : [],
+    paymentStatus,
+    roadmap: sourceState.roadmap && typeof sourceState.roadmap === 'object' ? jsonClone(sourceState.roadmap) : null,
+    roadmapSections: normalizedSections,
+    roadmapStatus: normalizedRoadmapStatus,
+    evidenceLibrary: Array.isArray(sourceState.evidenceLibrary) ? jsonClone(sourceState.evidenceLibrary) : [],
+    kit: sourceState.kit && typeof sourceState.kit === 'object' ? jsonClone(sourceState.kit) : null,
+    selectedHeadline: Number.isInteger(sourceState.selectedHeadline) && sourceState.selectedHeadline >= 0 ? sourceState.selectedHeadline : 0,
+    storyBank: sourceState.storyBank && typeof sourceState.storyBank === 'object' ? jsonClone(sourceState.storyBank) : null,
+    jdText: typeof sourceState.jdText === 'string' ? sourceState.jdText : '',
+    jdAnalysis: sourceState.jdAnalysis && typeof sourceState.jdAnalysis === 'object' ? jsonClone(sourceState.jdAnalysis) : null,
+  };
+}
+
+function migrateProfile(savedProfile){
+  if(!isPlainObject(savedProfile)) return null;
+  let cloned;
+  try{ cloned = jsonClone(savedProfile); }catch(e){ return null; }
+  let version = cloned.schemaVersion;
+  if(version === undefined || version === null) version = 1;
+  if(typeof version !== 'number' || !Number.isFinite(version)) return null;
+  if(version > PROFILE_SCHEMA_VERSION) return null;
+  if(version < 1) version = 1;
+  cloned.schemaVersion = version;
+  return cloned;
+}
+
+function hydrateProfile(savedProfile){
+  const migrated = migrateProfile(savedProfile);
+  const restored = createDefaultState();
+  if(!migrated) return restored;
+
+  if(typeof migrated.story === 'string') restored.story = migrated.story;
+  if(Array.isArray(migrated.additionalExperiences)) restored.additionalExperiences = cloneStringArray(migrated.additionalExperiences);
+  if(Array.isArray(migrated.skills)) restored.skills = jsonClone(migrated.skills);
+  if(isPlainObject(migrated.skillValidation)) restored.skillValidation = cloneSkillValidation(migrated.skillValidation);
+  if(isPlainObject(migrated.preferences)){
+    restored.preferences = {
+      interests: cloneStringArray(migrated.preferences.interests),
+      dislikes: cloneStringArray(migrated.preferences.dislikes),
+    };
+  }
+  if(Array.isArray(migrated.priorities)) restored.priorities = cloneStringArray(migrated.priorities);
+  if(Array.isArray(migrated.paths)) restored.paths = jsonClone(migrated.paths);
+  if(typeof migrated.reranked === 'boolean') restored.reranked = migrated.reranked;
+  if(typeof migrated.changeSummary === 'string') restored.changeSummary = migrated.changeSummary;
+  if(migrated.chosenPath && isPlainObject(migrated.chosenPath)) restored.chosenPath = jsonClone(migrated.chosenPath);
+  if(Array.isArray(migrated.convo)) restored.convo = jsonClone(migrated.convo);
+  if(migrated.paymentStatus === 'paid' || migrated.paymentStatus === 'unpaid') restored.paymentStatus = migrated.paymentStatus;
+  if(migrated.roadmap && isPlainObject(migrated.roadmap)) restored.roadmap = jsonClone(migrated.roadmap);
+  if(isPlainObject(migrated.roadmapSections)){
+    const sections = normalizeRoadmapSectionsForSerialize(migrated.roadmapSections, restored.roadmap);
+    restored.roadmapSections = sections;
+  }
+  if(typeof migrated.roadmapStatus === 'string'){
+    restored.roadmapStatus = normalizeRoadmapStatusForSerialize(migrated.roadmapStatus, restored.roadmapSections);
+  } else {
+    restored.roadmapStatus = rollupRoadmapStatus(restored.roadmapSections);
+  }
+  if(Array.isArray(migrated.evidenceLibrary)) restored.evidenceLibrary = jsonClone(migrated.evidenceLibrary);
+  if(migrated.kit && isPlainObject(migrated.kit)) restored.kit = jsonClone(migrated.kit);
+  if(Number.isInteger(migrated.selectedHeadline) && migrated.selectedHeadline >= 0) restored.selectedHeadline = migrated.selectedHeadline;
+  if(migrated.storyBank && isPlainObject(migrated.storyBank)) restored.storyBank = jsonClone(migrated.storyBank);
+  if(typeof migrated.jdText === 'string') restored.jdText = migrated.jdText;
+  if(migrated.jdAnalysis && isPlainObject(migrated.jdAnalysis)) restored.jdAnalysis = jsonClone(migrated.jdAnalysis);
+
+  restored.skillValidation = pruneSkillValidationForSkills(restored.skillValidation, restored.skills);
+  if(restored.chosenPath){
+    const titles = new Set(restored.paths.map(p => p && p.title).filter(Boolean));
+    if(!titles.has(restored.chosenPath.title)) restored.chosenPath = null;
+  }
+  restored.screen = resolvePersistedScreen(migrated.currentScreen, restored);
+
+  return restored;
+}
 
 
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
