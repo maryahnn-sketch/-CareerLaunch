@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skill X-Ray — CareerLaunch AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root{
+    --paper:#FAF9F6;
+    --paper-dim:#F0EEE8;
+    --card:#FFFFFF;
+    --ink:#20292C;
+    --ink-soft:#5B6669;
+    --ink-faint:#8B9396;
+    --highlight:#4F46E5;
+    --highlight-soft:rgba(79,70,229,0.12);
+    --sage:#4F7561;
+    --sage-soft:rgba(79,117,97,0.14);
+    --clay:#EA580C;
+    --clay-soft:rgba(234,88,12,0.12);
+    --line:#E2DED5;
+    --radius:16px;
+    --shadow: 0 1px 2px rgba(32,41,44,0.04), 0 8px 24px rgba(32,41,44,0.06);
+    --serif: 'Playfair Display', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px;}
+  h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-0.01em;margin:0;}
+  p{color:var(--ink-soft);}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:var(--sans);cursor:pointer;border:none;background:none;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:15px 26px;border-radius:999px;font-size:15px;font-weight:600;transition:transform .15s ease, box-shadow .15s ease;min-height:48px;}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+  .btn-primary{background:var(--highlight);color:#FFFFFF;box-shadow:0 8px 22px rgba(79,70,229,0.18);}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(79,70,229,0.24);}
+  .btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line);}
+  .nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;}
+  .brand{font-family:var(--serif);font-weight:600;font-size:19px;}
+  .brand em{font-style:normal;color:var(--clay);}
+  .screen{padding:48px 0 96px;animation:rise .5s ease both;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){.screen{animation:none;}}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--highlight);}
+  .hero h1{font-size:clamp(34px,5.5vw,52px);line-height:1.06;max-width:640px;margin-top:8px;}
+  .hero h1 mark{background:none;color:var(--ink);position:relative;display:inline;}
+  .hero h1 mark::after{content:'';position:absolute;left:-2px;right:-2px;bottom:2px;height:0.34em;background:var(--highlight-soft);border-radius:2px;z-index:-1;}
+  .hero p.lede{font-size:18px;max-width:560px;margin-top:18px;}
+  .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);margin-top:32px;}
+  textarea#storyInput{width:100%;min-height:220px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
+  textarea#storyInput::placeholder{color:var(--ink-faint);font-style:italic;}
+  .intake-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid var(--line);}
+  .charcount{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);}
+  .analyzing-wrap{text-align:center;padding:80px 0;}
+  .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .analyzing-wrap .msg{font-family:var(--serif);font-size:20px;font-style:italic;color:var(--ink);}
+  .result-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:16px;}
+  .skill-tags{display:flex;flex-direction:column;gap:12px;margin:28px 0;}
+  .skill-tag{background:var(--card);border:1px solid rgba(79,117,97,0.25);border-radius:var(--radius);padding:20px 24px;font-family:var(--serif);font-size:22px;font-weight:600;color:var(--sage);box-shadow:var(--shadow);}
+  .skill-tag-inner{display:flex;align-items:center;gap:12px;}
+  .skill-tag-inner::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--sage);flex-shrink:0;}
+  .teaser{font-size:15px;color:var(--ink-soft);font-style:italic;margin:24px 0 32px;}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+  .error-box{background:var(--clay-soft);border:1px solid rgba(234,88,12,0.3);border-radius:var(--radius);padding:18px 20px;margin-top:20px;font-size:14px;color:var(--clay);}
+  .limit-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:32px 28px;box-shadow:var(--shadow);margin-top:32px;text-align:center;}
+  .limit-card h2{font-size:26px;margin-bottom:12px;}
+  .limit-card p{max-width:480px;margin:0 auto 24px;}
+  .hidden{display:none !important;}
+  footer{padding:30px 0 50px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);margin-top:40px;}
+  .uses-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <a href="/" class="brand">CareerLaunch <em>AI</em></a>
+  </nav>
+
+  <main id="main">
+    <!-- Input view -->
+    <section id="view-input" class="screen hero">
+      <div class="eyebrow"><span class="dot"></span>Skill X-Ray</div>
+      <h1>You've done the work.<br><mark>Let's give it a name.</mark></h1>
+      <p class="lede">Tell us something you've actually done, at work or in real life. CareerLaunch will translate the experience into professional skills.</p>
+      <div class="intake-card">
+        <textarea id="storyInput" placeholder="I helped run my sister's clothing business, answered WhatsApp messages, ordered products, handled customer issues, and trained new girls."></textarea>
+        <div class="intake-footer">
+          <span class="charcount" id="charCount">0 characters</span>
+        </div>
+      </div>
+      <div id="inputError" class="error-box hidden" role="alert"></div>
+      <div class="cta-row mt-40" style="margin-top:32px;">
+        <button class="btn btn-primary" id="submitBtn" type="button">X-Ray My Experience</button>
+      </div>
+      <p class="uses-note" id="usesNote"></p>
+    </section>
+
+    <!-- Loading view -->
+    <section id="view-loading" class="screen analyzing-wrap hidden" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="msg">Reading between the lines…</div>
+    </section>
+
+    <!-- Result view -->
+    <section id="view-result" class="screen hidden" aria-live="polite">
+      <div class="result-eyebrow">What your experience shows</div>
+      <div class="skill-tags" id="skillTags"></div>
+      <p class="teaser">That's only part of what your experience shows.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/">Discover My Career Options</a>
+        <button class="btn btn-ghost" id="tryAgainBtn" type="button">Try Another</button>
+      </div>
+    </section>
+
+    <!-- Free-use limit view -->
+    <section id="view-limit" class="screen hidden">
+      <div class="limit-card">
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Preview complete</div>
+        <h2>You've seen what Skill X-Ray can do.</h2>
+        <p>You've used your three free previews. Ready to go deeper — with evidence, career paths, and a plan built from your story?</p>
+        <a class="btn btn-primary" href="/">Discover My Career Options</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>Guidance, not guarantees. Skill X-Ray only knows what you share — skill names are a starting point for your own judgment.</footer>
+</div>
+
+<script>
+/**
+ * Client-side free-use guard (UX only — not secure abuse prevention).
+ * Durable server-side rate limiting will require Vercel KV / Upstash or
+ * platform firewall rate limiting before mass public launch.
+ */
+const STORAGE_KEY = 'careerlaunch_xray_preview_count';
+const MAX_FREE_PREVIEWS = 3;
+const MIN_STORY_CHARS = 20;
+const MAX_STORY_CHARS = 2000;
+
+const viewInput = document.getElementById('view-input');
+const viewLoading = document.getElementById('view-loading');
+const viewResult = document.getElementById('view-result');
+const viewLimit = document.getElementById('view-limit');
+const storyInput = document.getElementById('storyInput');
+const charCount = document.getElementById('charCount');
+const submitBtn = document.getElementById('submitBtn');
+const inputError = document.getElementById('inputError');
+const skillTags = document.getElementById('skillTags');
+const usesNote = document.getElementById('usesNote');
+const tryAgainBtn = document.getElementById('tryAgainBtn');
+
+function getPreviewCount() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function incrementPreviewCount() {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(getPreviewCount() + 1));
+  } catch {
+    // Storage unavailable — guard is best-effort only.
+  }
+}
+
+function remainingPreviews() {
+  return Math.max(0, MAX_FREE_PREVIEWS - getPreviewCount());
+}
+
+function hasPreviewsLeft() {
+  return getPreviewCount() < MAX_FREE_PREVIEWS;
+}
+
+function updateUsesNote() {
+  const left = remainingPreviews();
+  if (left === 0) {
+    usesNote.textContent = '';
+    return;
+  }
+  usesNote.textContent =
+    left === 1
+      ? '1 free preview remaining on this device.'
+      : left + ' free previews remaining on this device.';
+}
+
+function showView(name) {
+  viewInput.classList.toggle('hidden', name !== 'input');
+  viewLoading.classList.toggle('hidden', name !== 'loading');
+  viewResult.classList.toggle('hidden', name !== 'result');
+  viewLimit.classList.toggle('hidden', name !== 'limit');
+}
+
+function showInputError(message) {
+  inputError.textContent = message;
+  inputError.classList.remove('hidden');
+}
+
+function clearInputError() {
+  inputError.textContent = '';
+  inputError.classList.add('hidden');
+}
+
+function normalizeStory(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function validateStoryClient(story) {
+  if (!story) return 'Please describe something you have done.';
+  if (story.length < MIN_STORY_CHARS) {
+    return 'Please share a bit more detail — at least ' + MIN_STORY_CHARS + ' characters.';
+  }
+  if (story.length > MAX_STORY_CHARS) {
+    return 'Please shorten your description to ' + MAX_STORY_CHARS + ' characters or fewer.';
+  }
+  return null;
+}
+
+function renderSkillTags(skills) {
+  skillTags.replaceChildren();
+  skills.forEach(function (name) {
+    const card = document.createElement('div');
+    card.className = 'skill-tag';
+    const inner = document.createElement('div');
+    inner.className = 'skill-tag-inner';
+    inner.textContent = name;
+    card.appendChild(inner);
+    skillTags.appendChild(card);
+  });
+}
+
+function validateSkillsResponse(data) {
+  if (!data || !Array.isArray(data.skills) || data.skills.length !== 3) return false;
+  return data.skills.every(function (s) {
+    return typeof s === 'string' && s.trim().length > 0 && s.trim().length <= 60;
+  });
+}
+
+async function runXray() {
+  clearInputError();
+
+  if (!hasPreviewsLeft()) {
+    showView('limit');
+    return;
+  }
+
+  const story = normalizeStory(storyInput.value);
+  const clientError = validateStoryClient(story);
+  if (clientError) {
+    showInputError(clientError);
+    return;
+  }
+
+  submitBtn.disabled = true;
+  showView('loading');
+
+  try {
+    const response = await fetch('/api/xray', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story: story }),
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('Unexpected response from the server.');
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Something went wrong. Please try again.');
+    }
+
+    if (!validateSkillsResponse(data)) {
+      throw new Error('The response did not include exactly three skills. Please try again.');
+    }
+
+    const skills = data.skills.map(function (s) {
+      return s.trim().replace(/\s+/g, ' ');
+    });
+
+    incrementPreviewCount();
+    renderSkillTags(skills);
+    showView('result');
+    updateUsesNote();
+  } catch (err) {
+    showView('input');
+    showInputError(err.message || 'Something went wrong. Please try again.');
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function onStoryInput() {
+  clearInputError();
+  const len = storyInput.value.length;
+  charCount.textContent = len + ' character' + (len === 1 ? '' : 's');
+}
+
+function onTryAgain() {
+  if (!hasPreviewsLeft()) {
+    showView('limit');
+    return;
+  }
+  storyInput.value = '';
+  onStoryInput();
+  clearInputError();
+  showView('input');
+  storyInput.focus();
+}
+
+function init() {
+  if (!hasPreviewsLeft()) {
+    showView('limit');
+    return;
+  }
+  updateUsesNote();
+  storyInput.addEventListener('input', onStoryInput);
+  submitBtn.addEventListener('click', runXray);
+  tryAgainBtn.addEventListener('click', onTryAgain);
+  onStoryInput();
+}
+
+init();
+</script>
+</body>
+</html>
