@@ -2989,6 +2989,13 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     const newSkills = result.skills;
     const addedNames = newSkills.filter(s=>!beforeNames.has(s.name)).map(s=>s.name);
     state.skills = newSkills;
+    const currentNames = new Set(newSkills.map(s => s.name));
+    Object.keys(state.skillValidation).forEach(name => {
+      if (!currentNames.has(name)) delete state.skillValidation[name];
+    });
+    addedNames.forEach(name => {
+      delete state.skillValidation[name];
+    });
     state.changeSummary = addedNames.length ? `New experience added — we found: ${addedNames.join(', ')}.` : 'New experience added — it reinforced skills you already had.';
     state.reranked = false;
     state.screen = 'skills';
