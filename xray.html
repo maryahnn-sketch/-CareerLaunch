@@ -27,7 +27,7 @@
     --mono: 'IBM Plex Mono', ui-monospace, monospace;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{margin:0;padding:0;overflow-x:hidden;}
   body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
   .wrap{max-width:720px;margin:0 auto;padding:0 24px;}
   h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-0.01em;margin:0;}
@@ -43,7 +43,7 @@
   .nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;}
   .brand{font-family:var(--serif);font-weight:600;font-size:19px;}
   .brand em{font-style:normal;color:var(--clay);}
-  .screen{padding:48px 0 96px;animation:rise .5s ease both;}
+  .screen{padding:48px 0 72px;animation:rise .5s ease both;}
   @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
   @media (prefers-reduced-motion: reduce){.screen{animation:none;}}
   .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
@@ -54,27 +54,54 @@
   .hero p.lede{font-size:18px;max-width:560px;margin-top:18px;}
   .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);margin-top:32px;}
   textarea#storyInput{width:100%;min-height:220px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
-  textarea#storyInput::placeholder{color:var(--ink-faint);font-style:italic;}
+  textarea#storyInput::placeholder{color:var(--ink-faint);font-style:italic;opacity:0.5;}
+  .input-cta-row{margin-top:28px;}
   .intake-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid var(--line);}
   .charcount{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);}
   .analyzing-wrap{text-align:center;padding:80px 0;}
   .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .analyzing-wrap .msg{font-family:var(--serif);font-size:20px;font-style:italic;color:var(--ink);}
-  .result-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:16px;}
-  .skill-tags{display:flex;flex-direction:column;gap:12px;margin:28px 0;}
-  .skill-tag{background:var(--card);border:1px solid rgba(79,117,97,0.25);border-radius:var(--radius);padding:20px 24px;font-family:var(--serif);font-size:22px;font-weight:600;color:var(--sage);box-shadow:var(--shadow);}
-  .skill-tag-inner{display:flex;align-items:center;gap:12px;}
+  .result-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;}
+  .result-lede{font-size:15px;color:var(--ink-soft);margin:0 0 20px;max-width:480px;line-height:1.45;}
+  .skill-tags{display:flex;flex-direction:column;gap:12px;margin:0 0 24px;}
+  .skill-tag{background:var(--card);border:1px solid rgba(79,117,97,0.25);border-radius:var(--radius);padding:20px 24px;font-family:var(--serif);font-size:clamp(18px,4.2vw,22px);font-weight:600;color:var(--sage);box-shadow:var(--shadow);}
+  .skill-tag-inner{display:flex;align-items:center;gap:12px;overflow-wrap:break-word;word-break:break-word;}
   .skill-tag-inner::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--sage);flex-shrink:0;}
-  .teaser{font-size:15px;color:var(--ink-soft);font-style:italic;margin:24px 0 32px;}
+  .teaser{font-size:15px;color:var(--ink-soft);font-style:italic;margin:0 0 24px;}
   .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+  .result-cta-row{margin-bottom:8px;}
   .error-box{background:var(--clay-soft);border:1px solid rgba(234,88,12,0.3);border-radius:var(--radius);padding:18px 20px;margin-top:20px;font-size:14px;color:var(--clay);}
   .limit-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:32px 28px;box-shadow:var(--shadow);margin-top:32px;text-align:center;}
   .limit-card h2{font-size:26px;margin-bottom:12px;}
   .limit-card p{max-width:480px;margin:0 auto 24px;}
   .hidden{display:none !important;}
-  footer{padding:30px 0 50px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);margin-top:40px;}
-  .uses-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:14px;}
+  footer{padding:28px 0 44px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);margin-top:32px;}
+  .uses-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:12px;}
+
+  @media (max-width:767px){
+    .wrap{padding:0 20px;}
+    .nav{padding:18px 0;}
+    .screen{padding:28px 0 48px;}
+    .hero h1{font-size:clamp(30px,8vw,42px);}
+    .hero p.lede{font-size:16px;margin-top:14px;}
+    .intake-card{margin-top:24px;}
+    textarea#storyInput{min-height:148px;padding:18px;font-size:17px;line-height:1.5;}
+    .input-cta-row{margin-top:18px;}
+    .uses-note{margin-top:8px;}
+    .analyzing-wrap{padding:56px 0;}
+    .skill-tag{padding:16px 18px;}
+    .skill-tags{gap:10px;margin-bottom:20px;}
+    .result-lede{font-size:14px;margin-bottom:16px;}
+    .teaser{margin-bottom:20px;}
+    .result-cta-row{margin-bottom:0;}
+    footer{margin-top:20px;padding:22px 0 32px;}
+  }
+
+  @media (min-width:768px) and (max-width:1024px){
+    .hero h1{font-size:clamp(36px,5vw,48px);}
+    textarea#storyInput{min-height:190px;}
+  }
 </style>
 </head>
 <body>
@@ -90,13 +117,13 @@
       <h1>You've done the work.<br><mark>Let's give it a name.</mark></h1>
       <p class="lede">Tell us something you've actually done, at work or in real life. CareerLaunch will translate the experience into professional skills.</p>
       <div class="intake-card">
-        <textarea id="storyInput" placeholder="I helped run my sister's clothing business, answered WhatsApp messages, ordered products, handled customer issues, and trained new girls."></textarea>
+        <textarea id="storyInput" placeholder="I helped run my sister's clothing business, handled customers, ordered products, and trained new staff..."></textarea>
         <div class="intake-footer">
           <span class="charcount" id="charCount">0 characters</span>
         </div>
       </div>
       <div id="inputError" class="error-box hidden" role="alert"></div>
-      <div class="cta-row mt-40" style="margin-top:32px;">
+      <div class="cta-row input-cta-row">
         <button class="btn btn-primary" id="submitBtn" type="button">X-Ray My Experience</button>
       </div>
       <p class="uses-note" id="usesNote"></p>
@@ -111,9 +138,10 @@
     <!-- Result view -->
     <section id="view-result" class="screen hidden" aria-live="polite">
       <div class="result-eyebrow">What your experience shows</div>
+      <p class="result-lede">Your experience already shows skills employers recognize.</p>
       <div class="skill-tags" id="skillTags"></div>
       <p class="teaser">That's only part of what your experience shows.</p>
-      <div class="cta-row">
+      <div class="cta-row result-cta-row">
         <a class="btn btn-primary" href="/">Discover My Career Options</a>
         <button class="btn btn-ghost" id="tryAgainBtn" type="button">Try Another</button>
       </div>
@@ -124,7 +152,7 @@
       <div class="limit-card">
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Preview complete</div>
         <h2>You've seen what Skill X-Ray can do.</h2>
-        <p>You've used your three free previews. Ready to go deeper — with evidence, career paths, and a plan built from your story?</p>
+        <p>You've used your three free Skill X-Rays. Ready to go deeper — with evidence, career paths, and a plan built from your story?</p>
         <a class="btn btn-primary" href="/">Discover My Career Options</a>
       </div>
     </section>
@@ -190,8 +218,8 @@ function updateUsesNote() {
   }
   usesNote.textContent =
     left === 1
-      ? '1 free preview remaining on this device.'
-      : left + ' free previews remaining on this device.';
+      ? '1 free Skill X-Ray remaining'
+      : left + ' free Skill X-Rays remaining';
 }
 
 function showView(name) {
