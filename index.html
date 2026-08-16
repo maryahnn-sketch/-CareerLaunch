@@ -323,8 +323,13 @@ const state = {
 
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
-function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
+function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
 function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
+function acceptPendingSkills(){
+  state.skills.forEach(s => {
+    if(state.skillValidation[s.name] !== 'no') state.skillValidation[s.name] = 'yes';
+  });
+}
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
 
@@ -1200,6 +1205,42 @@ const rerankTool = {
   }
 };
 
+// Preference-aware path regeneration (replaces fixed-candidate rerank for
+// "Update My Recommendations"). Reuses pathFieldsSchema with refinement
+// categories and fit fields, plus a top-level changeSummary.
+const refinePathFieldsSchema = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', maxLength: 50 },
+    entryPoint: { type: 'string', maxLength: 40 },
+    progression: { type: 'string', maxLength: 40 },
+    category: { type: 'string', enum: RERANK_CATEGORY_ENUM },
+    why: { type: 'string', maxLength: 140 },
+    transfers: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+    gaps: { type: 'array', items: { type: 'string' }, maxItems: 2 },
+    transition: { type: 'string', enum: STRENGTH_ENUM, description: 'Evidence fit ONLY — how strongly validated experience supports this path. Never Strong solely because the user wants it.' },
+    fitEvidence: { type: 'string', enum: STRENGTH_ENUM, description: 'Optional evidence-fit rating — same scale as transition, based on validated skills only.' },
+    fitInterest: { type: 'string', enum: STRENGTH_ENUM, description: 'Interest fit — how well this path matches stated interests/dislikes/priorities.' },
+    fitLifestyle: { type: 'string', enum: STRENGTH_ENUM, description: 'Lifestyle fit — only if preferences mention working conditions; otherwise use Needs More Information.' },
+    workEnvironment: { type: 'string', maxLength: 50 },
+    relevance: { type: 'array', items: { type: 'string', enum: ['Employment','Freelance','Consulting','Entrepreneurship'] } },
+  },
+  required: ['title','entryPoint','progression','category','why','transfers','transition','fitInterest','fitLifestyle']
+};
+
+const refinePathsTool = {
+  name: 'report_refined_career_paths',
+  description: 'Report a refreshed set of 4-5 evidence-supported career paths after learning user preferences. May introduce new paths supported by validated skills and omit or deprioritize rejected directions.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      changeSummary: { type: 'string', maxLength: 180 },
+      paths: { type: 'array', minItems: 4, maxItems: 5, items: refinePathFieldsSchema },
+    },
+    required: ['changeSummary','paths']
+  }
+};
+
 // Reliability fix: the reply itself is no longer forced through a tool call
 // (see callClaudeText below) — this schema now covers ONLY the small,
 // well-defined extraction task of pulling a structured preference signal out
@@ -1472,6 +1513,7 @@ const SKILLS_REPAIR_HINT = `The schema requires skills: [{name, evidence, streng
 // in plain language for the repair passes.
 const PATHS_REPAIR_HINT = `Every path object MUST include transition — one of exactly "Strong" | "Moderate" | "Developing" | "Needs More Information", never omitted, never any other wording. Also required on every path: title, entryPoint, progression, category, why, and transfers (as an array). If you cannot supply all of those for a given path, leave that path out entirely rather than submitting it incomplete.`;
 const RERANK_REPAIR_HINT = `The "category" field for every rankedPaths entry MUST be exactly one of these five strings: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us". Do NOT reuse an original path's old category label (such as "Strong Evidence", "Worth Exploring", "Growth Path", or "Independent Path") — those are a different, earlier classification and are not valid values here, even for a path whose ranking stays similar.`;
+const REFINE_PATHS_REPAIR_HINT = `${PATHS_REPAIR_HINT} ${RERANK_REPAIR_HINT} The top-level changeSummary field is REQUIRED (max 25 words) and must name the preferences that drove the refresh. Every path MUST include fitInterest and fitLifestyle (interest/lifestyle fit, separate from transition which is evidence fit only). transition must reflect validated evidence — never Strong solely because the user wants the path.`;
 // Diagnosis: repair responses were dropping first7Days/learningStrategy
 // specifically because the generic repair note only said "return a
 // corrected, complete result" — it never named which fields a truncated or
@@ -1507,6 +1549,34 @@ function validateRerankResult(result){
     return { ok:false, reason:'no valid rankedPaths entries remained after filtering out malformed items' };
   }
   if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
+  return { ok:true };
+}
+
+function normalizeRefinePathsResult(result){
+  const normalized = normalizePathsResult(result);
+  if(!normalized || !Array.isArray(normalized.paths)) return result;
+  const paths = normalized.paths.map(p => ({
+    ...p,
+    category: normalizeRerankCategory(p.category),
+    fitInterest: p.fitInterest !== undefined ? normalizeFitValue(p.fitInterest) : p.fitInterest,
+    fitLifestyle: p.fitLifestyle !== undefined ? normalizeFitValue(p.fitLifestyle) : p.fitLifestyle,
+    fitEvidence: p.fitEvidence !== undefined ? normalizeFitValue(p.fitEvidence) : p.fitEvidence,
+  })).filter(p => isValidPathItem(p) && RERANK_CATEGORY_ENUM.includes(p.category));
+  return {
+    changeSummary: typeof result.changeSummary === 'string' ? result.changeSummary.trim() : '',
+    paths,
+  };
+}
+
+function validateRefinePathsResult(result){
+  const pathCheck = validatePathsResult(result);
+  if(!pathCheck.ok) return pathCheck;
+  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
+  for(const p of result.paths){
+    if(!RERANK_CATEGORY_ENUM.includes(p.category)){
+      return { ok:false, reason:`refinement category invalid for path "${p.title}"` };
+    }
+  }
   return { ok:true };
 }
 
@@ -1793,7 +1863,7 @@ function renderAnalyzing(){
 /* ============================= SKILLS ============================= */
 function renderSkills(){
   if(state.errorMsg) return renderError();
-  const n = getValidatedSkills().length;
+  const n = state.skills.filter(s => state.skillValidation[s.name] !== 'no').length;
   return `
   <div class="wrap"><div class="screen">
     <div class="big-stat">You have <mark>${n}</mark> transferable<br/>professional skills.</div>
@@ -1812,6 +1882,7 @@ function renderSkills(){
       }).join('')}
     </div>
     <p style="font-size:12.5px;color:var(--ink-faint);">Skills marked "Not Quite" won't influence your career paths, roadmap, or resume.</p>
+    <p style="font-size:12px;color:var(--ink-faint);margin-top:10px;">Anything you leave unmarked will be included when you continue. Mark "Not quite" to exclude a skill.</p>
     <div class="mt-32"><button class="btn btn-primary" id="toPaths">Show Me My Career Paths</button></div>
   </div></div>`;
 }
@@ -1850,7 +1921,7 @@ function renderPaths(){
           <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
         </div>
         ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
-          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||'—'}</div>
+          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'—'}</div>
           <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
           <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
         </div>`:''}
@@ -2252,7 +2323,7 @@ function attachHandlers(){
       render();
     });
   });
-  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', discoverPaths);
+  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', ()=>{ acceptPendingSkills(); discoverPaths(); });
 
   // paths
   document.querySelectorAll('[data-path]').forEach(el=>{
@@ -2279,7 +2350,7 @@ function attachHandlers(){
     el.addEventListener('click', ()=>{ const input=document.getElementById('convoInput'); if(input) input.value = decodeURIComponent(el.getAttribute('data-fill')); });
   });
   const toChoose = document.getElementById('toChoose'); if(toChoose) toChoose.addEventListener('click', ()=>{ state.screen='choose'; render(); });
-  document.querySelectorAll('[data-rerank]').forEach(el=> el.addEventListener('click', rerankPaths));
+  document.querySelectorAll('[data-rerank]').forEach(el=> el.addEventListener('click', refinePaths));
   document.querySelectorAll('[data-dismiss-learned]').forEach(el=> el.addEventListener('click', ()=>{
     const input = document.getElementById('convoInput'); if(input) input.focus();
   }));
@@ -2538,6 +2609,59 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
   }finally{
     state.convoBusy = false; render();
     const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
+  }
+}
+
+async function refinePaths(){
+  if(state.busy) return;
+  state.busy = true;
+  const priorPaths = state.paths;
+  state.screen = 'analyzing'; state.loadingMsg = 'Updating your recommendations…'; state.errorMsg=''; render();
+  const validated = getValidatedSkills();
+  const rejected = getRejectedSkillNames();
+  const validatedNames = validated.map(s=>s.name);
+  const system = `You are the career path refinement engine inside CareerLaunch AI. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
+${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
+Keep these dimensions separate:
+- transition (and fitEvidence if included): EVIDENCE FIT ONLY — how strongly the user's validated experience supports this path. Never rate Strong solely because the user wants this direction.
+- fitInterest: INTEREST FIT — how well this path matches stated interests, dislikes, and priorities. May be Moderate/Developing even when interest is high if evidence is thin.
+- fitLifestyle: LIFESTYLE FIT — rate only from known working-condition preferences; use "Needs More Information" when unknown.
+- gaps: honest development areas still to strengthen (short phrases).
+
+Refinement rules:
+1) Return 4-5 paths. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+2) You MAY introduce NEW paths when validated skills reasonably support them AND stated interests make them relevant.
+3) You MAY omit original paths the user explicitly rejected. If kept, place rejected directions in "Lower Interest Based on What You Told Us" — never in "Best Paths to Explore First" or "Strong Alternatives".
+4) transfers must ONLY use skill names copied exactly from the Validated skills list below — never rejected skills, never names inferred only from preferences.
+5) title = entryPoint; why max 18 words, evidence-based; transition required on every path.
+6) fitInterest and fitLifestyle are required on every path.
+7) changeSummary (max 25 words): explain what shifted based on preferences — specific, not generic.
+8) User interest is NOT evidence.${rejectedSkillsClause()}`;
+  const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
+  const convoPrefs = state.convo.filter(c => c.who === 'user').map(c => c.text).join('\n');
+  const userPrompt = `User's story:\n${fullStoryText()}\n\nValidated skills (the only names allowed in "transfers"):\n${skillsSummaryStr(validated)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
+  try{
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    let paths = result.paths.map(p => ({
+      ...p,
+      transfers: filterToValidatedNames(p.transfers, validatedNames),
+    }));
+    paths = purgeRejectedFromObject(paths, rejected);
+    state.paths = paths;
+    state.changeSummary = purgeRejectedMentions(result.changeSummary, rejected);
+    state.reranked = true;
+    if (state.chosenPath && !paths.some(p => p.title === state.chosenPath.title)) {
+      state.chosenPath = null;
+    }
+    state.screen = 'paths';
+  }catch(err){
+    logDiag('refinePaths', 'final_failure', err.message || String(err));
+    state.paths = priorPaths;
+    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
+    state.errorRetry = refinePaths; state.screen = 'paths';
+  }finally{
+    state.busy = false; render();
   }
 }
 
@@ -2806,7 +2930,7 @@ Rules:
 1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. Never include a number/statistic the user didn't provide. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly), "Professional Brand-Focused" (reads as a personal brand statement).
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence.
-4) Only draw on the "Validated skills" list below — the user has explicitly reviewed and confirmed these. Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
+4) Only draw on the "Validated skills" list below — the user accepted these for use in their analysis (and rejected any marked "Not quite"). Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
   const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only — use ONLY the validated skills below as source material for claims): ${state.story}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
     const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
