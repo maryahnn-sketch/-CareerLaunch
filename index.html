@@ -326,7 +326,7 @@ function createDefaultState(){
 const state = createDefaultState();
 
 /* ============================= PROFILE SERIALIZATION (V1) ============================= */
-// Local-only persistence layer — not wired to storage or network yet.
+// Local-only persistence layer — browser localStorage (V1 profile snapshot).
 const PROFILE_SCHEMA_VERSION = 1;
 const TRANSIENT_SCREENS = new Set(['analyzing']);
 const ROADMAP_SECTION_KEYS = ['foundation', 'actionPlan', 'direction'];
@@ -516,6 +516,35 @@ function hydrateProfile(savedProfile){
   restored.screen = resolvePersistedScreen(migrated.currentScreen, restored);
 
   return restored;
+}
+
+// Demo/local snapshot only. Never trust paymentStatus from localStorage
+// as proof of a real purchase. Real entitlement must be verified server-side.
+const PROFILE_STORAGE_KEY = 'careerlaunch.profile.v1';
+
+function saveProfileToStorage(sourceState){
+  try{
+    const profile = serializeProfile(sourceState);
+    if(!profile) return;
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  }catch(e){}
+}
+
+function loadProfileFromStorage(){
+  try{
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){
+    return null;
+  }
+}
+
+function applyHydratedState(hydrated){
+  if(!hydrated || typeof hydrated !== 'object') return;
+  for(const key in hydrated){
+    if(Object.prototype.hasOwnProperty.call(hydrated, key)) state[key] = hydrated[key];
+  }
 }
 
 
@@ -1919,6 +1948,7 @@ function render(){
   app.innerHTML = html;
   attachHandlers();
   window.scrollTo({top:0, behavior: state.screen==='landing' ? 'auto':'smooth'});
+  saveProfileToStorage(state);
 }
 
 function renderProgress(){
@@ -2494,6 +2524,7 @@ function attachHandlers(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       document.querySelector('.wordcount').textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      saveProfileToStorage(state);
     });
   }
   document.querySelectorAll('.prompts .prompt-chip').forEach(el=>{
@@ -2631,7 +2662,7 @@ function attachHandlers(){
 
   // jd analyzer
   const jdInput = document.getElementById('jdInput');
-  if(jdInput) jdInput.addEventListener('input', (e)=>{ state.jdText = e.target.value; });
+  if(jdInput) jdInput.addEventListener('input', (e)=>{ state.jdText = e.target.value; saveProfileToStorage(state); });
   const submitJd = document.getElementById('submitJd'); if(submitJd) submitJd.addEventListener('click', analyzeJd);
 
   // error retry
@@ -3284,6 +3315,10 @@ Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text
 }
 
 /* ============================= INIT ============================= */
+try{
+  const savedProfile = loadProfileFromStorage();
+  if(savedProfile) applyHydratedState(hydrateProfile(savedProfile));
+}catch(e){}
 render();
 </script>
 </body>
