@@ -2041,7 +2041,7 @@ function renderLanding(){
         <div class="price-card featured">
           <div class="eyebrow"><span class="dot"></span>CareerLaunch Starter</div>
           <div class="amt">$19.99</div>
-          <p style="font-size:14px;">One-time. Your personal career plan for the path you choose.</p>
+          <p style="font-size:14px;">Planned one-time price. Demo unlock during private beta — no card required, no real payment collected.</p>
           <ul><li>Career sequence + 7/30/60/90-day plan</li><li>Full gap analysis & learning ladder</li><li>Resume, LinkedIn & interview story bank</li><li>Command-center dashboard</li></ul>
         </div>
       </div>
@@ -2239,8 +2239,8 @@ function renderPaywall(){
 
     <div class="paywall-card">
       ${alreadyPaid ? `
-        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Already Unlocked</div>
-        <p style="font-size:14px;">You've already purchased CareerLaunch Starter — no additional charge for exploring another path.</p>
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Demo Already Unlocked</div>
+        <p style="font-size:14px;">You've already unlocked CareerLaunch Starter in this demo — no card required, and you can explore another path without any real payment.</p>
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
       ` : `
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
@@ -2255,9 +2255,9 @@ function renderPaywall(){
           <li>Search terms & interview story starters</li>
           <li>Your personal Command Center dashboard</li>
         </ul>
-        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Career Plan — $19.99</button>
-        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">One-time payment. No subscription.</p>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Demo checkout — no payment is actually collected in this preview.</p>
+        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Demo Unlock My Career Plan — $19.99</button>
+        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">Planned one-time price. Demo unlock — no card required.</p>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">No real payment is collected during this private beta.</p>
       `}
     </div>
   </div></div>`;
@@ -2307,7 +2307,7 @@ function renderRoadmap(){
     <h1 style="font-size:32px;">Your Roadmap to ${state.chosenPath.title}</h1>
     <div class="not-zero">You're not starting from zero.</div>
 
-    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your $19.99 purchase is complete and won't be charged again. Most of your roadmap is ready below — one section needs a retry.</div>` : ''}
+    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your demo unlock is complete — no real payment was collected. Most of your roadmap is ready below — one section needs a retry.</div>` : ''}
 
     ${directionBlock}
 
@@ -2474,7 +2474,7 @@ function renderJdAnalyzer(){
   if(state.errorMsg) return renderError();
   return `${subHeader('Analyze a job description')}
   <div class="wrap"><div class="screen">
-    <div class="eyebrow"><span class="dot"></span>Architecture preview</div>
+    <div class="eyebrow"><span class="dot"></span>Job match analysis</div>
     <h1 style="font-size:30px;">Analyze a job description.</h1>
     <p style="max-width:520px;">Paste a real job posting. We'll compare it against your validated skills — based only on the text you paste, not live market data.</p>
     <div class="intake-card mt-32"><textarea class="plain-textarea" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
@@ -3019,7 +3019,7 @@ Rules: 1) whereYouAre: 2 sentences max, grounded in their validated skills. 2) t
     if(myGen !== state.roadmapSectionGeneration.foundation) return false; // stale failure — ignore
     logDiag('buildRoadmapFoundation', 'final_failure', err.message || String(err));
     state.roadmapSections.foundation = 'failed';
-    state.roadmapSectionError.foundation = "Good news first: your $19.99 purchase went through — that part is done, and you will not be charged again. We just couldn't build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
+    state.roadmapSectionError.foundation = "Good news first: your demo unlock is complete — no card was required and no real payment is collected during this private beta. We just couldn't build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.foundation) state.busy = false;
@@ -3061,7 +3061,7 @@ Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days6
     if(myGen !== state.roadmapSectionGeneration.actionPlan) return false;
     logDiag('buildRoadmapActionPlan', 'final_failure', err.message || String(err));
     state.roadmapSections.actionPlan = 'failed';
-    state.roadmapSectionError.actionPlan = "We couldn't build your action plan this time — your $19.99 purchase and everything else already generated are safe. Retry just this section below.";
+    state.roadmapSectionError.actionPlan = "We couldn't build your action plan this time — your demo unlock and everything else already generated are safe. Retry just this section below.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.actionPlan) state.busy = false;
@@ -3105,7 +3105,7 @@ Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progr
     if(myGen !== state.roadmapSectionGeneration.direction) return false;
     logDiag('buildRoadmapDirection', 'final_failure', err.message || String(err));
     state.roadmapSections.direction = 'failed';
-    state.roadmapSectionError.direction = "We couldn't map your next steps this time — your $19.99 purchase and everything else already generated are safe. Retry just this section below.";
+    state.roadmapSectionError.direction = "We couldn't map your next steps this time — your demo unlock and everything else already generated are safe. Retry just this section below.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.direction) state.busy = false;
