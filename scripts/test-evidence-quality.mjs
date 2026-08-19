@@ -24,6 +24,8 @@ import {
   validateLinkedInKit,
   applyLinkedInGate,
   buildFallbackLinkedIn,
+  buildUltraConservativeLinkedIn,
+  buildLinkedInEvidenceCorpus,
 } from './evidence-gate.mjs';
 import {
   getConfirmedSkills,
@@ -684,9 +686,11 @@ function main() {
     'applyLinkedInGate replaces invalid Fixture C LinkedIn with evidence-grounded fallback',
     linkedInGatedValidation.ok &&
       /Administrative Coordination|Administrative \/ Office Coordinator/i.test(
-        linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')
+        `${linkedInGated.linkedinAbout} ${linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')}`
       ) &&
-      /organiz/i.test(linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')) &&
+      /organiz|listen/i.test(
+        `${linkedInGated.linkedinAbout} ${linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')}`
+      ) &&
       !/scheduling|detail-oriented|prioritize|reliable|thrive|work well across teams|keep things running smoothly|Support Professional/i.test(
         `${linkedInGated.linkedinAbout} ${linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')}`
       )
@@ -701,9 +705,13 @@ function main() {
   );
   assert(
     'Fixture C fallback LinkedIn uses self-described organization/listening wording',
-    /Organization|Coordination|listen/i.test(
+    /know how to organize|listen to people/i.test(
       `${acceptableLinkedIn.linkedinAbout} ${acceptableLinkedIn.linkedinHeadlines.map((h) => h.text).join(' ')}`
     )
+  );
+  assert(
+    'Fixture C fallback LinkedIn validates itself before return',
+    validateLinkedInKit(acceptableLinkedIn, fixtureCGate, FIXTURE_C_TARGET).ok
   );
   assert(
     'Fixture C zero resume bullets still enforced alongside LinkedIn gate',
@@ -715,6 +723,72 @@ function main() {
     findLinkedInUpgradeViolations('Organizing & Scheduling for office work', fixtureCGate, FIXTURE_C_TARGET).includes(
       'scheduling'
     )
+  );
+
+  const CULINARY_STORY = 'I love cooking and I am patient.';
+  const culinaryGate = gateRetainedEvidence(CULINARY_STORY, [], []);
+  const culinaryFallback = applyLinkedInGate(
+    {
+      resumeBullets: [],
+      linkedinHeadlines: [{ style: 'Recruiter Search-Focused', text: 'Detail-Oriented Office Professional | Scheduling Expert' }],
+      linkedinAbout: 'I thrive across teams with reliable office skills.',
+    },
+    culinaryGate,
+    'Culinary Assistant'
+  );
+  const culinaryText = `${culinaryFallback.linkedinAbout} ${culinaryFallback.linkedinHeadlines.map((h) => h.text).join(' ')}`;
+  assert(
+    'non-admin fallback uses only supported culinary evidence',
+    validateLinkedInKit(culinaryFallback, culinaryGate, 'Culinary Assistant').ok &&
+      /Culinary Assistant/i.test(culinaryText) &&
+      (/patient|cooking/i.test(culinaryText) || /exploring a move toward/i.test(culinaryText)) &&
+      !/organization|coordination|listening|office skills|self-aware|meaningful work/i.test(culinaryText)
+  );
+
+  const DRAWING_STORY = 'I like drawing.';
+  const drawingGate = gateRetainedEvidence(DRAWING_STORY, [], []);
+  const drawingFallback = buildFallbackLinkedIn(drawingGate, 'Graphic Design Assistant');
+  const drawingText = `${drawingFallback.linkedinAbout} ${drawingFallback.linkedinHeadlines.map((h) => h.text).join(' ')}`;
+  assert(
+    'minimal-evidence fallback stays literal and future-facing only',
+    validateLinkedInKit(drawingFallback, drawingGate, 'Graphic Design Assistant').ok &&
+      /Graphic Design Assistant|drawing/i.test(drawingText) &&
+      !/organized|reliable|detail-oriented|teamwork|communication|office skills|meaningful work/i.test(drawingText)
+  );
+
+  const FRIENDLY_GATE = gateRetainedEvidence('I am friendly.', [], []);
+  const SCHEDULING_TARGET = 'Scheduling Coordinator';
+  assert(
+    'target-title future direction alone is allowed without scheduling evidence',
+    findLinkedInUpgradeViolations('Transitioning into Scheduling Coordinator', FRIENDLY_GATE, SCHEDULING_TARGET).length === 0
+  );
+  assert(
+    'strong scheduling skills violates without scheduling evidence',
+    findLinkedInUpgradeViolations('Strong Scheduling Skills', FRIENDLY_GATE, SCHEDULING_TARGET).length > 0
+  );
+  assert(
+    'experienced in scheduling violates without scheduling evidence',
+    findLinkedInUpgradeViolations('Experienced in scheduling', FRIENDLY_GATE, SCHEDULING_TARGET).length > 0
+  );
+  assert(
+    'skilled scheduler violates without scheduling evidence',
+    findLinkedInUpgradeViolations('Skilled scheduler', FRIENDLY_GATE, SCHEDULING_TARGET).length > 0
+  );
+  assert(
+    'mixed future target + strong scheduling phrase fails validation',
+    findLinkedInUpgradeViolations(
+      'Transitioning into Scheduling Coordinator | Strong Scheduling Skills',
+      FRIENDLY_GATE,
+      SCHEDULING_TARGET
+    ).length > 0
+  );
+  assert(
+    'target path title is excluded from evidence corpus',
+    !buildLinkedInEvidenceCorpus(FRIENDLY_GATE).includes('scheduling')
+  );
+  assert(
+    'ultra-conservative fallback validates itself',
+    validateLinkedInKit(buildUltraConservativeLinkedIn(FRIENDLY_GATE, SCHEDULING_TARGET), FRIENDLY_GATE, SCHEDULING_TARGET).ok
   );
 
   const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);

@@ -586,17 +586,80 @@ const LINKEDIN_UPGRADE_CHECKS = [
     pattern: /\bevery (?:interaction|task|responsibility)\b/i,
     evidenceStems: ['every interaction', 'every task', 'every responsibility'],
   },
+  {
+    id: 'experienced-in-concept',
+    pattern: /\bexperienced in\b/i,
+    evidenceStems: ['experienced in'],
+  },
+  {
+    id: 'skilled-role',
+    pattern: /\bskilled\b/i,
+    evidenceStems: ['skilled'],
+  },
+  {
+    id: 'office-skills',
+    pattern: /\boffice skills\b/i,
+    evidenceStems: ['office skills'],
+  },
+  {
+    id: 'self-aware',
+    pattern: /\bself-aware\b/i,
+    evidenceStems: ['self-aware', 'self aware'],
+  },
+  {
+    id: 'meaningful-work',
+    pattern: /\bmeaningful work\b/i,
+    evidenceStems: ['meaningful work'],
+  },
 ];
 
-function buildLinkedInEvidenceCorpus(gate, targetPathTitle) {
-  const parts = (gate?.downstreamStoryItems || []).map((item) => item.source);
-  if (targetPathTitle) parts.push(targetPathTitle);
-  return parts.join(' ').toLowerCase();
+const FUTURE_DIRECTION_PATTERN =
+  /\b(?:transition(?:ing)?(?:\s+into)?|building toward|aspiring to|moving toward|exploring a move toward)\b/i;
+
+const COMPETENCE_UPGRADE_PATTERN =
+  /\b(?:strong|experienced|skilled|expert|proven|demonstrated)\b/i;
+
+/** Evidence corpus: allowed story items only — target career is NOT evidence. */
+export function buildLinkedInEvidenceCorpus(gate) {
+  return (gate?.downstreamStoryItems || [])
+    .map((item) => item.source)
+    .join(' ')
+    .toLowerCase();
 }
 
 function corpusHasStem(corpus, stems) {
   const normalized = String(corpus || '').toLowerCase();
   return (stems || []).some((stem) => normalized.includes(String(stem).toLowerCase()));
+}
+
+function splitLinkedInClauses(text) {
+  return String(text || '')
+    .split(/\s*[|;]\s*|\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function targetTitleTokens(targetPathTitle) {
+  return String(targetPathTitle || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s/]/g, ' ')
+    .split(/[\s/]+/)
+    .filter((token) => token.length > 3);
+}
+
+function clauseIsFutureTargetDirection(clause, targetPathTitle) {
+  if (!FUTURE_DIRECTION_PATTERN.test(clause)) return false;
+  const clauseLower = clause.toLowerCase();
+  const tokens = targetTitleTokens(targetPathTitle);
+  if (!tokens.length) return FUTURE_DIRECTION_PATTERN.test(clause);
+  return tokens.some((token) => clauseLower.includes(token));
+}
+
+function clauseAllowsTargetDerivedConcept(clause, check, targetPathTitle) {
+  if (!check.pattern.test(clause)) return true;
+  if (!clauseIsFutureTargetDirection(clause, targetPathTitle)) return false;
+  if (COMPETENCE_UPGRADE_PATTERN.test(clause)) return false;
+  return true;
 }
 
 function linkedInTextBlocks(kitResult) {
@@ -610,35 +673,53 @@ function linkedInTextBlocks(kitResult) {
 
 /** Evidence-aware LinkedIn upgrade violations (empty = valid). */
 export function findLinkedInUpgradeViolations(text, gate, targetPathTitle = '') {
-  const corpus = buildLinkedInEvidenceCorpus(gate, targetPathTitle);
+  const evidenceCorpus = buildLinkedInEvidenceCorpus(gate);
   const hasConcrete = (gate?.concretePastActions || []).length > 0;
   const violations = [];
   const normalized = String(text || '');
 
-  for (const check of LINKEDIN_UPGRADE_CHECKS) {
-    if (!check.pattern.test(normalized)) continue;
-    if (corpusHasStem(corpus, check.evidenceStems)) continue;
-    violations.push(check.id);
-  }
+  for (const clause of splitLinkedInClauses(normalized)) {
+    for (const check of LINKEDIN_UPGRADE_CHECKS) {
+      if (!check.pattern.test(clause)) continue;
+      if (corpusHasStem(evidenceCorpus, check.evidenceStems)) continue;
+      if (clauseAllowsTargetDerivedConcept(clause, check, targetPathTitle)) continue;
+      violations.push(check.id);
+    }
 
-  if (
-    !hasConcrete &&
-    /\bstrong\b/i.test(normalized) &&
-    /\b(organization|organiz|coordinat|listen)/i.test(normalized) &&
-    !corpusHasStem(corpus, ['strong'])
-  ) {
-    violations.push('strong-ability-upgrade');
+    if (
+      !hasConcrete &&
+      COMPETENCE_UPGRADE_PATTERN.test(clause) &&
+      /\b(organization|organiz|coordinat|listen|schedul)/i.test(clause) &&
+      !corpusHasStem(evidenceCorpus, ['strong', 'experienced', 'skilled'])
+    ) {
+      violations.push('strong-ability-upgrade');
+    }
+
+    if (
+      !hasConcrete &&
+      /\b(?:experienced in|skilled)\b/i.test(clause) &&
+      checkPatternWithoutEvidence(clause, evidenceCorpus, ['schedul', 'coordinat', 'organiz'])
+    ) {
+      violations.push('target-concept-as-experience');
+    }
   }
 
   if (
     !hasConcrete &&
     /\b(?:organized )?(?:support )?professional\b/i.test(normalized) &&
-    !/\b(?:transition|building toward|aspiring|moving toward)\b/i.test(normalized)
+    !/\b(?:transition|building toward|aspiring|moving toward|exploring a move toward)\b/i.test(normalized)
   ) {
     violations.push('implied-professional-identity');
   }
 
   return [...new Set(violations)];
+}
+
+function checkPatternWithoutEvidence(clause, evidenceCorpus, conceptStems) {
+  const clauseLower = clause.toLowerCase();
+  const mentionsConcept = conceptStems.some((stem) => clauseLower.includes(stem));
+  if (!mentionsConcept) return false;
+  return !conceptStems.some((stem) => evidenceCorpus.includes(stem));
 }
 
 /** Validate all LinkedIn fields in a kit result. */
@@ -651,27 +732,57 @@ export function validateLinkedInKit(kitResult, gate, targetPathTitle = '') {
   return { ok: unique.length === 0, violations: unique };
 }
 
-function summarizeTraitDescriptors(gate) {
+function extractSupportedTraitWords(gate) {
   const traits = (gate?.downstreamStoryItems || [])
-    .filter((i) => i.category === 'trait')
-    .map((i) => i.source);
+    .filter((item) => item.category === 'trait')
+    .map((item) => item.source.toLowerCase());
   const words = [];
-  if (traits.some((t) => /easygoing/i.test(t))) words.push('Easygoing');
-  if (traits.some((t) => /understanding/i.test(t))) words.push('Understanding');
-  if (traits.some((t) => /attentive/i.test(t))) words.push('Attentive');
-  if (traits.some((t) => /approachable/i.test(t))) words.push('Approachable');
-  return words.length ? words.join(', ') : 'Self-Aware';
+  const candidates = [
+    ['easygoing', 'easygoing'],
+    ['understanding', 'understanding'],
+    ['attentive', 'attentive'],
+    ['approachable', 'approachable'],
+    ['patient', 'patient'],
+    ['friendly', 'friendly'],
+  ];
+  for (const [pattern, label] of candidates) {
+    if (traits.some((t) => t.includes(pattern))) words.push(label);
+  }
+  return [...new Set(words)];
 }
 
-function summarizeAbilityDescriptors(gate) {
-  const abilities = (gate?.downstreamStoryItems || [])
-    .filter((i) => i.category === 'self_described_ability')
-    .map((i) => i.source.toLowerCase());
-  const parts = [];
-  if (abilities.some((a) => /organiz/.test(a))) parts.push('Organization');
-  if (abilities.some((a) => /coordinat/.test(a))) parts.push('Coordination');
-  if (abilities.some((a) => /listen/.test(a))) parts.push('Active Listening');
-  return parts.length ? parts.join(' & ') : 'Personal Strengths';
+function isSubstantiveEvidencePhrase(phrase) {
+  const normalized = String(phrase || '').trim();
+  if (normalized.length < 10) return false;
+  if (/^(hi|hello|hey)[.!]?$/i.test(normalized)) return false;
+  return true;
+}
+
+function extractSupportedAbilityPhrases(gate) {
+  return (gate?.downstreamStoryItems || [])
+    .filter((item) => item.category === 'self_described_ability')
+    .map((item) => item.source.replace(/\.+$/, '').trim())
+    .filter(isSubstantiveEvidencePhrase);
+}
+
+function pickPrimaryAbilityPhrase(phrases) {
+  const substantive = phrases.filter(isSubstantiveEvidencePhrase);
+  const preferred = substantive.find((phrase) => /know how|organiz|coordinat|listen/i.test(phrase));
+  return preferred || substantive[0] || '';
+}
+
+function extractSupportedPreferencePhrases(gate) {
+  return (gate?.downstreamStoryItems || [])
+    .filter((item) => item.category === 'preference')
+    .map((item) => item.source.replace(/\.+$/, '').trim())
+    .filter(Boolean);
+}
+
+function shortEvidencePhrase(phrase, max = 48) {
+  const text = Array.isArray(phrase) ? phrase[0] : phrase;
+  if (!text) return '';
+  const normalized = String(text).trim();
+  return normalized.length <= max ? normalized : `${normalized.slice(0, max - 1).trim()}…`;
 }
 
 function targetPathShortLabel(targetPathTitle) {
@@ -679,66 +790,93 @@ function targetPathShortLabel(targetPathTitle) {
   return title.replace(/\s*\/\s*/g, ' / ').replace(/\s+/g, ' ').trim();
 }
 
-function targetPathSearchKeywords(targetPathTitle) {
-  const short = targetPathShortLabel(targetPathTitle);
-  if (/administrative|office|coordinator/i.test(short)) {
-    return 'Administrative Coordination | Office Coordination';
-  }
-  return short;
+function joinHeadlineParts(parts) {
+  return parts.filter(Boolean).join(' | ');
 }
 
 /** Deterministic evidence-grounded LinkedIn fallback when model output fails validation. */
 export function buildFallbackLinkedIn(gate, targetPathTitle = '') {
   const targetShort = targetPathShortLabel(targetPathTitle);
-  const searchKeywords = targetPathSearchKeywords(targetPathTitle);
-  const traits = summarizeTraitDescriptors(gate);
-  const abilities = summarizeAbilityDescriptors(gate);
-  const prefs = (gate?.downstreamStoryItems || [])
-    .filter((i) => i.category === 'preference')
-    .map((i) => i.source);
+  const traitWords = extractSupportedTraitWords(gate);
+  const abilityPhrases = extractSupportedAbilityPhrases(gate);
+  const preferencePhrases = extractSupportedPreferencePhrases(gate);
+  const abilityShort = shortEvidencePhrase(pickPrimaryAbilityPhrase(abilityPhrases) || abilityPhrases[0], 40);
+  const preferenceShort = shortEvidencePhrase(preferencePhrases[0], 40);
 
-  const preferencePhrase = prefs.some((p) => /listen|people|social/i.test(p))
-    ? 'People Connection & Socializing'
-    : '';
+  const recruiterParts = [`Building Toward ${targetShort}`];
+  if (abilityShort) recruiterParts.push(abilityShort);
+  if (preferenceShort) recruiterParts.push(preferenceShort);
 
-  const recruiterParts = [searchKeywords, abilities, 'Building Office Skills'].filter(Boolean);
-  const linkedinHeadlines = [
-    {
-      style: 'Recruiter Search-Focused',
-      text: recruiterParts.join(' | '),
-    },
-    {
-      style: 'Career Transition-Focused',
-      text: `Transitioning into ${targetShort} | Self-Described Strengths in ${abilities}`,
-    },
-    {
-      style: 'Professional Brand-Focused',
-      text: `${traits} | Building Toward ${targetShort}`,
-    },
-  ];
+  const transitionParts = [`Transitioning into ${targetShort}`];
+  if (abilityPhrases.length) {
+    transitionParts.push(`Self-Described Strengths: ${abilityShort}`);
+  } else if (traitWords.length) {
+    transitionParts.push(`Self-Described Qualities: ${traitWords.join(', ')}`);
+  }
 
-  const aboutParts = [
-    `I describe myself as ${traits.toLowerCase()} and value ${preferencePhrase ? 'connecting with people' : 'meaningful work'}.`,
-    `Organization and coordination are strengths I identify in myself, and I listen carefully to others.`,
-    `I am building toward ${targetShort} while looking for ways to turn these self-described strengths into concrete examples.`,
-  ];
+  const brandParts = [];
+  if (traitWords.length) brandParts.push(traitWords.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' & '));
+  brandParts.push(`Building Toward ${targetShort}`);
+
+  const aboutParts = [`I'm exploring a move toward ${targetShort}.`];
+  if (traitWords.length) {
+    aboutParts.push(`I describe myself as ${traitWords.join(' and ')}.`);
+  }
+  if (preferencePhrases.length) {
+    aboutParts.push(`${preferencePhrases[0]}.`);
+  }
+  for (const phrase of abilityPhrases.slice(0, 2)) {
+    aboutParts.push(`${phrase}.`);
+  }
+  aboutParts.push(
+    "I'm continuing to identify concrete examples from my experience that support this direction."
+  );
 
   return {
-    linkedinHeadlines,
+    linkedinHeadlines: [
+      { style: 'Recruiter Search-Focused', text: joinHeadlineParts(recruiterParts) },
+      { style: 'Career Transition-Focused', text: joinHeadlineParts(transitionParts) },
+      { style: 'Professional Brand-Focused', text: joinHeadlineParts(brandParts) },
+    ],
     linkedinAbout: aboutParts.join(' '),
+  };
+}
+
+/** Ultra-conservative LinkedIn fallback — target direction only. */
+export function buildUltraConservativeLinkedIn(gate, targetPathTitle = '') {
+  const targetShort = targetPathShortLabel(targetPathTitle);
+  return {
+    linkedinHeadlines: [
+      { style: 'Recruiter Search-Focused', text: `Building Toward ${targetShort}` },
+      { style: 'Career Transition-Focused', text: `Transitioning into ${targetShort}` },
+      { style: 'Professional Brand-Focused', text: `Building Toward ${targetShort}` },
+    ],
+    linkedinAbout: `I'm exploring a move toward ${targetShort}. I'm continuing to identify concrete examples from my experience that support this direction.`,
+  };
+}
+
+function linkedInFieldsFromResult(kitResult, linkedInFields) {
+  return {
+    linkedinHeadlines: linkedInFields.linkedinHeadlines,
+    linkedinAbout: linkedInFields.linkedinAbout,
   };
 }
 
 /**
  * Validate LinkedIn output and replace with deterministic fallback when upgrades are detected.
- * Preserves resume bullets unchanged.
+ * Fallback is validated; ultra-conservative fallback used if needed.
  */
 export function applyLinkedInGate(kitResult, gate, targetPathTitle = '') {
   if (!kitResult || typeof kitResult !== 'object') return kitResult;
+
   const validation = validateLinkedInKit(kitResult, gate, targetPathTitle);
   if (validation.ok) return kitResult;
 
-  const fallback = buildFallbackLinkedIn(gate, targetPathTitle);
+  let fallback = buildFallbackLinkedIn(gate, targetPathTitle);
+  if (!validateLinkedInKit(linkedInFieldsFromResult(kitResult, fallback), gate, targetPathTitle).ok) {
+    fallback = buildUltraConservativeLinkedIn(gate, targetPathTitle);
+  }
+
   return {
     ...kitResult,
     linkedinHeadlines: fallback.linkedinHeadlines,
