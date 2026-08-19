@@ -73,6 +73,41 @@ function main() {
     'clearly distinguish existing qualities/experience',
   ], 'buildKit prompt enforces past-evidence boundary');
 
+  promptIncludesAll(kitPrompt, [
+    'CONCRETE PAST ACTION EVIDENCE',
+    'NOT sufficient alone for a resume bullet',
+    'Do NOT infer outcomes',
+    'Do NOT universalize traits',
+    'self-described qualities',
+    'stated preferences/dislikes',
+  ], 'buildKit prompt distinguishes action evidence from traits/preferences/outcomes');
+
+  assert(
+    'buildKit prompt allows zero bullets for trait-only stories (Fixture A)',
+    kitPrompt.includes('return zero resume bullets') &&
+      kitPrompt.includes('I am hardworking') &&
+      kitPrompt.includes('I like to perfect my work') &&
+      kitPrompt.includes('people reach out to me to fix things')
+  );
+
+  assert(
+    'buildKit prompt forbids upgrading traits into invented performance bullets',
+    kitPrompt.includes('delivered polished outcomes') &&
+      kitPrompt.includes('in every responsibility undertaken') &&
+      kitPrompt.includes('consistently responding with follow-through')
+  );
+
+  assert(
+    'buildKit prompt prefers strengthen questions over fabricated bullets from traits',
+    kitPrompt.includes('strengthen') && kitPrompt.includes('Which task showed your attentiveness')
+  );
+
+  assert(
+    'buildKit prompt avoids people-heavy headlines when preferences conflict',
+    kitPrompt.includes('People-Focused Professional') &&
+      kitPrompt.includes('high people interaction')
+  );
+
   promptIncludesAll(discoverPrompt, [
     'meaningfully different occupational/function families',
     'NOT evidence of healthcare or professional caregiving experience',
@@ -115,6 +150,14 @@ function main() {
   assert(
     'Fixture A prompts forbid upgrading care preferences into past care work',
     kitPrompt.includes('Never write bullets that describe target-role duties, caregiving/client/patient support')
+  );
+
+  assert(
+    'Fixture A is trait/preference-heavy with one narrow action phrase only',
+    FIXTURE_A_STORY.includes('people reach out to me to fix things') &&
+      FIXTURE_A_STORY.includes('hardworking') &&
+      !/\banswered\b/i.test(FIXTURE_A_STORY) &&
+      !/\bscheduled\b/i.test(FIXTURE_A_STORY)
   );
 
   assert(

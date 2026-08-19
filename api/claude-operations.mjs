@@ -87,6 +87,19 @@ const PAST_EVIDENCE_FUTURE_DIRECTION_RULE = `Past-evidence / future-direction bo
 - LinkedIn About must clearly distinguish existing qualities/experience from the role the user is moving toward.
 - If there is not enough concrete action evidence for honest resume bullets, return zero resume bullets — do NOT fabricate bullets to meet a minimum count.`;
 
+const RESUME_BULLET_EVIDENCE_RULE = `Resume-bullet evidence rule (hard invariant — applies to resumeBullets only):
+- Each resume bullet requires CONCRETE PAST ACTION EVIDENCE: something the user actually DID. Traits, preferences, aspirations, and self-descriptions are NOT resume-bullet evidence by themselves.
+- USABLE action evidence (examples): "People reach out to me to fix things." / "I answered customer messages." / "I scheduled appointments." / "I trained new staff." / "I helped my aunt with meals and appointments."
+- NOT sufficient alone for a resume bullet (examples): "I am hardworking." / "I am attentive." / "I love helping people." / "I like organizing." / "I care about doing things right." / "I prefer remote work." / "I'm reliable." / "I like to perfect my work." / "I love getting things done." These may inform LinkedIn brand/transition language as self-described qualities, but must NOT become invented job performance, outcomes, frequency, scale, or universal claims in resume bullets.
+- Do NOT infer outcomes: never transform "I like to perfect my work" (or similar) into "delivered polished outcomes," "ensured high-quality results," "maintained exceptional standards," or any other result the user did not state.
+- Do NOT universalize traits: never write "in every responsibility undertaken," "consistently across all tasks," "consistently responding with follow-through," "always delivered," or similar scope/frequency claims unless the user provided that evidence.
+- When evidence is thin, return zero resume bullets — preferable to converting personality into resume experience. At most one narrowly supported bullet is acceptable if it stays literal (e.g. from "people reach out to me to fix things" → "Helped others troubleshoot problems when they reached out for assistance") — do not add follow-through, client service, outcomes, frequency, scale, or professional setting unless stated.
+- When the user gives only a trait or general statement, use the optional "strengthen" field to ask for a concrete example (max 10 words), e.g. "Which task showed your attentiveness?" — do NOT manufacture a resume line from the trait alone.`;
+
+const KIT_LINKEDIN_POSITIONING_RULE = `LinkedIn positioning rule:
+- linkedinAbout and the "Professional Brand-Focused" headline may reference self-described qualities (hardworking, attentive, listening, quality-conscious) if phrased as qualities the user stated — not as prior target-role employment or performed duties. Keep future direction explicit.
+- All three headlines must align with the target path AND the user's stated preferences/dislikes in the user message — never choose people-heavy brand framing (e.g. "People-Focused Professional") when the user dislikes high people interaction all day or similar learned preferences.`;
+
 const VERIFIED_INFO_RULE = `Verified-information rule: you have no live labor-market data, course catalog, or the user's location. Never state or imply, as current fact, that remote/hybrid/on-site work is available, that salaries fall in some range, that demand or hiring is high or low, or that a specific course/certification exists or is free — for this path or any path. You may reason about what a role's day-to-day content typically involves and how that content (not its market availability) aligns with the user's stated preferences. If a preference concerns something that varies by employer (like remote/hybrid/on-site, pay, or hours), say the user should verify it when evaluating real openings — never assert it exists. Do not mark a "lifestyle fit" as Strong on the basis of assumed work-arrangement availability. Never state that a certification is required unless the user or verified information explicitly established that. Never tell the user to obtain or complete a certification within 30/60/90 days when duration or requirement is unknown — use conditional language such as "Check whether this role requires certification in your location." Do not make unverified market claims such as employers being "known for stability," having "defined pay scales," high demand, salary availability, or remote availability.`;
 
 const CAREER_PATH_DIVERSITY_RULE = `Career-path diversity rule: when evidence supports it, return meaningfully different occupational/function families — not four cosmetic variations of one field. Normally include no more than TWO paths from the same occupational family unless the user explicitly narrows the conversation to that field. "I like/love taking care of people" or similar preference language is NOT evidence of healthcare or professional caregiving experience. Caring, listening, and helping can support broader people-facing paths such as customer support, community services, administrative/client support, coordination, operations, or concierge/service work when the rest of the evidence supports them. Variety must still be evidence-based — do not manufacture unrelated careers for diversity alone. User interest may affect interest fit later, but interest must never be upgraded into experience fit (transition/evidence fit).`;
@@ -347,7 +360,12 @@ export const TOOL_DEFINITIONS = {
             type: 'object',
             properties: {
               text: { type: 'string', maxLength: 160 },
-              strengthen: { type: 'string', maxLength: 60 },
+              strengthen: {
+                type: 'string',
+                maxLength: 60,
+                description:
+                  'Optional — ask for one concrete example when evidence is thin (max 10 words). Use instead of fabricating a bullet from a trait alone.',
+              },
             },
             required: ['text'],
           },
@@ -545,9 +563,11 @@ Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progr
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
+${RESUME_BULLET_EVIDENCE_RULE}
+${KIT_LINKEDIN_POSITIONING_RULE}
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete actions the user actually said they performed. Never include a number/statistic the user didn't provide. Never write bullets that describe target-role duties, caregiving/client/patient support, or field-specific work the user did not explicitly describe doing. If honest bullets cannot be supported, return an empty resumeBullets array — do NOT fabricate to meet a minimum. For any bullet that would be meaningfully stronger with a specific number or detail the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
-2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement). Transition headlines may name the target direction as aspiration — never as past employment.
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete past actions the user actually said they performed — never traits, preferences, or self-descriptions upgraded into performance. Never include a number/statistic the user didn't provide. Never write bullets that describe target-role duties, caregiving/client/patient support, or field-specific work the user did not explicitly describe doing. If honest bullets cannot be supported, return an empty resumeBullets array — do NOT fabricate to meet a minimum. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment.
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
 4) Only draw on the "Retained story skills" list below for evidence-backed claims — skills supported by the user's story that have not been marked "Not quite" (unconfirmed skills may appear; they are story-derived, not explicitly confirmed by the user). Do not incorporate any other skill or activity the story text might mention.`,
 
