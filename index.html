@@ -3054,13 +3054,13 @@ async function buildRoadmapFoundation(){
   state.loadingMsg = 'Understanding your starting point…'; state.errorMsg=''; state.errorRetryLabel=null; render();
   const rejected = getRejectedSkillNames();
   const retainedStorySkills = getRetainedStorySkills();
-  const { gateRetainedEvidence, formatEvidenceGateForPrompt } = await loadEvidenceGate();
+  const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only — never call self-described abilities or traits "demonstrated strengths." 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Use conditional language when only self-described abilities exist (e.g. organizing/coordinating) — do not imply the user already performs those tasks.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapFoundation', system, userPrompt, roadmapFoundationTool, TOKEN_BUDGETS.roadmapFoundation, validateRoadmapFoundationResult, undefined, undefined, signal),
@@ -3099,14 +3099,14 @@ async function buildRoadmapActionPlan(){
   state.roadmapSectionError.actionPlan = null;
   state.loadingMsg = 'Building your action plan…'; render();
   const rejected = getRejectedSkillNames();
-  const { gateRetainedEvidence, formatEvidenceGateForPrompt } = await loadEvidenceGate();
+  const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists — use conditional steps such as "Review past responsibilities for real organizing examples; if none, treat as an area to build."`;
   const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
-  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForPrompt(evidenceGate)}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapActionPlan', system, userPrompt, roadmapActionPlanTool, TOKEN_BUDGETS.roadmapActionPlan, validateRoadmapActionPlanResult, undefined, ACTION_PLAN_REPAIR_HINT, signal),

@@ -444,33 +444,23 @@ export function applyResumeBulletGate(kitResult, gate) {
   return { ...kitResult, resumeBullets: validated };
 }
 
-function formatCategoryBlock(gate, category) {
-  const lines = gate.items.filter((i) => i.category === category).map((i) => `- "${i.source}"`);
+function formatAllowedCategoryBlock(gate, category) {
+  const lines = (gate.downstreamStoryItems || [])
+    .filter((i) => i.category === category)
+    .map((i) => `- "${i.source}"`);
   return lines.length ? lines.join('\n') : 'none';
 }
 
-/** Prompt block sent to buildKit / roadmap operations. */
+/** Prompt block sent to buildKit — allow-list only; rejected-only evidence stays internal. */
 export function formatEvidenceGateForPrompt(gate) {
   const lines = [
     'Evidence gate (application-owned classification — do not upgrade categories):',
-    `concrete_past_action:\n${formatCategoryBlock(gate, 'concrete_past_action')}`,
-    `self_described_ability:\n${formatCategoryBlock(gate, 'self_described_ability')}`,
-    `trait:\n${formatCategoryBlock(gate, 'trait')}`,
-    `preference:\n${formatCategoryBlock(gate, 'preference')}`,
-    `aspiration:\n${formatCategoryBlock(gate, 'aspiration')}`,
+    `concrete_past_action:\n${formatAllowedCategoryBlock(gate, 'concrete_past_action')}`,
+    `self_described_ability:\n${formatAllowedCategoryBlock(gate, 'self_described_ability')}`,
+    `trait:\n${formatAllowedCategoryBlock(gate, 'trait')}`,
+    `preference:\n${formatAllowedCategoryBlock(gate, 'preference')}`,
+    `aspiration:\n${formatAllowedCategoryBlock(gate, 'aspiration')}`,
   ];
-
-  if (gate.rejectedOnlyConcrete?.length) {
-    lines.push(
-      `excluded_rejected_only_concrete:\n${gate.rejectedOnlyConcrete.map((i) => `- "${i.source}"`).join('\n')}`
-    );
-  }
-
-  if (gate.rejectedOnlyStory?.length) {
-    lines.push(
-      `excluded_rejected_only_story:\n${gate.rejectedOnlyStory.map((i) => `- [${i.category}] "${i.source}"`).join('\n')}`
-    );
-  }
 
   if (!gate.allowResumeBullets) {
     lines.push(
@@ -485,13 +475,6 @@ export function formatEvidenceGateForPrompt(gate) {
   return lines.join('\n\n');
 }
 
-function formatDownstreamCategoryBlock(gate, category) {
-  const lines = (gate.downstreamStoryItems || [])
-    .filter((i) => i.category === category)
-    .map((i) => `- "${i.source}"`);
-  return lines.length ? lines.join('\n') : 'none';
-}
-
 /** Provenance-filtered story context for career path reasoning (discoverPaths / refinePaths). */
 export function formatDownstreamStoryForPaths(gate) {
   const storyLines = (gate.downstreamStoryItems || []).map((i) => i.source).join(' ');
@@ -499,11 +482,11 @@ export function formatDownstreamStoryForPaths(gate) {
     storyLines || '(no story evidence after rejected-skill filtering)',
     '',
     'Story evidence by category (provenance-filtered — rejected Not Quite skill evidence excluded):',
-    `concrete_past_action:\n${formatDownstreamCategoryBlock(gate, 'concrete_past_action')}`,
-    `self_described_ability:\n${formatDownstreamCategoryBlock(gate, 'self_described_ability')}`,
-    `trait:\n${formatDownstreamCategoryBlock(gate, 'trait')}`,
-    `preference:\n${formatDownstreamCategoryBlock(gate, 'preference')}`,
-    `aspiration:\n${formatDownstreamCategoryBlock(gate, 'aspiration')}`,
+    `concrete_past_action:\n${formatAllowedCategoryBlock(gate, 'concrete_past_action')}`,
+    `self_described_ability:\n${formatAllowedCategoryBlock(gate, 'self_described_ability')}`,
+    `trait:\n${formatAllowedCategoryBlock(gate, 'trait')}`,
+    `preference:\n${formatAllowedCategoryBlock(gate, 'preference')}`,
+    `aspiration:\n${formatAllowedCategoryBlock(gate, 'aspiration')}`,
   ];
 
   return lines.join('\n\n');
@@ -516,22 +499,16 @@ export function buildPathPromptStoryContext(storyText, retainedSkills = [], reje
   );
 }
 
-/** Evidence gate block for roadmap sections (foundation, action plan, direction). */
+/** Evidence gate block for roadmap sections (foundation, action plan, direction). Allow-list only. */
 export function formatEvidenceGateForRoadmapPrompt(gate) {
   const lines = [
     'Evidence gate (application-owned classification — do not upgrade categories):',
-    `concrete_past_action:\n${formatCategoryBlock(gate, 'concrete_past_action')}`,
-    `self_described_ability:\n${formatCategoryBlock(gate, 'self_described_ability')}`,
-    `trait:\n${formatCategoryBlock(gate, 'trait')}`,
-    `preference:\n${formatCategoryBlock(gate, 'preference')}`,
-    `aspiration:\n${formatCategoryBlock(gate, 'aspiration')}`,
+    `concrete_past_action:\n${formatAllowedCategoryBlock(gate, 'concrete_past_action')}`,
+    `self_described_ability:\n${formatAllowedCategoryBlock(gate, 'self_described_ability')}`,
+    `trait:\n${formatAllowedCategoryBlock(gate, 'trait')}`,
+    `preference:\n${formatAllowedCategoryBlock(gate, 'preference')}`,
+    `aspiration:\n${formatAllowedCategoryBlock(gate, 'aspiration')}`,
   ];
-
-  if (gate.rejectedOnlyStory?.length) {
-    lines.push(
-      `excluded_rejected_only:\n${gate.rejectedOnlyStory.map((i) => `- [${i.category}] "${i.source}"`).join('\n')}`
-    );
-  }
 
   if (!gate.allowResumeBullets) {
     lines.push(
@@ -556,9 +533,9 @@ export function formatResumeBulletSources(gate) {
     .join('\n');
 }
 
-/** Non-concrete evidence usable for LinkedIn About/headlines. */
+/** Non-concrete allowed story evidence usable for LinkedIn About/headlines. */
 export function formatLinkedInEvidenceContext(gate) {
-  const lines = gate.items
+  const lines = (gate.downstreamStoryItems || [])
     .filter((i) => i.category !== 'concrete_past_action')
     .map((i) => `[${i.category}] "${i.source}"`);
   return lines.length ? lines.join('\n') : 'none';

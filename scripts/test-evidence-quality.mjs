@@ -18,6 +18,8 @@ import {
   validateResumeBulletSources,
   buildPathPromptStoryContext,
   formatEvidenceGateForRoadmapPrompt,
+  formatEvidenceGateForPrompt,
+  formatLinkedInEvidenceContext,
 } from './evidence-gate.mjs';
 import {
   getConfirmedSkills,
@@ -559,6 +561,51 @@ function main() {
     /know how to organize things/i.test(preferenceRejectContext)
   );
 
+  const preferenceRejectGate = gateRetainedEvidence(
+    PREFERENCE_REJECT_STORY,
+    PREFERENCE_RETAINED,
+    PREFERENCE_REJECTED
+  );
+  const roadmapPreferenceContext = formatEvidenceGateForRoadmapPrompt(preferenceRejectGate);
+  const kitPreferenceContext = formatEvidenceGateForPrompt(preferenceRejectGate);
+  const linkedInPreferenceContext = formatLinkedInEvidenceContext(preferenceRejectGate);
+  assert(
+    'roadmap prompt omits rejected-only care preference',
+    /know how to organize things/i.test(roadmapPreferenceContext) &&
+      !/like taking care of people/i.test(roadmapPreferenceContext) &&
+      !/excluded_rejected/i.test(roadmapPreferenceContext)
+  );
+  assert(
+    'kit prompt omits rejected-only care preference',
+    /know how to organize things/i.test(kitPreferenceContext) &&
+      !/like taking care of people/i.test(kitPreferenceContext) &&
+      !/excluded_rejected/i.test(kitPreferenceContext)
+  );
+  assert(
+    'LinkedIn context omits rejected-only care preference',
+    /know how to organize things/i.test(linkedInPreferenceContext) &&
+      !/like taking care of people/i.test(linkedInPreferenceContext)
+  );
+
+  const roadmapRejectContext = formatEvidenceGateForRoadmapPrompt(productionRejectGate);
+  assert(
+    'roadmap prompt retains organizing concrete evidence',
+    /organized church events/i.test(roadmapRejectContext)
+  );
+  assert(
+    'roadmap prompt omits rejected-only personal-care evidence',
+    !/personal care/i.test(roadmapRejectContext) && !/excluded_rejected/i.test(roadmapRejectContext)
+  );
+  assert(
+    'kit prompt omits rejected-only personal-care evidence',
+    !/personal care/i.test(formatEvidenceGateForPrompt(productionRejectGate)) &&
+      !/excluded_rejected/i.test(formatEvidenceGateForPrompt(productionRejectGate))
+  );
+  assert(
+    'internal gate retains rejectedOnlyStory for deterministic enforcement',
+    productionRejectGate.rejectedOnlyStory?.some((i) => /personal care/i.test(i.source))
+  );
+
   const fixtureCDirectionContext = formatEvidenceGateForRoadmapPrompt(fixtureCGate);
   assert(
     'Fixture C direction context classifies organization as self_described_ability',
@@ -603,9 +650,10 @@ function main() {
   );
 
   assert(
-    'index.html wires evidence gate into buildRoadmapDirection',
-    /buildRoadmapDirection[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
-      /buildRoadmapDirection[\s\S]*gateRetainedEvidence/.test(INDEX_HTML)
+    'index.html wires allow-list roadmap formatter into all roadmap sections',
+    /buildRoadmapFoundation[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
+      /buildRoadmapActionPlan[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
+      /buildRoadmapDirection[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML)
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
