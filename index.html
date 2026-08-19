@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="iFindWorth helps you uncover professional skills hidden in your real-life experience, explore career possibilities, and build a practical path forward.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <title>iFindWorth</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -110,6 +112,8 @@
   .final-cta{padding:80px 0;text-align:center;border-top:1px solid var(--line);}
   .final-cta h2{font-size:34px;max-width:560px;margin:0 auto 24px;}
   footer{padding:30px 0 50px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);}
+  .footer-contact{margin-top:10px;}
+  .footer-contact a{text-decoration:underline;text-underline-offset:3px;}
 
   .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);}
   textarea#storyInput, textarea.plain-textarea{width:100%;min-height:260px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
@@ -130,6 +134,7 @@
   .analyzing-wrap .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .analyzing-wrap .msg{font-family:var(--serif);font-size:20px;font-style:italic;}
+  .analyzing-wrap .msg-sub{font-size:14px;color:var(--ink-faint);margin-top:12px;}
 
   .big-stat{font-family:var(--serif);font-size:clamp(32px,5vw,46px);line-height:1.1;margin-bottom:6px;}
   .big-stat mark{background:none;color:var(--clay);}
@@ -2041,7 +2046,8 @@ function renderLanding(){
         <div class="price-card featured">
           <div class="eyebrow"><span class="dot"></span>iFindWorth Starter</div>
           <div class="amt">$19.99</div>
-          <p style="font-size:14px;">Planned one-time price. Demo unlock during private beta — no card required, no real payment collected.</p>
+          <p style="font-size:14px;">Planned one-time price.</p>
+          <p style="font-size:13px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
           <ul><li>Career sequence + 7/30/60/90-day plan</li><li>Full gap analysis & learning ladder</li><li>Resume, LinkedIn & interview story bank</li><li>Command-center dashboard</li></ul>
         </div>
       </div>
@@ -2050,7 +2056,7 @@ function renderLanding(){
       <h2>Your experience counts. Let's find out where it can take you.</h2>
       <button class="btn btn-primary" data-go="intake">Start My Career Discovery</button>
     </section>
-    <footer>Guidance, not guarantees. iFindWorth only knows what you share with it — recommendations are a starting point for your own judgment, not a verdict on your potential.</footer>
+    <footer>Guidance, not guarantees. iFindWorth only knows what you share with it — recommendations are a starting point for your own judgment, not a verdict on your potential.<p class="footer-contact">Questions? <a href="mailto:hello@ifindworth.com">hello@ifindworth.com</a></p></footer>
   </div>`;
 }
 
@@ -2085,7 +2091,7 @@ function renderIntake(){
 
 /* ============================= ANALYZING ============================= */
 function renderAnalyzing(){
-  return `<div class="wrap"><div class="analyzing-wrap"><div class="spinner"></div><div class="msg">${state.loadingMsg || 'Reading through what you shared…'}</div></div></div>`;
+  return `<div class="wrap"><div class="analyzing-wrap"><div class="spinner"></div><div class="msg">${state.loadingMsg || 'Reading through what you shared…'}</div><div class="msg-sub">This can take a moment. We're checking your experience carefully.</div></div></div>`;
 }
 
 /* ============================= SKILLS ============================= */
@@ -2255,9 +2261,9 @@ function renderPaywall(){
           <li>Search terms & interview story starters</li>
           <li>Your personal Command Center dashboard</li>
         </ul>
-        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Demo Unlock My Career Plan — $19.99</button>
-        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">Planned one-time price. Demo unlock — no card required.</p>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">No real payment is collected during this private beta.</p>
+        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Demo Unlock My Career Plan</button>
+        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">Planned one-time price.</p>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
       `}
     </div>
   </div></div>`;
