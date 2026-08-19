@@ -791,6 +791,73 @@ function main() {
     validateLinkedInKit(buildUltraConservativeLinkedIn(FRIENDLY_GATE, SCHEDULING_TARGET), FRIENDLY_GATE, SCHEDULING_TARGET).ok
   );
 
+  const ADMIN_TARGET = 'Administrative Coordinator';
+  const adminFutureRemainderViolations = findLinkedInUpgradeViolations(
+    'Building toward Administrative Coordinator as a reliable, detail-oriented professional.',
+    FRIENDLY_GATE,
+    ADMIN_TARGET
+  );
+  assert(
+    'future-target span does not sanitize reliable or detail-oriented remainder',
+    adminFutureRemainderViolations.includes('reliable') &&
+      adminFutureRemainderViolations.includes('detail-oriented')
+  );
+  assert(
+    'future-target span does not sanitize prioritize or scheduling remainder',
+    findLinkedInUpgradeViolations(
+      'Building toward Administrative Coordinator while learning to prioritize schedules.',
+      FRIENDLY_GATE,
+      ADMIN_TARGET
+    ).includes('prioritize') &&
+      findLinkedInUpgradeViolations(
+        'Building toward Administrative Coordinator while learning to prioritize schedules.',
+        FRIENDLY_GATE,
+        ADMIN_TARGET
+      ).includes('scheduling')
+  );
+  assert(
+    'pure future scheduling target span passes without scheduling evidence',
+    findLinkedInUpgradeViolations('Building toward Scheduling Coordinator', FRIENDLY_GATE, SCHEDULING_TARGET).length === 0
+  );
+  assert(
+    'future scheduling target span does not sanitize reliable execution remainder',
+    findLinkedInUpgradeViolations(
+      'Building toward Scheduling Coordinator with reliable execution',
+      FRIENDLY_GATE,
+      SCHEDULING_TARGET
+    ).includes('reliable')
+  );
+  assert(
+    'span-scoped mixed future target and strong scheduling phrase fails',
+    findLinkedInUpgradeViolations(
+      'Transitioning into Scheduling Coordinator | Strong Scheduling Skills',
+      FRIENDLY_GATE,
+      SCHEDULING_TARGET
+    ).length > 0
+  );
+  assert(
+    'professional identity is evaluated per sentence not whole text',
+    findLinkedInUpgradeViolations(
+      "I'm building toward Administrative Coordinator. I am a support professional.",
+      FRIENDLY_GATE,
+      ADMIN_TARGET
+    ).includes('support-professional') ||
+      findLinkedInUpgradeViolations(
+        "I'm building toward Administrative Coordinator. I am a support professional.",
+        FRIENDLY_GATE,
+        ADMIN_TARGET
+      ).includes('implied-professional-identity')
+  );
+  const schedulingEvidenceGate = gateRetainedEvidence('I scheduled appointments for my manager.', [], []);
+  assert(
+    'evidence-supported scheduling language passes when scheduling is in corpus',
+    !findLinkedInUpgradeViolations(
+      'I scheduled appointments and am interested in scheduling coordination roles.',
+      schedulingEvidenceGate,
+      SCHEDULING_TARGET
+    ).includes('scheduling')
+  );
+
   const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);
   assert(
     'Fixture B gate finds concrete caregiving past actions',

@@ -613,9 +613,6 @@ const LINKEDIN_UPGRADE_CHECKS = [
   },
 ];
 
-const FUTURE_DIRECTION_PATTERN =
-  /\b(?:transition(?:ing)?(?:\s+into)?|building toward|aspiring to|moving toward|exploring a move toward)\b/i;
-
 const COMPETENCE_UPGRADE_PATTERN =
   /\b(?:strong|experienced|skilled|expert|proven|demonstrated)\b/i;
 
@@ -632,13 +629,6 @@ function corpusHasStem(corpus, stems) {
   return (stems || []).some((stem) => normalized.includes(String(stem).toLowerCase()));
 }
 
-function splitLinkedInClauses(text) {
-  return String(text || '')
-    .split(/\s*[|;]\s*|\n+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 function targetTitleTokens(targetPathTitle) {
   return String(targetPathTitle || '')
     .toLowerCase()
@@ -647,19 +637,84 @@ function targetTitleTokens(targetPathTitle) {
     .filter((token) => token.length > 3);
 }
 
-function clauseIsFutureTargetDirection(clause, targetPathTitle) {
-  if (!FUTURE_DIRECTION_PATTERN.test(clause)) return false;
-  const clauseLower = clause.toLowerCase();
-  const tokens = targetTitleTokens(targetPathTitle);
-  if (!tokens.length) return FUTURE_DIRECTION_PATTERN.test(clause);
-  return tokens.some((token) => clauseLower.includes(token));
+function escapeTargetForRegex(targetPathTitle) {
+  return targetPathShortLabel(targetPathTitle)
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s*\/\s*/g, '\\s*/\\s*')
+    .replace(/\s+/g, '\\s+');
 }
 
-function clauseAllowsTargetDerivedConcept(clause, check, targetPathTitle) {
-  if (!check.pattern.test(clause)) return true;
-  if (!clauseIsFutureTargetDirection(clause, targetPathTitle)) return false;
-  if (COMPETENCE_UPGRADE_PATTERN.test(clause)) return false;
-  return true;
+const FUTURE_TARGET_PREFIX =
+  '(?:transition(?:ing)?(?:\\s+into)?|building toward|aspiring to(?:\\s+become)?|moving toward|exploring a move toward)';
+
+/** Remove only the authorized future-target span; validate the remainder separately. */
+export function maskAuthorizedFutureTargetSpan(clause, targetPathTitle) {
+  const clauseText = String(clause || '').trim();
+  const targetPattern = escapeTargetForRegex(targetPathTitle);
+  if (!clauseText || !targetPattern) {
+    return { remainder: clauseText, masked: '' };
+  }
+
+  const spanRegex = new RegExp(`\\b${FUTURE_TARGET_PREFIX}\\s+${targetPattern}\\b`, 'i');
+  const match = clauseText.match(spanRegex);
+  if (!match) {
+    return { remainder: clauseText, masked: '' };
+  }
+
+  const remainder = clauseText.replace(spanRegex, ' ').replace(/\s+/g, ' ').trim();
+  return { remainder, masked: match[0] };
+}
+
+function splitLinkedInClauses(text) {
+  return String(text || '')
+    .split(/\s*[|;]\s*|\n+|(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function findProfessionalIdentityViolations(clause, hasConcrete) {
+  if (hasConcrete) return [];
+  const violations = [];
+  if (/\bi am\b/i.test(clause) && /\b(?:support )?professional\b/i.test(clause)) {
+    violations.push('implied-professional-identity');
+  }
+  if (/\borganized professional\b/i.test(clause)) {
+    violations.push('implied-professional-identity');
+  }
+  return violations;
+}
+
+function validateClauseRemainder(clause, evidenceCorpus, hasConcrete, targetPathTitle) {
+  const violations = [];
+  const { remainder } = maskAuthorizedFutureTargetSpan(clause, targetPathTitle);
+  const validationText = remainder.trim();
+  if (!validationText) return violations;
+
+  for (const check of LINKEDIN_UPGRADE_CHECKS) {
+    if (!check.pattern.test(validationText)) continue;
+    if (corpusHasStem(evidenceCorpus, check.evidenceStems)) continue;
+    violations.push(check.id);
+  }
+
+  if (
+    !hasConcrete &&
+    COMPETENCE_UPGRADE_PATTERN.test(validationText) &&
+    /\b(organization|organiz|coordinat|listen|schedul)/i.test(validationText) &&
+    !corpusHasStem(evidenceCorpus, ['strong', 'experienced', 'skilled'])
+  ) {
+    violations.push('strong-ability-upgrade');
+  }
+
+  if (
+    !hasConcrete &&
+    /\b(?:experienced in|skilled)\b/i.test(validationText) &&
+    checkPatternWithoutEvidence(validationText, evidenceCorpus, ['schedul', 'coordinat', 'organiz'])
+  ) {
+    violations.push('target-concept-as-experience');
+  }
+
+  violations.push(...findProfessionalIdentityViolations(validationText, hasConcrete));
+  return violations;
 }
 
 function linkedInTextBlocks(kitResult) {
@@ -676,40 +731,9 @@ export function findLinkedInUpgradeViolations(text, gate, targetPathTitle = '') 
   const evidenceCorpus = buildLinkedInEvidenceCorpus(gate);
   const hasConcrete = (gate?.concretePastActions || []).length > 0;
   const violations = [];
-  const normalized = String(text || '');
 
-  for (const clause of splitLinkedInClauses(normalized)) {
-    for (const check of LINKEDIN_UPGRADE_CHECKS) {
-      if (!check.pattern.test(clause)) continue;
-      if (corpusHasStem(evidenceCorpus, check.evidenceStems)) continue;
-      if (clauseAllowsTargetDerivedConcept(clause, check, targetPathTitle)) continue;
-      violations.push(check.id);
-    }
-
-    if (
-      !hasConcrete &&
-      COMPETENCE_UPGRADE_PATTERN.test(clause) &&
-      /\b(organization|organiz|coordinat|listen|schedul)/i.test(clause) &&
-      !corpusHasStem(evidenceCorpus, ['strong', 'experienced', 'skilled'])
-    ) {
-      violations.push('strong-ability-upgrade');
-    }
-
-    if (
-      !hasConcrete &&
-      /\b(?:experienced in|skilled)\b/i.test(clause) &&
-      checkPatternWithoutEvidence(clause, evidenceCorpus, ['schedul', 'coordinat', 'organiz'])
-    ) {
-      violations.push('target-concept-as-experience');
-    }
-  }
-
-  if (
-    !hasConcrete &&
-    /\b(?:organized )?(?:support )?professional\b/i.test(normalized) &&
-    !/\b(?:transition|building toward|aspiring|moving toward|exploring a move toward)\b/i.test(normalized)
-  ) {
-    violations.push('implied-professional-identity');
+  for (const clause of splitLinkedInClauses(String(text || ''))) {
+    violations.push(...validateClauseRemainder(clause, evidenceCorpus, hasConcrete, targetPathTitle));
   }
 
   return [...new Set(violations)];
