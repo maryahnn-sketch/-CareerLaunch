@@ -1048,8 +1048,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
       const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
       const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal, {
-        reshapeFailureDetail: tier1Err.detail || tier1Err.message,
-        extraRepairHint: extraRepairHint || ''
+        reshapeFailureDetail: tier1Err.detail || tier1Err.message
       });
       const result = runValidation(raw);
       safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Format-only reshape recovered a valid result (original content preserved) after: ${tier1Err.code}`);
