@@ -753,19 +753,30 @@ function extractFirstJsonObject(text){
   return null; // no complete, balanced object found — genuinely incomplete/malformed
 }
 
-async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal){
+async function buildClaudeAuthHeaders(){
+  const headers = { "Content-Type": "application/json" };
+  if(window.CareerLaunchAuth){
+    await window.CareerLaunchAuth.ready;
+    const token = await window.CareerLaunchAuth.getAccessToken();
+    if(token) headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal, apiContext){
   let response;
   try{
     response = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await buildClaudeAuthHeaders(),
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        operation: operation,
         max_tokens: maxTokens || 1000,
-        system: system,
-        messages: [{ role: "user", content: userPrompt }],
-        tools: [tool],
-        tool_choice: { type: "tool", name: tool.name }
+        userPrompt: userPrompt,
+        context: {
+          rejectedSkillNames: getRejectedSkillNames(),
+          ...(apiContext || {})
+        }
       })
       // Deliberately NOT passing `signal` here — see runCancelable for why.
       // This artifact environment's fetch relays each request to the host
@@ -874,17 +885,19 @@ async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, si
 // whatever text comes back, which is exactly what a reply naturally is.
 // Preference extraction is a separate, small, structured call (profileDeltaTool)
 // that can fail independently without ever taking the reply down with it.
-async function callClaudeText(system, userPrompt, maxTokens, signal){
+async function callClaudeText(system, userPrompt, maxTokens, operation, signal){
   let response;
   try{
     response = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await buildClaudeAuthHeaders(),
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        operation: operation,
         max_tokens: maxTokens || 500,
-        system: system,
-        messages: [{ role: "user", content: userPrompt }]
+        userPrompt: userPrompt,
+        context: {
+          rejectedSkillNames: getRejectedSkillNames()
+        }
       })
       // Same fix as callClaudeTool: no `signal` passed to fetch — an
       // AbortSignal cannot cross this environment's postMessage-based fetch
@@ -929,11 +942,11 @@ async function callClaudeText(system, userPrompt, maxTokens, signal){
 // since there's no schema to reshape here, just a plain-text regenerate.
 async function callTextWithRetry(operation, system, userPrompt, maxTokens){
   try{
-    return await callClaudeText(system, userPrompt, maxTokens);
+    return await callClaudeText(system, userPrompt, maxTokens, operation);
   }catch(firstErr){
     logDiag(operation, firstErr.category || 'unknown', firstErr.message || String(firstErr));
     try{
-      const text = await callClaudeText(system, userPrompt, maxTokens);
+      const text = await callClaudeText(system, userPrompt, maxTokens, operation);
       safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Plain-text retry produced a usable reply after: ${firstErr.code}`);
       return text;
     }catch(secondErr){
@@ -1034,7 +1047,9 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
       let reshapeSystem = `You are a strict data formatter for iFindWorth. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
       const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
-      const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal);
+      const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal, {
+        reshapeFailureDetail: tier1Err.detail || tier1Err.message
+      });
       const result = runValidation(raw);
       safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Format-only reshape recovered a valid result (original content preserved) after: ${tier1Err.code}`);
       return result;

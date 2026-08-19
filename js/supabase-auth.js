@@ -97,5 +97,20 @@ window.CareerLaunchAuth = {
 
   getClient() {
     return authState.client;
+  },
+
+  async getAccessToken() {
+    await this.ready;
+
+    const client = authState.client;
+    if (!client) return null;
+
+    try {
+      const { data, error } = await client.auth.getSession();
+      if (error || !data?.session?.access_token) return null;
+      return data.session.access_token;
+    } catch {
+      return null;
+    }
   }
 };
