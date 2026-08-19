@@ -16,6 +16,8 @@ import {
   gateRetainedEvidence,
   applyResumeBulletGate,
   validateResumeBulletSources,
+  buildPathPromptStoryContext,
+  formatEvidenceGateForRoadmapPrompt,
 } from './evidence-gate.mjs';
 import {
   getConfirmedSkills,
@@ -101,6 +103,7 @@ function main() {
   const refinePrompt = getServerSystemPromptForTest('refinePaths');
   const foundationPrompt = getServerSystemPromptForTest('buildRoadmapFoundation');
   const actionPlanPrompt = getServerSystemPromptForTest('buildRoadmapActionPlan');
+  const directionPrompt = getServerSystemPromptForTest('buildRoadmapDirection');
   const kitSchema = TOOL_DEFINITIONS.report_application_kit.input_schema.properties.resumeBullets;
 
   promptIncludesAll(kitPrompt, [
@@ -167,6 +170,12 @@ function main() {
     'Never assign certification completion to a fixed 30/60/90-day window',
     'List daily tasks you already handle',
   ], 'buildRoadmapActionPlan prompt uses conditional language for unproven tasks');
+
+  promptIncludesAll(directionPrompt, [
+    'Self-described vs demonstrated evidence',
+    'demonstrated strengths',
+    'concrete_past_action',
+  ], 'buildRoadmapDirection prompt blocks self-described upgrades');
 
   assert(
     'application kit schema allows zero resume bullets',
@@ -506,6 +515,67 @@ function main() {
       productionRejectKit.resumeBullets[0].text.includes('Organized church events')
   );
 
+  const pathRejectContext = buildPathPromptStoryContext(
+    PRODUCTION_REJECT_STORY,
+    PRODUCTION_RETAINED,
+    PRODUCTION_REJECTED
+  );
+  assert(
+    'path context retains organizing clause after rejected-skill filtering',
+    /organized church events/i.test(pathRejectContext)
+  );
+  assert(
+    'path context excludes rejected-only personal-care clause',
+    !/personal care/i.test(pathRejectContext)
+  );
+
+  const PREFERENCE_REJECT_STORY =
+    'I like taking care of people. I know how to organize things.';
+  const PREFERENCE_RETAINED = [
+    {
+      name: 'Organization & Coordination',
+      strength: 'Moderate',
+      evidence: 'You described knowing how to organize things.',
+    },
+  ];
+  const PREFERENCE_REJECTED = [
+    {
+      name: 'Caregiving & People Support',
+      strength: 'Moderate',
+      evidence: 'You described liking to take care of people.',
+    },
+  ];
+  const preferenceRejectContext = buildPathPromptStoryContext(
+    PREFERENCE_REJECT_STORY,
+    PREFERENCE_RETAINED,
+    PREFERENCE_REJECTED
+  );
+  assert(
+    'path context excludes rejected-only care preference clause',
+    !/like taking care of people/i.test(preferenceRejectContext)
+  );
+  assert(
+    'path context retains organizing self-description for retained skill',
+    /know how to organize things/i.test(preferenceRejectContext)
+  );
+
+  const fixtureCDirectionContext = formatEvidenceGateForRoadmapPrompt(fixtureCGate);
+  assert(
+    'Fixture C direction context classifies organization as self_described_ability',
+    /self_described_ability:\n- "I know how to organize things"/.test(fixtureCDirectionContext) ||
+      fixtureCDirectionContext.includes('I know how to organize things')
+  );
+  assert(
+    'Fixture C direction context has zero concrete past actions',
+    fixtureCGate.concretePastActions.length === 0 &&
+      /concrete_past_action:\nnone/.test(fixtureCDirectionContext)
+  );
+  assert(
+    'Fixture C direction context forbids demonstrated-strength positioning',
+    fixtureCDirectionContext.includes('demonstrated strengths') &&
+      fixtureCDirectionContext.includes('ZERO concrete past actions')
+  );
+
   const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);
   assert(
     'Fixture B gate finds concrete caregiving past actions',
@@ -523,6 +593,19 @@ function main() {
       INDEX_HTML.includes('applyResumeBulletGate') &&
       INDEX_HTML.includes('gateRetainedEvidence') &&
       INDEX_HTML.includes('getRejectedSkills')
+  );
+
+  assert(
+    'index.html wires provenance-filtered story into discoverPaths and refinePaths',
+    INDEX_HTML.includes('formatDownstreamStoryForPaths') &&
+      /discoverPaths[\s\S]*formatDownstreamStoryForPaths/.test(INDEX_HTML) &&
+      /refinePaths[\s\S]*formatDownstreamStoryForPaths/.test(INDEX_HTML)
+  );
+
+  assert(
+    'index.html wires evidence gate into buildRoadmapDirection',
+    /buildRoadmapDirection[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
+      /buildRoadmapDirection[\s\S]*gateRetainedEvidence/.test(INDEX_HTML)
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

@@ -303,13 +303,18 @@ function getProvenanceEntry(clauseSource, provenance) {
   return provenance.get(normalizeForMatch(clauseSource)) || null;
 }
 
-/** Concrete story clause allowed unless linked ONLY to rejected skills. */
-export function isConcreteClauseAllowed(clauseSource, provenance) {
+/** Story clause allowed for downstream use unless linked ONLY to rejected skills. */
+export function isStoryClauseAllowed(clauseSource, provenance) {
   const entry = getProvenanceEntry(clauseSource, provenance);
   if (!entry) return true;
   if (entry.retained.size > 0) return true;
   if (entry.rejected.size > 0 && entry.retained.size === 0) return false;
   return true;
+}
+
+/** Concrete story clause allowed unless linked ONLY to rejected skills. */
+export function isConcreteClauseAllowed(clauseSource, provenance) {
+  return isStoryClauseAllowed(clauseSource, provenance);
 }
 
 function dedupeItems(items) {
@@ -360,7 +365,15 @@ export function gateRetainedEvidence(storyText, retainedSkills = [], rejectedSki
     (item) =>
       item.category === 'concrete_past_action' &&
       item.origin === 'story' &&
-      isConcreteClauseAllowed(item.source, provenance)
+      isStoryClauseAllowed(item.source, provenance)
+  );
+
+  const downstreamStoryItems = deduped.filter(
+    (item) => item.origin === 'story' && isStoryClauseAllowed(item.source, provenance)
+  );
+
+  const rejectedOnlyStory = deduped.filter(
+    (item) => item.origin === 'story' && !isStoryClauseAllowed(item.source, provenance)
   );
 
   return {
@@ -368,11 +381,10 @@ export function gateRetainedEvidence(storyText, retainedSkills = [], rejectedSki
     concretePastActions,
     allowResumeBullets: concretePastActions.length > 0,
     provenance,
-    rejectedOnlyConcrete: deduped.filter(
-      (item) =>
-        item.category === 'concrete_past_action' &&
-        item.origin === 'story' &&
-        !isConcreteClauseAllowed(item.source, provenance)
+    downstreamStoryItems,
+    rejectedOnlyStory,
+    rejectedOnlyConcrete: rejectedOnlyStory.filter(
+      (item) => item.category === 'concrete_past_action'
     ),
   };
 }
@@ -454,6 +466,12 @@ export function formatEvidenceGateForPrompt(gate) {
     );
   }
 
+  if (gate.rejectedOnlyStory?.length) {
+    lines.push(
+      `excluded_rejected_only_story:\n${gate.rejectedOnlyStory.map((i) => `- [${i.category}] "${i.source}"`).join('\n')}`
+    );
+  }
+
   if (!gate.allowResumeBullets) {
     lines.push(
       'RESUME BULLET GATE: ZERO concrete past actions identified. resumeBullets MUST be an empty array []. This gate cannot be overridden.'
@@ -463,6 +481,67 @@ export function formatEvidenceGateForPrompt(gate) {
       'Each resume bullet MUST include sourceQuote set to the EXACT concrete_past_action quote it is grounded in (copy verbatim from the list above). Bullets with missing or invalid sourceQuote are removed after generation.'
     );
   }
+
+  return lines.join('\n\n');
+}
+
+function formatDownstreamCategoryBlock(gate, category) {
+  const lines = (gate.downstreamStoryItems || [])
+    .filter((i) => i.category === category)
+    .map((i) => `- "${i.source}"`);
+  return lines.length ? lines.join('\n') : 'none';
+}
+
+/** Provenance-filtered story context for career path reasoning (discoverPaths / refinePaths). */
+export function formatDownstreamStoryForPaths(gate) {
+  const storyLines = (gate.downstreamStoryItems || []).map((i) => i.source).join(' ');
+  const lines = [
+    storyLines || '(no story evidence after rejected-skill filtering)',
+    '',
+    'Story evidence by category (provenance-filtered — rejected Not Quite skill evidence excluded):',
+    `concrete_past_action:\n${formatDownstreamCategoryBlock(gate, 'concrete_past_action')}`,
+    `self_described_ability:\n${formatDownstreamCategoryBlock(gate, 'self_described_ability')}`,
+    `trait:\n${formatDownstreamCategoryBlock(gate, 'trait')}`,
+    `preference:\n${formatDownstreamCategoryBlock(gate, 'preference')}`,
+    `aspiration:\n${formatDownstreamCategoryBlock(gate, 'aspiration')}`,
+  ];
+
+  return lines.join('\n\n');
+}
+
+/** Build provenance-filtered path prompt story section from raw inputs. */
+export function buildPathPromptStoryContext(storyText, retainedSkills = [], rejectedSkills = []) {
+  return formatDownstreamStoryForPaths(
+    gateRetainedEvidence(storyText, retainedSkills, rejectedSkills)
+  );
+}
+
+/** Evidence gate block for roadmap sections (foundation, action plan, direction). */
+export function formatEvidenceGateForRoadmapPrompt(gate) {
+  const lines = [
+    'Evidence gate (application-owned classification — do not upgrade categories):',
+    `concrete_past_action:\n${formatCategoryBlock(gate, 'concrete_past_action')}`,
+    `self_described_ability:\n${formatCategoryBlock(gate, 'self_described_ability')}`,
+    `trait:\n${formatCategoryBlock(gate, 'trait')}`,
+    `preference:\n${formatCategoryBlock(gate, 'preference')}`,
+    `aspiration:\n${formatCategoryBlock(gate, 'aspiration')}`,
+  ];
+
+  if (gate.rejectedOnlyStory?.length) {
+    lines.push(
+      `excluded_rejected_only:\n${gate.rejectedOnlyStory.map((i) => `- [${i.category}] "${i.source}"`).join('\n')}`
+    );
+  }
+
+  if (!gate.allowResumeBullets) {
+    lines.push(
+      'ZERO concrete past actions identified. Do not describe performed work tasks, "demonstrated strengths," or experience managing/coordinating unless concrete_past_action items exist above.'
+    );
+  }
+
+  lines.push(
+    'POSITIONING RULE: If organization/coordination/listening appear only as self_described_ability, positioning may say the user identifies these as personal strengths while building concrete examples — never "demonstrated strengths," never imply performed organizing/coordinating/listening tasks unless concrete_past_action items exist.'
+  );
 
   return lines.join('\n\n');
 }

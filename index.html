@@ -2795,8 +2795,11 @@ Rules:
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
 5) transfers must ONLY use skill names copied exactly from the "Retained story skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
-7) title = the entryPoint; why max 18 words, evidence-based, no filler; transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise.${rejectedSkillsClause()}`;
-  const userPrompt = `User's story:\n${fullStoryText()}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
+7) title = the entryPoint; why max 18 words, evidence-based, no filler; transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, validatePathsResult, normalizePathsResult, PATHS_REPAIR_HINT);
     let paths = result.paths;
@@ -2919,10 +2922,13 @@ Refinement rules:
 5) title = entryPoint; why max 18 words, evidence-based; transition required on every path.
 6) fitInterest and fitLifestyle are required on every path.
 7) changeSummary (max 25 words): explain what shifted based on preferences — specific, not generic.
-8) User interest is NOT evidence.${rejectedSkillsClause()}`;
+8) User interest is NOT evidence. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
   const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const convoPrefs = state.convo.filter(c => c.who === 'user').map(c => c.text).join('\n');
-  const userPrompt = `User's story:\n${fullStoryText()}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
   try{
     const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
@@ -3138,11 +3144,14 @@ async function buildRoadmapDirection(){
   state.roadmapSectionError.direction = null;
   state.loadingMsg = 'Mapping your next steps…'; render();
   const rejected = getRejectedSkillNames();
+  const retainedStorySkills = getRetainedStorySkills();
+  const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally. Every item must be a short phrase, not a paragraph — this response must stay compact.`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}`;
+Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally — never call self-described abilities or traits "demonstrated strengths" and never imply performed organizing/coordinating/listening tasks unless concrete_past_action evidence exists; if only self_described_ability exists, say the user identifies those strengths in themselves while building concrete examples. Every item must be a short phrase, not a paragraph — this response must stay compact.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapDirection', system, userPrompt, roadmapDirectionTool, TOKEN_BUDGETS.roadmapDirection, validateRoadmapDirectionResult, undefined, DIRECTION_REPAIR_HINT, signal),
