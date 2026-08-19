@@ -96,6 +96,8 @@ const RESUME_BULLET_EVIDENCE_RULE = `Resume-bullet evidence rule (hard invariant
 - When evidence is thin, return zero resume bullets — preferable to converting personality into resume experience. At most one narrowly supported bullet is acceptable if it stays literal (e.g. from "people reach out to me to fix things" → "Helped others troubleshoot problems when they reached out for assistance") — do not add follow-through, client service, outcomes, frequency, scale, or professional setting unless stated.
 - When the user gives only a trait or general statement, use the optional "strengthen" field to ask for a concrete example (max 10 words), e.g. "Which task showed your attentiveness?" — do NOT manufacture a resume line from the trait alone.`;
 
+const KIT_APPLICATION_EVIDENCE_GATE_RULE = `Application evidence gate rule: the user message may include an application-owned evidence gate with categories concrete_past_action, self_described_ability, trait, preference, and aspiration. That classification is authoritative — never upgrade categories. Resume bullets may use ONLY concrete_past_action items listed under "Resume bullets — ONLY these concrete past-action sources." If that section says NONE, resumeBullets MUST be [] regardless of other instructions. LinkedIn About/headlines may use self_described_ability, trait, and preference items, not resume bullets.`;
+
 const KIT_LINKEDIN_POSITIONING_RULE = `LinkedIn positioning rule:
 - linkedinAbout and the "Professional Brand-Focused" headline may reference self-described qualities (hardworking, attentive, listening, quality-conscious) if phrased as qualities the user stated — not as prior target-role employment or performed duties. Keep future direction explicit.
 - All three headlines must align with the target path AND the user's stated preferences/dislikes in the user message — never choose people-heavy brand framing (e.g. "People-Focused Professional") when the user dislikes high people interaction all day or similar learned preferences.`;
@@ -105,6 +107,10 @@ const VERIFIED_INFO_RULE = `Verified-information rule: you have no live labor-ma
 const CAREER_PATH_DIVERSITY_RULE = `Career-path diversity rule: when evidence supports it, return meaningfully different occupational/function families — not four cosmetic variations of one field. Normally include no more than TWO paths from the same occupational family unless the user explicitly narrows the conversation to that field. "I like/love taking care of people" or similar preference language is NOT evidence of healthcare or professional caregiving experience. Caring, listening, and helping can support broader people-facing paths such as customer support, community services, administrative/client support, coordination, operations, or concierge/service work when the rest of the evidence supports them. Variety must still be evidence-based — do not manufacture unrelated careers for diversity alone. User interest may affect interest fit later, but interest must never be upgraded into experience fit (transition/evidence fit).`;
 
 const ROADMAP_EVIDENCE_RULE = `Roadmap evidence rule: the selected career direction is aspirational unless the user explicitly said they already worked in that field. Do not write that the user has "hands-on personal support experience," "caregiving responsibilities," "community support experience," or similar past-tense field experience unless they actually described performing those activities. Describe where they stand using what they HAVE done, not what they are aiming toward. Certification and training steps must stay conditional until verified — never assign fixed completion timelines for credentials when requirements or duration are unknown.`;
+
+const ROADMAP_SELF_DESCRIBED_EVIDENCE_RULE = `Self-described vs demonstrated evidence rule: the user message may include an application-owned evidence gate classifying items as concrete_past_action, self_described_ability, trait, preference, or aspiration — treat those categories as authoritative; never upgrade them.
+- Never call self-described abilities or traits (e.g. "I know how to organize", "I listen to people") "demonstrated strengths" or imply the user already performed organizing/coordinating/listening tasks in a work context unless concrete_past_action evidence exists.
+- Do not instruct "List daily tasks you already handle that involve organizing or coordinating" unless concrete_past_action items establish such tasks. Use conditional language instead: "Review current or past responsibilities for any real examples of organizing or coordinating. If none are identified, treat this as an experience area to build."`;
 
 const pathFieldsSchema = {
   type: 'object',
@@ -541,13 +547,15 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
 ${ROADMAP_EVIDENCE_RULE}
-Rules: 1) whereYouAre: 2 sentences max, grounded in concrete things they HAVE done — not in the target role as if they already worked in it. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.`,
+${ROADMAP_SELF_DESCRIBED_EVIDENCE_RULE}
+Rules: 1) whereYouAre: 2 sentences max, grounded in concrete_past_action items only — never call self-described abilities or traits "demonstrated strengths." 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.`,
 
   buildRoadmapActionPlan: () =>
     `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${ROADMAP_EVIDENCE_RULE}
+${ROADMAP_SELF_DESCRIBED_EVIDENCE_RULE}
 Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Never assign certification completion to a fixed 30/60/90-day window unless the user verified the requirement and timeline. Prefer conditional steps such as checking whether certification is required locally before pursuing it.`,
 
   buildRoadmapDirection: () =>
@@ -556,6 +564,7 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
 ${ROADMAP_EVIDENCE_RULE}
+${ROADMAP_SELF_DESCRIBED_EVIDENCE_RULE}
 Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe their ACTUAL past experience professionally while moving toward the target role — never imply they already worked in the target field unless they said so. Every item must be a short phrase, not a paragraph — this response must stay compact.`,
 
   buildKit: () =>
@@ -564,12 +573,13 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
 ${RESUME_BULLET_EVIDENCE_RULE}
+${KIT_APPLICATION_EVIDENCE_GATE_RULE}
 ${KIT_LINKEDIN_POSITIONING_RULE}
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete past actions the user actually said they performed — never traits, preferences, or self-descriptions upgraded into performance. Never include a number/statistic the user didn't provide. Never write bullets that describe target-role duties, caregiving/client/patient support, or field-specific work the user did not explicitly describe doing. If honest bullets cannot be supported, return an empty resumeBullets array — do NOT fabricate to meet a minimum. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete_past_action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment.
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
-4) Only draw on the "Retained story skills" list below for evidence-backed claims — skills supported by the user's story that have not been marked "Not quite" (unconfirmed skills may appear; they are story-derived, not explicitly confirmed by the user). Do not incorporate any other skill or activity the story text might mention.`,
+4) Only draw on retained story skills and the evidence gate classifications in the user message — do not upgrade self_described_ability, trait, or preference items into resume bullets.`,
 
   strengthenBullet: () =>
     `You rewrite a single resume bullet to incorporate one new true detail the user just provided. ${NO_INVENTION_RULE} ${VERIFIED_INFO_RULE} Only use the exact detail given — do not round, estimate, or embellish beyond it. One line, action-verb led.`,

@@ -572,6 +572,11 @@ function getConfirmedSkills(){ return state.skills.filter(s => state.skillValida
 function getRetainedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
 function getUnconfirmedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'yes' && state.skillValidation[s.name] !== 'no'); }
 function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
+let evidenceGateModulePromise = null;
+function loadEvidenceGate(){
+  if(!evidenceGateModulePromise) evidenceGateModulePromise = import('/js/evidence-gate.mjs');
+  return evidenceGateModulePromise;
+}
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
 
@@ -3039,11 +3044,14 @@ async function buildRoadmapFoundation(){
   state.roadmapSectionError.foundation = null;
   state.loadingMsg = 'Understanding your starting point…'; state.errorMsg=''; state.errorRetryLabel=null; render();
   const rejected = getRejectedSkillNames();
+  const retainedStorySkills = getRetainedStorySkills();
+  const { gateRetainedEvidence, formatEvidenceGateForPrompt } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills);
   const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) whereYouAre: 2 sentences max, grounded in their retained story skills. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\nRetained story skills: ${skillsSummaryStr(getRetainedStorySkills())}`;
+Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only — never call self-described abilities or traits "demonstrated strengths." 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Use conditional language when only self-described abilities exist (e.g. organizing/coordinating) — do not imply the user already performs those tasks.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapFoundation', system, userPrompt, roadmapFoundationTool, TOKEN_BUDGETS.roadmapFoundation, validateRoadmapFoundationResult, undefined, undefined, signal),
@@ -3082,12 +3090,14 @@ async function buildRoadmapActionPlan(){
   state.roadmapSectionError.actionPlan = null;
   state.loadingMsg = 'Building your action plan…'; render();
   const rejected = getRejectedSkillNames();
+  const { gateRetainedEvidence, formatEvidenceGateForPrompt } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief.`;
+Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists — use conditional steps such as "Review past responsibilities for real organizing examples; if none, treat as an area to build."`;
   const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
-  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapActionPlan', system, userPrompt, roadmapActionPlanTool, TOKEN_BUDGETS.roadmapActionPlan, validateRoadmapActionPlanResult, undefined, ACTION_PLAN_REPAIR_HINT, signal),
@@ -3196,6 +3206,14 @@ async function buildKit(){
   state.screen = 'analyzing'; state.loadingMsg = 'Positioning your experience professionally…'; state.errorMsg=''; render();
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
+  const {
+    gateRetainedEvidence,
+    applyResumeBulletGate,
+    formatEvidenceGateForPrompt,
+    formatResumeBulletSources,
+    formatLinkedInEvidenceContext,
+  } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills);
   const evidenceText = fullStoryText() + ' ' + retainedStorySkills.map(s=>s.evidence).join(' ');
   const preferenceContext = [
     state.preferences.interests.length ? `Interests: ${state.preferences.interests.join(', ')}` : '',
@@ -3206,14 +3224,15 @@ async function buildKit(){
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete past actions the user actually said they performed — never traits, preferences, or self-descriptions upgraded into performance. Never include a number/statistic the user didn't provide. Never write bullets that describe target-role duties, caregiving/client/patient support, or field-specific work the user did not explicitly describe doing. If honest bullets cannot be supported, return an empty resumeBullets array — do NOT fabricate to meet a minimum. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment.
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
-4) Only draw on the "Retained story skills" list below — skills supported by the user's story that have not been marked "Not quite" (unconfirmed skills may appear; they are story-derived, not explicitly confirmed). Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
-  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only — use ONLY the retained story skills below as source material for claims): ${state.story}\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
+4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
+  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
   try{
     const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
-    state.kit = purgeRejectedFromObject(result, rejected);
+    const gated = applyResumeBulletGate(result, evidenceGate);
+    state.kit = purgeRejectedFromObject(gated, rejected);
     state.evidenceLibrary = retainedStorySkills.map(s=>({theme:s.name, evidence:s.evidence}));
     state.screen = 'kit';
   }catch(err){

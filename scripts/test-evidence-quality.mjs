@@ -11,6 +11,11 @@ import {
   getServerSystemPromptForTest,
 } from '../api/claude-operations.mjs';
 import {
+  classifyEvidenceText,
+  gateRetainedEvidence,
+  applyResumeBulletGate,
+} from './evidence-gate.mjs';
+import {
   getConfirmedSkills,
   getRetainedStorySkills,
   getUnconfirmedStorySkills,
@@ -32,6 +37,15 @@ const FIXTURE_SKILLS = [
 const FIXTURE_B_STORY = `I worked as a caregiver for my aunt, helped with meals, appointments, medication reminders, and daily routines.`;
 
 const FIXTURE_A_STORY = `I love taking care of people, I love listening to people, I love getting things done, people reach out to me to fix things, I'm attentive, hardworking, and I like to perfect my work.`;
+
+const FIXTURE_C_STORY = `Hi, I'm a very easygoing person. I like taking care of people and socializing. I'm very understanding, I care about people, and I listen to people. I know how to organize things and I know how to coordinate things.`;
+
+const FIXTURE_C_SKILLS = [
+  { name: 'Active Listening', strength: 'Moderate', evidence: 'You described listening to people and being understanding.' },
+  { name: 'Socialization & Relationship Building', strength: 'Moderate', evidence: 'You described liking to socialize and take care of people.' },
+  { name: 'Organization & Coordination', strength: 'Moderate', evidence: 'You described knowing how to organize and coordinate things.' },
+  { name: 'Adaptability & Approachability', strength: 'Moderate', evidence: 'You described being easygoing.' },
+];
 
 let passed = 0;
 let failed = 0;
@@ -121,13 +135,15 @@ function main() {
 
   promptIncludesAll(foundationPrompt, [
     'hands-on personal support experience',
-    'concrete things they HAVE done',
-  ], 'buildRoadmapFoundation prompt blocks aspirational past claims');
+    'Self-described vs demonstrated evidence',
+    'demonstrated strengths',
+  ], 'buildRoadmapFoundation prompt blocks self-described upgrades');
 
   promptIncludesAll(actionPlanPrompt, [
     'Check whether this role requires certification',
     'Never assign certification completion to a fixed 30/60/90-day window',
-  ], 'buildRoadmapActionPlan prompt keeps certification conditional');
+    'List daily tasks you already handle',
+  ], 'buildRoadmapActionPlan prompt uses conditional language for unproven tasks');
 
   assert(
     'application kit schema allows zero resume bullets',
@@ -237,7 +253,7 @@ function main() {
 
   assert(
     'buildKit server prompt does not claim unconfirmed retained skills were user-accepted',
-    !kitPrompt.includes('user accepted') && kitPrompt.includes('Retained story skills')
+    !kitPrompt.includes('user accepted') && kitPrompt.includes('self_described_ability')
   );
   assert(
     'discoverPaths server prompt uses retained story skills terminology',
@@ -250,6 +266,81 @@ function main() {
   assert(
     'analyzeJd server prompt uses retained story skills terminology',
     jdPrompt.includes('Retained story skills') && !jdPrompt.includes('validated skills')
+  );
+
+  assert(
+    'buildKit prompt references application evidence gate',
+    kitPrompt.includes('Application evidence gate rule') &&
+      kitPrompt.includes('concrete_past_action')
+  );
+
+  // --- Evidence gate (deterministic classifier; not live-AI tests) ---
+
+  assert(
+    '"I know how to organize things" classifies as self_described_ability',
+    classifyEvidenceText('I know how to organize things and I know how to coordinate things.') ===
+      'self_described_ability'
+  );
+  assert(
+    '"I am hardworking" classifies as trait',
+    classifyEvidenceText('I am hardworking.') === 'trait'
+  );
+  assert(
+    '"I prefer remote work" classifies as preference',
+    classifyEvidenceText('I prefer remote work.') === 'preference'
+  );
+  assert(
+    '"I want to become an Operations Coordinator" classifies as aspiration',
+    classifyEvidenceText('I want to become an Operations Coordinator.') === 'aspiration'
+  );
+  assert(
+    '"I organized my church fundraiser" classifies as concrete_past_action',
+    classifyEvidenceText('I organized my church fundraiser.') === 'concrete_past_action'
+  );
+  assert(
+    '"I scheduled appointments for my manager" classifies as concrete_past_action',
+    classifyEvidenceText('I scheduled appointments for my manager.') === 'concrete_past_action'
+  );
+
+  const fixtureCGate = gateRetainedEvidence(FIXTURE_C_STORY, FIXTURE_C_SKILLS);
+  assert(
+    'Fixture C evidence gate identifies ZERO concrete past actions',
+    fixtureCGate.concretePastActions.length === 0 && !fixtureCGate.allowResumeBullets
+  );
+
+  const gatedKit = applyResumeBulletGate(
+    {
+      resumeBullets: [
+        { text: 'Applied organizational skills to manage and coordinate tasks efficiently.' },
+        { text: 'Leveraged active listening to understand needs and communicate effectively.' },
+      ],
+      linkedinHeadlines: [{ style: 'x', text: 'y' }, { style: 'x', text: 'y' }, { style: 'x', text: 'y' }],
+      linkedinAbout: 'About',
+    },
+    fixtureCGate
+  );
+  assert(
+    'Fixture C application kit is forced to resumeBullets: [] after gate',
+    Array.isArray(gatedKit.resumeBullets) && gatedKit.resumeBullets.length === 0
+  );
+
+  const fixtureAGate = gateRetainedEvidence(FIXTURE_A_STORY, []);
+  assert(
+    'Fixture A gate allows at least one concrete past action from reach-out phrase',
+    fixtureAGate.concretePastActions.some((i) => /reach out to me/i.test(i.source))
+  );
+
+  const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);
+  assert(
+    'Fixture B gate finds concrete caregiving past actions',
+    fixtureBGate.allowResumeBullets && fixtureBGate.concretePastActions.length > 0
+  );
+
+  assert(
+    'index.html wires evidence gate into buildKit',
+    INDEX_HTML.includes('loadEvidenceGate') &&
+      INDEX_HTML.includes('applyResumeBulletGate') &&
+      INDEX_HTML.includes('gateRetainedEvidence')
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
