@@ -79,9 +79,16 @@
   .limit-card h2{font-size:26px;margin-bottom:12px;}
   .limit-card p{max-width:480px;margin:0 auto 24px;}
   .hidden{display:none !important;}
-  footer{padding:28px 0 44px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);margin-top:32px;}
-  .footer-contact{margin-top:10px;}
-  .footer-contact a{text-decoration:underline;text-underline-offset:3px;}
+  footer.site-footer{background:transparent;padding:24px 0 36px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);}
+  .footer-top{display:flex;justify-content:space-between;align-items:flex-start;gap:28px;margin-bottom:18px;}
+  .footer-wordmark{font-family:var(--serif);font-weight:700;font-size:18px;color:var(--ink);line-height:1.2;}
+  .footer-tagline{margin:6px 0 0;font-size:13px;font-style:italic;color:var(--ink-soft);line-height:1.45;max-width:280px;}
+  .footer-beta{text-align:right;flex-shrink:0;}
+  .footer-beta-label{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+  .footer-email{font-size:14px;font-weight:500;color:var(--ink-soft);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;word-break:break-word;}
+  .footer-email:hover{color:var(--ink);text-decoration-color:var(--ink);}
+  .footer-divider{height:1px;background:var(--line);margin-bottom:14px;}
+  .footer-disclaimer{margin:0;font-size:12px;line-height:1.55;color:var(--ink-faint);max-width:640px;}
   .uses-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:12px;}
 
   @media (max-width:767px){
@@ -100,7 +107,10 @@
     .result-lede{font-size:14px;margin-bottom:16px;}
     .teaser{margin-bottom:20px;}
     .result-cta-row{margin-bottom:0;}
-    footer{margin-top:20px;padding:22px 0 32px;}
+    footer.site-footer{padding:24px 0 28px;}
+    .footer-top{flex-direction:column;align-items:flex-start;gap:20px;margin-bottom:18px;}
+    .footer-beta{text-align:left;width:100%;}
+    .footer-tagline{max-width:none;}
   }
 
   @media (min-width:768px) and (max-width:1024px){
@@ -164,7 +174,20 @@
     </section>
   </main>
 
-  <footer>Guidance, not guarantees. Skill X-Ray only knows what you share — skill names are a starting point for your own judgment.<p class="footer-contact"><a href="mailto:hello@ifindworth.com">hello@ifindworth.com</a></p></footer>
+  <footer class="site-footer">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="footer-wordmark">iFindWorth</div>
+        <p class="footer-tagline">You've done more than you think.</p>
+      </div>
+      <div class="footer-beta">
+        <div class="footer-beta-label">Private beta</div>
+        <a class="footer-email" href="mailto:hello@ifindworth.com">hello@ifindworth.com</a>
+      </div>
+    </div>
+    <div class="footer-divider"></div>
+    <p class="footer-disclaimer">Guidance, not guarantees. Skill X-Ray only knows what you share — skill names are a starting point for your own judgment.</p>
+  </footer>
 </div>
 
 <script>
