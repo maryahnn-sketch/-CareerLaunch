@@ -353,6 +353,40 @@ function main() {
     ]
   );
 
+  assertMixedClauseStory(
+    'no-comma mixed clause: preference + concrete organizing',
+    'I love organizing and I organized our church fundraiser.',
+    [
+      { pattern: /love organizing/i, category: 'preference' },
+      { pattern: /organized our church fundraiser/i, category: 'concrete_past_action' },
+    ]
+  );
+
+  assertMixedClauseStory(
+    'no-comma mixed clause: listening preference + reach-out concrete action',
+    'I love listening to people but people reach out to me to fix things.',
+    [
+      { pattern: /love listening/i, category: 'preference' },
+      { pattern: /reach out to me/i, category: 'concrete_past_action' },
+    ]
+  );
+
+  assertMixedClauseStory(
+    'no-comma mixed clause: self-described ability + scheduled concrete action',
+    'I know how to coordinate things and I scheduled appointments for my manager.',
+    [
+      { pattern: /know how to coordinate/i, category: 'self_described_ability' },
+      { pattern: /scheduled appointments for my manager/i, category: 'concrete_past_action' },
+    ]
+  );
+
+  assert(
+    'compound verb phrase does not split on bare and',
+    classifyStoryClauses('I organized and coordinated the fundraiser.').length === 1 &&
+      classifyStoryClauses('I organized and coordinated the fundraiser.')[0].category ===
+        'concrete_past_action'
+  );
+
   const fixtureCGate = gateRetainedEvidence(FIXTURE_C_STORY, FIXTURE_C_SKILLS);
   assert(
     'Fixture C evidence gate identifies ZERO concrete past actions',
@@ -419,16 +453,57 @@ function main() {
     noMatchKit.resumeBullets.length === 0
   );
 
-  const rejectedSkillGate = gateRetainedEvidence('', [
-    { name: 'Kept skill', strength: 'Strong', evidence: 'I organized team schedules.' },
-  ]);
+  const PRODUCTION_REJECT_STORY =
+    'I organized church events. I provided personal care to my aunt.';
+  const PRODUCTION_RETAINED = [
+    {
+      name: 'Organization & Coordination',
+      strength: 'Strong',
+      evidence: 'You described organizing church events.',
+    },
+  ];
+  const PRODUCTION_REJECTED = [
+    {
+      name: 'Caregiving & People Support',
+      strength: 'Moderate',
+      evidence: 'You described providing personal care to your aunt.',
+    },
+  ];
+  const productionRejectGate = gateRetainedEvidence(
+    PRODUCTION_REJECT_STORY,
+    PRODUCTION_RETAINED,
+    PRODUCTION_REJECTED
+  );
   assert(
-    'rejected skill evidence is excluded when not passed to gate (retained-only contract)',
-    !rejectedSkillGate.concretePastActions.some((i) => /evil/i.test(i.source)) &&
-      validateResumeBulletSources(
-        [{ text: 'Bad bullet.', sourceQuote: 'I organized rejected work.' }],
-        rejectedSkillGate
-      ).length === 0
+    'production path keeps retained-skill concrete source in allowed set',
+    productionRejectGate.concretePastActions.some((i) => /organized church events/i.test(i.source))
+  );
+  assert(
+    'production path excludes rejected-only concrete source from allowed set',
+    !productionRejectGate.concretePastActions.some((i) => /personal care/i.test(i.source)) &&
+      productionRejectGate.rejectedOnlyConcrete.some((i) => /personal care/i.test(i.source))
+  );
+  const productionRejectKit = applyResumeBulletGate(
+    {
+      resumeBullets: [
+        {
+          text: 'Organized church events to support community activities.',
+          sourceQuote: 'I organized church events.',
+        },
+        {
+          text: 'Provided personal care to a family member.',
+          sourceQuote: 'I provided personal care to my aunt.',
+        },
+      ],
+      linkedinHeadlines: [{ style: 'x', text: 'y' }, { style: 'x', text: 'y' }, { style: 'x', text: 'y' }],
+      linkedinAbout: 'About',
+    },
+    productionRejectGate
+  );
+  assert(
+    'production path drops resume bullet grounded in rejected-only sourceQuote',
+    productionRejectKit.resumeBullets.length === 1 &&
+      productionRejectKit.resumeBullets[0].text.includes('Organized church events')
   );
 
   const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);
@@ -443,10 +518,11 @@ function main() {
   );
 
   assert(
-    'index.html wires evidence gate into buildKit',
+    'index.html wires evidence gate into buildKit with rejected-skill provenance',
     INDEX_HTML.includes('loadEvidenceGate') &&
       INDEX_HTML.includes('applyResumeBulletGate') &&
-      INDEX_HTML.includes('gateRetainedEvidence')
+      INDEX_HTML.includes('gateRetainedEvidence') &&
+      INDEX_HTML.includes('getRejectedSkills')
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

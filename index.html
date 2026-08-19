@@ -570,8 +570,9 @@ const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
 function getConfirmedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
 function getRetainedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
+function getRejectedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no'); }
 function getUnconfirmedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'yes' && state.skillValidation[s.name] !== 'no'); }
-function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
+function getRejectedSkillNames(){ return getRejectedSkills().map(s => s.name); }
 let evidenceGateModulePromise = null;
 function loadEvidenceGate(){
   if(!evidenceGateModulePromise) evidenceGateModulePromise = import('/js/evidence-gate.mjs');
@@ -2765,7 +2766,8 @@ ${NO_INVENTION_RULE}
 Rules: 1) Only include skills with real textual evidence. 2) evidence: a close paraphrase (max 16 words) of what they said, warm plain-language ("You described..."), staying literal — do not generalize it into a broader claim. 3) Calibrate strength honestly: "Strong" only for clear, repeated, or elaborated evidence; "Moderate" for a single plain mention without elaboration; "Developing" for something implied or mentioned only in passing; "Needs More Information" if the evidence is too thin to be confident but the activity is still plausibly relevant. Do not default to "Strong" just because an activity was mentioned once. 4) Return 4 to 7 skills, strongest first.`;
   try{
     const result = await callStructured('analyzeSkills', system, fullStoryText(), skillsTool, TOKEN_BUDGETS.skills, validateSkillsResult, normalizeSkillsResult, SKILLS_REPAIR_HINT);
-    state.skills = result.skills;
+    const { enrichSkillsWithSourceQuotes } = await loadEvidenceGate();
+    state.skills = enrichSkillsWithSourceQuotes(result.skills, fullStoryText());
     state.screen = 'skills';
   }catch(err){
     logDiag('analyzeSkills', 'final_failure', err.message || String(err));
@@ -3047,7 +3049,7 @@ async function buildRoadmapFoundation(){
   const rejected = getRejectedSkillNames();
   const retainedStorySkills = getRetainedStorySkills();
   const { gateRetainedEvidence, formatEvidenceGateForPrompt } = await loadEvidenceGate();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills);
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
@@ -3092,7 +3094,7 @@ async function buildRoadmapActionPlan(){
   state.loadingMsg = 'Building your action plan…'; render();
   const rejected = getRejectedSkillNames();
   const { gateRetainedEvidence, formatEvidenceGateForPrompt } = await loadEvidenceGate();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills());
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
@@ -3214,7 +3216,7 @@ async function buildKit(){
     formatResumeBulletSources,
     formatLinkedInEvidenceContext,
   } = await loadEvidenceGate();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills);
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const evidenceText = fullStoryText() + ' ' + retainedStorySkills.map(s=>s.evidence).join(' ');
   const preferenceContext = [
     state.preferences.interests.length ? `Interests: ${state.preferences.interests.join(', ')}` : '',
@@ -3287,7 +3289,8 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     const result = await callStructured('submitAddExperience', system, fullStoryText(), skillsTool, TOKEN_BUDGETS.skills, validateSkillsResult, normalizeSkillsResult, SKILLS_REPAIR_HINT);
     const newSkills = result.skills;
     const addedNames = newSkills.filter(s=>!beforeNames.has(s.name)).map(s=>s.name);
-    state.skills = newSkills;
+    const { enrichSkillsWithSourceQuotes } = await loadEvidenceGate();
+    state.skills = enrichSkillsWithSourceQuotes(newSkills, fullStoryText());
     const currentNames = new Set(newSkills.map(s => s.name));
     Object.keys(state.skillValidation).forEach(name => {
       if (!currentNames.has(name)) delete state.skillValidation[name];

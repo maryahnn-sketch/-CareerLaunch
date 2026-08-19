@@ -35,12 +35,46 @@ const WORK_CONTEXT =
 const REACH_OUT_FIX = /\bpeople reach out to me\b/i;
 
 const CARE_CONTEXT =
-  /\b(medication reminders|daily routines|meals and appointments|caregiver for)\b/i;
+  /\b(medication reminders|daily routines|meals and appointments|caregiver for|personal care)\b/i;
 
 const CLAUSE_CONJUNCTION = /,\s*(?:and|but|or|yet|so)\s+/i;
 
 const CLAUSE_INDEPENDENT_START =
   /,\s+(?=(?:I['']?\s|I['']m\s|I['']ve\s|I['']d\s|people\s))/i;
+
+/** Voice input: split before a new independent subject without a comma. */
+const CLAUSE_BARE_CONJUNCTION =
+  /\s+(?:and|but|or|yet|so)\s+(?=(?:I['']?\s|I['']m\s|I['']ve\s|I['']d\s|people\s))/i;
+
+const STOP_WORDS = new Set([
+  'you',
+  'described',
+  'the',
+  'a',
+  'an',
+  'to',
+  'my',
+  'their',
+  'that',
+  'this',
+  'your',
+  'and',
+  'or',
+  'but',
+  'for',
+  'with',
+  'of',
+  'in',
+  'on',
+  'at',
+  'as',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'being',
+]);
 
 function stripYouDescribed(text) {
   return String(text || '')
@@ -50,8 +84,23 @@ function stripYouDescribed(text) {
     .trim();
 }
 
-function normalizeSourceQuote(text) {
-  return String(text || '').trim().replace(/\.+$/, '').trim();
+export function normalizeSourceQuote(text) {
+  return String(text || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\.+$/, '')
+    .trim();
+}
+
+function normalizeForMatch(text) {
+  return normalizeSourceQuote(text).toLowerCase();
+}
+
+function tokenize(text) {
+  return normalizeForMatch(text)
+    .replace(/[^a-z0-9\s']/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 function hasConcretePastAction(text) {
@@ -64,7 +113,7 @@ function hasConcretePastAction(text) {
 
   if (PAST_ACTION_VERB.test(t)) return true;
 
-  if (WORK_CONTEXT.test(t) && /\b(helped|organized|scheduled|managed|coordinated|with)\b/i.test(t)) {
+  if (WORK_CONTEXT.test(t) && /\b(helped|organized|scheduled|managed|coordinated|with|provided|personal care)\b/i.test(t)) {
     return true;
   }
 
@@ -106,6 +155,16 @@ function splitSentences(text) {
     .filter(Boolean);
 }
 
+export function listStoryClauses(storyText) {
+  const clauses = [];
+  for (const sentence of splitSentences(storyText)) {
+    for (const clause of extractClauses(sentence)) {
+      clauses.push(clause);
+    }
+  }
+  return clauses;
+}
+
 /** Split a sentence into independent evidence clauses for separate classification. */
 export function extractClauses(text) {
   const raw = String(text || '').trim();
@@ -127,6 +186,13 @@ export function extractClauses(text) {
       .filter(Boolean)
   );
 
+  clauses = clauses.flatMap((clause) =>
+    clause
+      .split(CLAUSE_BARE_CONJUNCTION)
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+
   return clauses
     .map((part) => part.replace(/^[,;\s]+|[,;\s]+$/g, '').trim())
     .filter(Boolean);
@@ -135,22 +201,121 @@ export function extractClauses(text) {
 /** Classify each clause extracted from story text (for tests and prompts). */
 export function classifyStoryClauses(text) {
   const items = [];
-  for (const sentence of splitSentences(text)) {
-    for (const clause of extractClauses(sentence)) {
-      items.push({
-        source: clause,
-        category: classifyEvidenceText(clause),
-        origin: 'story',
-      });
-    }
+  for (const clause of listStoryClauses(text)) {
+    items.push({
+      source: clause,
+      category: classifyEvidenceText(clause),
+      origin: 'story',
+    });
   }
   return items;
+}
+
+function clauseExistsInStory(clause, storyText) {
+  const clauseNorm = normalizeForMatch(clause);
+  if (!clauseNorm) return false;
+  return normalizeForMatch(storyText).includes(clauseNorm);
+}
+
+function clauseMatchScore(clause, evidenceParaphrase) {
+  const clauseWords = tokenize(clause);
+  const evidenceWords = tokenize(stripYouDescribed(evidenceParaphrase));
+  const significant = evidenceWords.filter((w) => !STOP_WORDS.has(w) && w.length > 2);
+  if (!significant.length) return 0;
+
+  let hits = 0;
+  for (const word of significant) {
+    if (clauseWords.some((cw) => cw === word || cw.includes(word) || word.includes(cw))) {
+      hits += 1;
+    }
+  }
+  return hits / significant.length;
+}
+
+/** Find the best verbatim story clause supporting a skill's evidence paraphrase. */
+export function deriveSourceQuoteFromStory(storyText, skillEvidence) {
+  const clauses = listStoryClauses(storyText);
+  if (!clauses.length) return '';
+
+  let bestClause = '';
+  let bestScore = 0;
+  for (const clause of clauses) {
+    if (!clauseExistsInStory(clause, storyText)) continue;
+    const score = clauseMatchScore(clause, skillEvidence);
+    if (score > bestScore) {
+      bestScore = score;
+      bestClause = clause;
+    }
+  }
+
+  if (bestScore >= 0.34 || clauseMatchScore(bestClause, skillEvidence) >= 0.34) {
+    return bestClause;
+  }
+  return '';
+}
+
+/** Attach validated story sourceQuote provenance to analyzed skills. */
+export function enrichSkillsWithSourceQuotes(skills, storyText) {
+  return (skills || []).map((skill) => {
+    const existing =
+      skill.sourceQuote && clauseExistsInStory(skill.sourceQuote, storyText)
+        ? skill.sourceQuote
+        : '';
+    const derived = existing || deriveSourceQuoteFromStory(storyText, skill.evidence);
+    return {
+      ...skill,
+      sourceQuote: derived || '',
+    };
+  });
+}
+
+function resolveSkillSourceQuote(skill, storyText) {
+  if (skill.sourceQuote && clauseExistsInStory(skill.sourceQuote, storyText)) {
+    return skill.sourceQuote;
+  }
+  const derived = deriveSourceQuoteFromStory(storyText, skill.evidence);
+  return derived || '';
+}
+
+function createProvenanceEntry() {
+  return { retained: new Set(), rejected: new Set() };
+}
+
+/** Map normalized story clause → retained/rejected skill names. */
+export function buildClauseProvenance(storyText, retainedSkills = [], rejectedSkills = []) {
+  const map = new Map();
+
+  function linkSkill(skill, bucket) {
+    const quote = resolveSkillSourceQuote(skill, storyText);
+    if (!quote || !clauseExistsInStory(quote, storyText)) return;
+    const key = normalizeForMatch(quote);
+    if (!map.has(key)) map.set(key, createProvenanceEntry());
+    map.get(key)[bucket].add(skill.name);
+  }
+
+  for (const skill of retainedSkills) linkSkill(skill, 'retained');
+  for (const skill of rejectedSkills) linkSkill(skill, 'rejected');
+
+  return map;
+}
+
+function getProvenanceEntry(clauseSource, provenance) {
+  return provenance.get(normalizeForMatch(clauseSource)) || null;
+}
+
+/** Concrete story clause allowed unless linked ONLY to rejected skills. */
+export function isConcreteClauseAllowed(clauseSource, provenance) {
+  const entry = getProvenanceEntry(clauseSource, provenance);
+  if (!entry) return true;
+  if (entry.retained.size > 0) return true;
+  if (entry.rejected.size > 0 && entry.retained.size === 0) return false;
+  return true;
 }
 
 function dedupeItems(items) {
   const seen = new Set();
   return items.filter((item) => {
-    const key = `${item.category}::${item.source}`;
+    const key = `${item.category}::${item.origin}::${item.source}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -174,24 +339,41 @@ function collectEvidenceItems(text, origin, skillName) {
 }
 
 /**
- * Classify story + retained skill evidence and determine resume-bullet eligibility.
+ * Classify story + skill evidence and determine resume-bullet eligibility.
+ * Rejected-skill provenance excludes concrete clauses tied only to rejected skills.
  */
-export function gateRetainedEvidence(storyText, retainedSkills = []) {
-  const items = [];
+export function gateRetainedEvidence(storyText, retainedSkills = [], rejectedSkills = []) {
+  const enrichedRetained = enrichSkillsWithSourceQuotes(retainedSkills, storyText);
+  const enrichedRejected = enrichSkillsWithSourceQuotes(rejectedSkills, storyText);
+  const provenance = buildClauseProvenance(storyText, enrichedRetained, enrichedRejected);
 
+  const items = [];
   items.push(...collectEvidenceItems(storyText, 'story'));
 
-  for (const skill of retainedSkills) {
+  for (const skill of enrichedRetained) {
     items.push(...collectEvidenceItems(skill.evidence, 'skill', skill.name));
   }
 
   const deduped = dedupeItems(items);
-  const concretePastActions = deduped.filter((i) => i.category === 'concrete_past_action');
+
+  const concretePastActions = deduped.filter(
+    (item) =>
+      item.category === 'concrete_past_action' &&
+      item.origin === 'story' &&
+      isConcreteClauseAllowed(item.source, provenance)
+  );
 
   return {
     items: deduped,
     concretePastActions,
     allowResumeBullets: concretePastActions.length > 0,
+    provenance,
+    rejectedOnlyConcrete: deduped.filter(
+      (item) =>
+        item.category === 'concrete_past_action' &&
+        item.origin === 'story' &&
+        !isConcreteClauseAllowed(item.source, provenance)
+    ),
   };
 }
 
@@ -265,6 +447,12 @@ export function formatEvidenceGateForPrompt(gate) {
     `preference:\n${formatCategoryBlock(gate, 'preference')}`,
     `aspiration:\n${formatCategoryBlock(gate, 'aspiration')}`,
   ];
+
+  if (gate.rejectedOnlyConcrete?.length) {
+    lines.push(
+      `excluded_rejected_only_concrete:\n${gate.rejectedOnlyConcrete.map((i) => `- "${i.source}"`).join('\n')}`
+    );
+  }
 
   if (!gate.allowResumeBullets) {
     lines.push(
