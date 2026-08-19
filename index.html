@@ -1600,7 +1600,7 @@ const kitTool = {
     properties: {
       resumeBullets: {
         type: 'array', minItems: 0, maxItems: 4,
-        items: { type: 'object', properties: { text: { type: 'string', maxLength: 160 }, strengthen: { type: 'string', maxLength: 60, description: 'Optional — ask for one concrete example when evidence is thin. Use instead of fabricating a bullet from a trait alone.' } }, required: ['text'] }
+        items: { type: 'object', properties: { text: { type: 'string', maxLength: 160 }, sourceQuote: { type: 'string', maxLength: 200, description: 'REQUIRED — exact verbatim concrete_past_action quote supporting this bullet.' }, strengthen: { type: 'string', maxLength: 60, description: 'Optional — ask for one concrete example when evidence is thin. Use instead of fabricating a bullet from a trait alone.' } }, required: ['text','sourceQuote'] }
       },
       linkedinHeadlines: {
         type: 'array', minItems: 3, maxItems: 3,
@@ -1925,6 +1925,7 @@ function validateKitResult(result, sourceEvidenceText){
   // Evidence-traceability heuristic (items A/B/G4): a number in generated resume
   // copy that never appears in the user's own story is very likely fabricated.
   for(const b of result.resumeBullets){
+    if(!isNonEmptyStr(b.sourceQuote)) return { ok:false, reason:'each resume bullet must include sourceQuote (exact concrete_past_action quote)' };
     const bad = findUnsupportedNumerals(b.text, sourceEvidenceText);
     if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}") — remove it, don't invent metrics` };
   }
@@ -3224,7 +3225,7 @@ async function buildKit(){
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment.
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
 4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;

@@ -94,7 +94,8 @@ const RESUME_BULLET_EVIDENCE_RULE = `Resume-bullet evidence rule (hard invariant
 - Do NOT infer outcomes: never transform "I like to perfect my work" (or similar) into "delivered polished outcomes," "ensured high-quality results," "maintained exceptional standards," or any other result the user did not state.
 - Do NOT universalize traits: never write "in every responsibility undertaken," "consistently across all tasks," "consistently responding with follow-through," "always delivered," or similar scope/frequency claims unless the user provided that evidence.
 - When evidence is thin, return zero resume bullets — preferable to converting personality into resume experience. At most one narrowly supported bullet is acceptable if it stays literal (e.g. from "people reach out to me to fix things" → "Helped others troubleshoot problems when they reached out for assistance") — do not add follow-through, client service, outcomes, frequency, scale, or professional setting unless stated.
-- When the user gives only a trait or general statement, use the optional "strengthen" field to ask for a concrete example (max 10 words), e.g. "Which task showed your attentiveness?" — do NOT manufacture a resume line from the trait alone.`;
+- When the user gives only a trait or general statement, use the optional "strengthen" field to ask for a concrete example (max 10 words), e.g. "Which task showed your attentiveness?" — do NOT manufacture a resume line from the trait alone.
+- Every resume bullet MUST include sourceQuote: the exact verbatim quote from the concrete_past_action list that supports that bullet. Copy the quote exactly — no paraphrase. Bullets without a valid sourceQuote are removed after generation.`;
 
 const KIT_APPLICATION_EVIDENCE_GATE_RULE = `Application evidence gate rule: the user message may include an application-owned evidence gate with categories concrete_past_action, self_described_ability, trait, preference, and aspiration. That classification is authoritative — never upgrade categories. Resume bullets may use ONLY concrete_past_action items listed under "Resume bullets — ONLY these concrete past-action sources." If that section says NONE, resumeBullets MUST be [] regardless of other instructions. LinkedIn About/headlines may use self_described_ability, trait, and preference items, not resume bullets.`;
 
@@ -366,6 +367,12 @@ export const TOOL_DEFINITIONS = {
             type: 'object',
             properties: {
               text: { type: 'string', maxLength: 160 },
+              sourceQuote: {
+                type: 'string',
+                maxLength: 200,
+                description:
+                  'REQUIRED on every resume bullet. Exact verbatim quote from the concrete_past_action sources list that supports this bullet.',
+              },
               strengthen: {
                 type: 'string',
                 maxLength: 60,
@@ -373,7 +380,7 @@ export const TOOL_DEFINITIONS = {
                   'Optional — ask for one concrete example when evidence is thin (max 10 words). Use instead of fabricating a bullet from a trait alone.',
               },
             },
-            required: ['text'],
+            required: ['text', 'sourceQuote'],
           },
         },
         linkedinHeadlines: {
@@ -576,7 +583,7 @@ ${RESUME_BULLET_EVIDENCE_RULE}
 ${KIT_APPLICATION_EVIDENCE_GATE_RULE}
 ${KIT_LINKEDIN_POSITIONING_RULE}
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete_past_action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete_past_action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment.
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
 4) Only draw on retained story skills and the evidence gate classifications in the user message — do not upgrade self_described_ability, trait, or preference items into resume bullets.`,

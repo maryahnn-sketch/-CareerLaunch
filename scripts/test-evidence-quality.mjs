@@ -12,8 +12,10 @@ import {
 } from '../api/claude-operations.mjs';
 import {
   classifyEvidenceText,
+  classifyStoryClauses,
   gateRetainedEvidence,
   applyResumeBulletGate,
+  validateResumeBulletSources,
 } from './evidence-gate.mjs';
 import {
   getConfirmedSkills,
@@ -59,6 +61,27 @@ function assert(label, condition, detail = '') {
   console.log(`FAIL ${label}${detail ? `: ${detail}` : ''}`);
   failed += 1;
   return false;
+}
+
+function findClause(clauses, pattern) {
+  return clauses.find((c) => pattern.test(c.source));
+}
+
+function assertMixedClauseStory(label, story, expectations) {
+  const clauses = classifyStoryClauses(story);
+  for (const { pattern, category } of expectations) {
+    const clause = findClause(clauses, pattern);
+    if (!clause || clause.category !== category) {
+      assert(
+        label,
+        false,
+        `expected ${category} for ${pattern}; got ${clause ? clause.category : 'missing'} (${JSON.stringify(clauses.map((c) => c.source))})`
+      );
+      return false;
+    }
+  }
+  assert(label, true);
+  return true;
 }
 
 function promptIncludesAll(prompt, phrases, label) {
@@ -165,7 +188,8 @@ function main() {
 
   assert(
     'Fixture A prompts forbid upgrading care preferences into past care work',
-    kitPrompt.includes('Never write bullets that describe target-role duties, caregiving/client/patient support')
+    kitPrompt.includes('provided personal care') &&
+      kitPrompt.includes('performed caregiving responsibilities')
   );
 
   assert(
@@ -191,7 +215,7 @@ function main() {
 
   assert(
     'toPaths handler does not mutate skillValidation before discoverPaths',
-    /toPaths\)\.addEventListener\('click', \(\)=>\{\s*discoverPaths\(\);\s*\}\)/.test(INDEX_HTML)
+    /toPaths.*addEventListener\('click', \(\)=>\{\s*discoverPaths\(\);\s*\}\)/.test(INDEX_HTML)
   );
 
   const beforeValidation = {
@@ -302,6 +326,33 @@ function main() {
     classifyEvidenceText('I scheduled appointments for my manager.') === 'concrete_past_action'
   );
 
+  assertMixedClauseStory(
+    'mixed clause: preference + concrete organizing',
+    'I love organizing, and I organized our church fundraiser.',
+    [
+      { pattern: /love organizing/i, category: 'preference' },
+      { pattern: /organized our church fundraiser/i, category: 'concrete_past_action' },
+    ]
+  );
+
+  assertMixedClauseStory(
+    'mixed clause: listening preference + reach-out concrete action',
+    'I love listening to people, but people reach out to me to fix things.',
+    [
+      { pattern: /love listening/i, category: 'preference' },
+      { pattern: /reach out to me/i, category: 'concrete_past_action' },
+    ]
+  );
+
+  assertMixedClauseStory(
+    'mixed clause: self-described ability + scheduled concrete action',
+    'I know how to coordinate things, and I scheduled appointments for my manager.',
+    [
+      { pattern: /know how to coordinate/i, category: 'self_described_ability' },
+      { pattern: /scheduled appointments for my manager/i, category: 'concrete_past_action' },
+    ]
+  );
+
   const fixtureCGate = gateRetainedEvidence(FIXTURE_C_STORY, FIXTURE_C_SKILLS);
   assert(
     'Fixture C evidence gate identifies ZERO concrete past actions',
@@ -326,14 +377,69 @@ function main() {
 
   const fixtureAGate = gateRetainedEvidence(FIXTURE_A_STORY, []);
   assert(
-    'Fixture A gate allows at least one concrete past action from reach-out phrase',
+    'Fixture A gate extracts reach-out clause as concrete_past_action',
     fixtureAGate.concretePastActions.some((i) => /reach out to me/i.test(i.source))
+  );
+  assert(
+    'Fixture A gate keeps listening clause non-concrete',
+    fixtureAGate.items.some((i) => /listening to people/i.test(i.source) && i.category !== 'concrete_past_action')
+  );
+
+  const singleActionGate = gateRetainedEvidence('I organized my church fundraiser.', []);
+  const perBulletKit = applyResumeBulletGate(
+    {
+      resumeBullets: [
+        { text: 'Organized a church fundraiser.', sourceQuote: 'I organized my church fundraiser.' },
+        { text: 'Consistently managed competing tasks.', sourceQuote: 'I am hardworking.' },
+        { text: 'Delivered high-quality outcomes.', sourceQuote: 'I never said this.' },
+        { text: 'Coordinated stakeholders efficiently.', sourceQuote: 'I prefer remote work.' },
+      ],
+      linkedinHeadlines: [{ style: 'x', text: 'y' }, { style: 'x', text: 'y' }, { style: 'x', text: 'y' }],
+      linkedinAbout: 'About',
+    },
+    singleActionGate
+  );
+  assert(
+    'per-bullet gate keeps only bullets with allowed concrete sourceQuote',
+    perBulletKit.resumeBullets.length === 1 &&
+      perBulletKit.resumeBullets[0].text === 'Organized a church fundraiser.' &&
+      perBulletKit.resumeBullets[0].sourceQuote === undefined
+  );
+
+  const noMatchKit = applyResumeBulletGate(
+    {
+      resumeBullets: [{ text: 'Fabricated bullet.', sourceQuote: 'Totally invented action.' }],
+      linkedinHeadlines: [{ style: 'x', text: 'y' }, { style: 'x', text: 'y' }, { style: 'x', text: 'y' }],
+      linkedinAbout: 'About',
+    },
+    singleActionGate
+  );
+  assert(
+    'per-bullet gate drops all bullets when no sourceQuote matches allowed sources',
+    noMatchKit.resumeBullets.length === 0
+  );
+
+  const rejectedSkillGate = gateRetainedEvidence('', [
+    { name: 'Kept skill', strength: 'Strong', evidence: 'I organized team schedules.' },
+  ]);
+  assert(
+    'rejected skill evidence is excluded when not passed to gate (retained-only contract)',
+    !rejectedSkillGate.concretePastActions.some((i) => /evil/i.test(i.source)) &&
+      validateResumeBulletSources(
+        [{ text: 'Bad bullet.', sourceQuote: 'I organized rejected work.' }],
+        rejectedSkillGate
+      ).length === 0
   );
 
   const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);
   assert(
     'Fixture B gate finds concrete caregiving past actions',
     fixtureBGate.allowResumeBullets && fixtureBGate.concretePastActions.length > 0
+  );
+
+  assert(
+    'kit schema requires sourceQuote on each resume bullet',
+    kitSchema.items.required.includes('sourceQuote')
   );
 
   assert(
