@@ -569,6 +569,7 @@ function applyHydratedState(hydrated){
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
 function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
+function getStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
 function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
 function acceptPendingSkills(){
   state.skills.forEach(s => {
@@ -1597,7 +1598,7 @@ const kitTool = {
     type: 'object',
     properties: {
       resumeBullets: {
-        type: 'array', minItems: 2, maxItems: 4,
+        type: 'array', minItems: 0, maxItems: 4,
         items: { type: 'object', properties: { text: { type: 'string', maxLength: 160 }, strengthen: { type: 'string', maxLength: 60 } }, required: ['text'] }
       },
       linkedinHeadlines: {
@@ -1916,7 +1917,8 @@ function validateRoadmapDirectionResult(result){
 }
 
 function validateKitResult(result, sourceEvidenceText){
-  if(!result || !Array.isArray(result.resumeBullets) || result.resumeBullets.length === 0) return { ok:false, reason:'resumeBullets missing or empty' };
+  if(!result || !Array.isArray(result.resumeBullets)) return { ok:false, reason:'resumeBullets missing' };
+  if(result.resumeBullets.length > 4) return { ok:false, reason:'resumeBullets exceeds maximum of 4' };
   if(!Array.isArray(result.linkedinHeadlines) || result.linkedinHeadlines.length !== 3) return { ok:false, reason:'linkedinHeadlines must have exactly 3 entries' };
   if(!isNonEmptyStr(result.linkedinAbout)) return { ok:false, reason:'linkedinAbout is missing' };
   // Evidence-traceability heuristic (items A/B/G4): a number in generated resume
@@ -2386,11 +2388,11 @@ function renderKit(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Application kit</div>
     <h1 style="font-size:32px;">Positioning your experience.</h1>
-    <p>Built only from what you told us — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
+    <p>Built from the experience you shared — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
 
     <div class="kit-block mt-32">
       <h3>Resume bullets</h3>
-      ${(k.resumeBullets||[]).map((b,i)=>`
+      ${(k.resumeBullets||[]).length ? (k.resumeBullets||[]).map((b,i)=>`
         <div class="bullet-row">
           <p id="bulletText${i}">${typeof b === 'string' ? b : b.text}</p>
           ${b.strengthen ? `
@@ -2400,7 +2402,7 @@ function renderKit(){
               <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
               <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
             </div>` : ''}
-        </div>`).join('')}
+        </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you've actually done before we can write evidence-based resume bullets.</p>`}
     </div>
 
     <div class="kit-block">
@@ -2421,8 +2423,8 @@ function renderKit(){
 /* ============================= DASHBOARD (Command Center) ============================= */
 function renderDashboard(){
   const r = state.roadmap;
-  const strengths = getValidatedSkills().filter(s=>s.strength==='Strong').map(s=>s.name);
-  const building = getValidatedSkills().filter(s=>s.strength!=='Strong').map(s=>s.name);
+  const confirmedStrong = getValidatedSkills().filter(s=>s.strength==='Strong').map(s=>s.name);
+  const storySkills = getStorySkills().map(s=>s.name);
   return `
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Command Center</div>
@@ -2445,8 +2447,8 @@ function renderDashboard(){
     </div>
 
     <div class="dash-grid two-col">
-      <div class="dash-card"><h3>Your strengths</h3><div class="path-tags">${strengths.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None validated yet</span>'}</div></div>
-      <div class="dash-card"><h3>Skills you're building</h3><div class="path-tags">${building.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
+      <div class="dash-card"><h3>Confirmed strengths</h3><div class="path-tags">${confirmedStrong.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet — mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
+      <div class="dash-card"><h3>Skills from your story</h3><div class="path-tags">${storySkills.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
     </div>
 
     <div class="dash-card mt-16"><h3>Evidence library</h3>
@@ -2454,7 +2456,7 @@ function renderDashboard(){
     </div>
 
     <div class="dash-card mt-16"><h3>Your application kit</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from your validated evidence.</p>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from the experience you shared — nothing invented.</p>
       <div class="tool-row">
         <button class="btn btn-ghost btn-sm" id="backToKit">View Resume & LinkedIn</button>
         <button class="btn btn-ghost btn-sm" id="openStoryBank">Interview Story Bank</button>

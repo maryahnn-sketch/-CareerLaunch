@@ -79,7 +79,19 @@ const NO_INVENTION_RULE = `Strict evidence rule: never state or imply a fact abo
 Evidence must stay literal (do not silently upgrade it into a broader claim): "managing household bills" must not become "managing family finances"; "helping with school events" must not become "community involvement". Keep two layers separate — the evidence text is what the user actually said, paraphrased closely; any professional interpretation of what that might indicate belongs only in the skill/path NAME or reasoning field, never folded into the evidence text itself as if it were an additional fact.
 When describing what a type of role typically involves (pace, people-interaction level, environment), phrase it as a general tendency for that kind of role ("this type of role often involves..."), not a settled fact about a specific job — actual duties vary by employer.`;
 
-const VERIFIED_INFO_RULE = `Verified-information rule: you have no live labor-market data, course catalog, or the user's location. Never state or imply, as current fact, that remote/hybrid/on-site work is available, that salaries fall in some range, that demand or hiring is high or low, or that a specific course/certification exists or is free — for this path or any path. You may reason about what a role's day-to-day content typically involves and how that content (not its market availability) aligns with the user's stated preferences. If a preference concerns something that varies by employer (like remote/hybrid/on-site, pay, or hours), say the user should verify it when evaluating real openings — never assert it exists. Do not mark a "lifestyle fit" as Strong on the basis of assumed work-arrangement availability.`;
+const PAST_EVIDENCE_FUTURE_DIRECTION_RULE = `Past-evidence / future-direction boundary (hard invariant): The user's chosen career path is a FUTURE TARGET, not proof of past experience. The flow is WHAT I HAVE DONE → WHAT TRANSFERS → WHAT I MIGHT DO NEXT. Never let "what I might do next" become "what I have done."
+- Resume bullets, roadmap foundation copy, and positioning may describe ONLY concrete actions the user actually said they performed and that are supported by retained evidence.
+- Target career titles, target-role duties, roadmap recommendations, interests, personality traits, or aspirations are NOT evidence of past work.
+- Statements such as "I love helping people," "I care about people," or "I am hardworking" must NOT become claims such as "provided personal care," "supported clients," "handled patients," or "performed caregiving responsibilities."
+- The chosen target role may appear in future-facing LinkedIn transition language, but must never create fictional past or current experience in that field.
+- LinkedIn About must clearly distinguish existing qualities/experience from the role the user is moving toward.
+- If there is not enough concrete action evidence for honest resume bullets, return zero resume bullets — do NOT fabricate bullets to meet a minimum count.`;
+
+const VERIFIED_INFO_RULE = `Verified-information rule: you have no live labor-market data, course catalog, or the user's location. Never state or imply, as current fact, that remote/hybrid/on-site work is available, that salaries fall in some range, that demand or hiring is high or low, or that a specific course/certification exists or is free — for this path or any path. You may reason about what a role's day-to-day content typically involves and how that content (not its market availability) aligns with the user's stated preferences. If a preference concerns something that varies by employer (like remote/hybrid/on-site, pay, or hours), say the user should verify it when evaluating real openings — never assert it exists. Do not mark a "lifestyle fit" as Strong on the basis of assumed work-arrangement availability. Never state that a certification is required unless the user or verified information explicitly established that. Never tell the user to obtain or complete a certification within 30/60/90 days when duration or requirement is unknown — use conditional language such as "Check whether this role requires certification in your location." Do not make unverified market claims such as employers being "known for stability," having "defined pay scales," high demand, salary availability, or remote availability.`;
+
+const CAREER_PATH_DIVERSITY_RULE = `Career-path diversity rule: when evidence supports it, return meaningfully different occupational/function families — not four cosmetic variations of one field. Normally include no more than TWO paths from the same occupational family unless the user explicitly narrows the conversation to that field. "I like/love taking care of people" or similar preference language is NOT evidence of healthcare or professional caregiving experience. Caring, listening, and helping can support broader people-facing paths such as customer support, community services, administrative/client support, coordination, operations, or concierge/service work when the rest of the evidence supports them. Variety must still be evidence-based — do not manufacture unrelated careers for diversity alone. User interest may affect interest fit later, but interest must never be upgraded into experience fit (transition/evidence fit).`;
+
+const ROADMAP_EVIDENCE_RULE = `Roadmap evidence rule: the selected career direction is aspirational unless the user explicitly said they already worked in that field. Do not write that the user has "hands-on personal support experience," "caregiving responsibilities," "community support experience," or similar past-tense field experience unless they actually described performing those activities. Describe where they stand using what they HAVE done, not what they are aiming toward. Certification and training steps must stay conditional until verified — never assign fixed completion timelines for credentials when requirements or duration are unknown.`;
 
 const pathFieldsSchema = {
   type: 'object',
@@ -329,7 +341,7 @@ export const TOOL_DEFINITIONS = {
       properties: {
         resumeBullets: {
           type: 'array',
-          minItems: 2,
+          minItems: 0,
           maxItems: 4,
           items: {
             type: 'object',
@@ -453,6 +465,7 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     `You are the career path engine inside iFindWorth. Given a user's story and validated transferable skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
+${CAREER_PATH_DIVERSITY_RULE}
 Rules:
 1) Return 4 to 5 high-quality paths (quality over quantity) across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Aim to cover: the strongest employment path, one strong alternative, one growth direction, and one independent/freelance/entrepreneurship path when plausible. A 5th path is fine only if it adds real variety.
 2) Never say someone is unqualified — note what's uncertain instead.
@@ -475,6 +488,7 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
     `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
+${CAREER_PATH_DIVERSITY_RULE}
 Keep these dimensions separate:
 - transition (and fitEvidence if included): EVIDENCE FIT ONLY — how strongly the user's validated experience supports this path. Never rate Strong solely because the user wants this direction.
 - fitInterest: INTEREST FIT — how well this path matches stated interests, dislikes, and priorities. May be Moderate/Developing even when interest is high if evidence is thin.
@@ -507,29 +521,35 @@ Rules:
     `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) whereYouAre: 2 sentences max, grounded in their validated skills. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.`,
+${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
+${ROADMAP_EVIDENCE_RULE}
+Rules: 1) whereYouAre: 2 sentences max, grounded in concrete things they HAVE done — not in the target role as if they already worked in it. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.`,
 
   buildRoadmapActionPlan: () =>
     `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief.`,
+${ROADMAP_EVIDENCE_RULE}
+Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Never assign certification completion to a fixed 30/60/90-day window unless the user verified the requirement and timeline. Prefer conditional steps such as checking whether certification is required locally before pursuing it.`,
 
   buildRoadmapDirection: () =>
     `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally. Every item must be a short phrase, not a paragraph — this response must stay compact.`,
+${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
+${ROADMAP_EVIDENCE_RULE}
+Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe their ACTUAL past experience professionally while moving toward the target role — never imply they already worked in the target field unless they said so. Every item must be a short phrase, not a paragraph — this response must stay compact.`,
 
   buildKit: () =>
-    `You are the Application Kit builder inside iFindWorth. Translate a user's validated real experience into professional resume and LinkedIn language for a specific target path.
+    `You are the Application Kit builder inside iFindWorth. Translate a user's real past experience into professional resume and LinkedIn language for a specific target path they are moving toward.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
+${PAST_EVIDENCE_FUTURE_DIRECTION_RULE}
 Rules:
-1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. Never include a number/statistic the user didn't provide. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
-2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly), "Professional Brand-Focused" (reads as a personal brand statement).
-3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence.
-4) Only draw on the "Validated skills" list below — the user accepted these for use in their analysis (and rejected any marked "Not quite"). Do not incorporate any other skill or activity the story text might mention.`,
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY concrete actions the user actually said they performed. Never include a number/statistic the user didn't provide. Never write bullets that describe target-role duties, caregiving/client/patient support, or field-specific work the user did not explicitly describe doing. If honest bullets cannot be supported, return an empty resumeBullets array — do NOT fabricate to meet a minimum. For any bullet that would be meaningfully stronger with a specific number or detail the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement). Transition headlines may name the target direction as aspiration — never as past employment.
+3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
+4) Only draw on the "Validated skills" list below for evidence-backed claims — the user accepted these for use in their analysis (and rejected any marked "Not quite"). Do not incorporate any other skill or activity the story text might mention.`,
 
   strengthenBullet: () =>
     `You rewrite a single resume bullet to incorporate one new true detail the user just provided. ${NO_INVENTION_RULE} ${VERIFIED_INFO_RULE} Only use the exact detail given — do not round, estimate, or embellish beyond it. One line, action-verb led.`,
@@ -796,4 +816,11 @@ export function prepareAnthropicRequest(body) {
     maxTokens: requestedMaxTokens,
     anthropicPayload: payload,
   };
+}
+
+/** Test helper: returns the server-authored system prompt for an operation. */
+export function getServerSystemPromptForTest(baseOperation, suffix = null) {
+  const registryEntry = OPERATION_REGISTRY[baseOperation];
+  if (!registryEntry) return null;
+  return buildSystemPrompt(baseOperation, suffix, registryEntry);
 }
