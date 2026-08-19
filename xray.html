@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Turn something you've actually done into professional skill language with iFindWorth Skill X-Ray.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <title>Skill X-Ray — iFindWorth</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -12,7 +14,7 @@
     --card:#FFFFFF;
     --ink:#20292C;
     --ink-soft:#5B6669;
-    --ink-faint:#8B9396;
+    --ink-faint:#6B7477;
     --highlight:#4F46E5;
     --highlight-soft:rgba(79,70,229,0.12);
     --sage:#4F7561;
@@ -62,6 +64,7 @@
   .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .analyzing-wrap .msg{font-family:var(--serif);font-size:20px;font-style:italic;color:var(--ink);}
+  .analyzing-wrap .msg-sub{font-size:14px;color:var(--ink-faint);margin-top:12px;}
   .result-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;}
   .result-lede{font-size:15px;color:var(--ink-soft);margin:0 0 20px;max-width:480px;line-height:1.45;}
   .skill-tags{display:flex;flex-direction:column;gap:12px;margin:0 0 24px;}
@@ -77,6 +80,8 @@
   .limit-card p{max-width:480px;margin:0 auto 24px;}
   .hidden{display:none !important;}
   footer{padding:28px 0 44px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);margin-top:32px;}
+  .footer-contact{margin-top:10px;}
+  .footer-contact a{text-decoration:underline;text-underline-offset:3px;}
   .uses-note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:12px;}
 
   @media (max-width:767px){
@@ -133,6 +138,7 @@
     <section id="view-loading" class="screen analyzing-wrap hidden" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <div class="msg">Reading between the lines…</div>
+      <div class="msg-sub">This can take a moment. We're checking your experience carefully.</div>
     </section>
 
     <!-- Result view -->
@@ -158,7 +164,7 @@
     </section>
   </main>
 
-  <footer>Guidance, not guarantees. Skill X-Ray only knows what you share — skill names are a starting point for your own judgment.</footer>
+  <footer>Guidance, not guarantees. Skill X-Ray only knows what you share — skill names are a starting point for your own judgment.<p class="footer-contact">Questions? <a href="mailto:hello@ifindworth.com">hello@ifindworth.com</a></p></footer>
 </div>
 
 <script>
