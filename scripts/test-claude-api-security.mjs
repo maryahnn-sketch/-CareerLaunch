@@ -4,6 +4,7 @@
  */
 
 import handler from '../api/claude.mjs';
+import { MAX_BODY_BYTES } from '../api/claude-operations.mjs';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -367,7 +368,5 @@ async function main() {
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
-
-const MAX_BODY_BYTES = 512 * 1024;
 
 main();
