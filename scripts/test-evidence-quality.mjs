@@ -20,6 +20,10 @@ import {
   formatEvidenceGateForRoadmapPrompt,
   formatEvidenceGateForPrompt,
   formatLinkedInEvidenceContext,
+  findLinkedInUpgradeViolations,
+  validateLinkedInKit,
+  applyLinkedInGate,
+  buildFallbackLinkedIn,
 } from './evidence-gate.mjs';
 import {
   getConfirmedSkills,
@@ -307,6 +311,14 @@ function main() {
     'buildKit prompt references application evidence gate',
     kitPrompt.includes('Application evidence gate rule') &&
       kitPrompt.includes('concrete_past_action')
+  );
+
+  assert(
+    'buildKit prompt applies LinkedIn evidence-category discipline',
+    kitPrompt.includes('preserve evidence categories') &&
+      kitPrompt.includes('self_described_ability') &&
+      kitPrompt.includes('scheduling') &&
+      kitPrompt.includes('Building toward')
   );
 
   // --- Evidence gate (deterministic classifier; not live-AI tests) ---
@@ -623,6 +635,88 @@ function main() {
       fixtureCDirectionContext.includes('ZERO concrete past actions')
   );
 
+  const FIXTURE_C_TARGET = 'Administrative / Office Coordinator';
+  const fixtureCLinkedInContext = formatLinkedInEvidenceContext(fixtureCGate);
+  assert(
+    'Fixture C LinkedIn context contains allowed self-described organization evidence',
+    /know how to organize things/i.test(fixtureCLinkedInContext)
+  );
+  assert(
+    'Fixture C LinkedIn context contains allowed listening evidence',
+    /listen to people/i.test(fixtureCLinkedInContext)
+  );
+
+  const liveInvalidLinkedIn = {
+    resumeBullets: [],
+    linkedinHeadlines: [
+      {
+        style: 'Recruiter Search-Focused',
+        text: 'Administrative Coordinator | Office Coordination | Organizing & Scheduling | Detail-Oriented Support Professional',
+      },
+      {
+        style: 'Career Transition-Focused',
+        text: 'Transitioning into Administrative Coordination | Bringing Strong Organization & Listening Skills to Office Environments',
+      },
+      {
+        style: 'Professional Brand-Focused',
+        text: 'Easygoing & Organized Professional | Knows How to Coordinate, Prioritize, and Keep Things Running Smoothly',
+      },
+    ],
+    linkedinAbout:
+      'qualities I bring into every interaction and task I take on. I thrive in environments where structure and clear communication matter, which helps me work well across teams and with a wide range of people, drawing on my organizational abilities and steady, reliable presence.',
+  };
+  const liveInvalidViolations = validateLinkedInKit(liveInvalidLinkedIn, fixtureCGate, FIXTURE_C_TARGET);
+  assert(
+    'Fixture C live-invalid LinkedIn fails evidence-aware validation',
+    !liveInvalidViolations.ok &&
+      liveInvalidViolations.violations.includes('scheduling') &&
+      liveInvalidViolations.violations.includes('detail-oriented') &&
+      liveInvalidViolations.violations.includes('prioritize') &&
+      liveInvalidViolations.violations.includes('reliable') &&
+      liveInvalidViolations.violations.includes('thrive') &&
+      liveInvalidViolations.violations.includes('work-across-teams') &&
+      liveInvalidViolations.violations.includes('keep-things-running')
+  );
+
+  const linkedInGated = applyLinkedInGate(liveInvalidLinkedIn, fixtureCGate, FIXTURE_C_TARGET);
+  const linkedInGatedValidation = validateLinkedInKit(linkedInGated, fixtureCGate, FIXTURE_C_TARGET);
+  assert(
+    'applyLinkedInGate replaces invalid Fixture C LinkedIn with evidence-grounded fallback',
+    linkedInGatedValidation.ok &&
+      /Administrative Coordination|Administrative \/ Office Coordinator/i.test(
+        linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')
+      ) &&
+      /organiz/i.test(linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')) &&
+      !/scheduling|detail-oriented|prioritize|reliable|thrive|work well across teams|keep things running smoothly|Support Professional/i.test(
+        `${linkedInGated.linkedinAbout} ${linkedInGated.linkedinHeadlines.map((h) => h.text).join(' ')}`
+      )
+  );
+
+  const acceptableLinkedIn = buildFallbackLinkedIn(fixtureCGate, FIXTURE_C_TARGET);
+  assert(
+    'Fixture C fallback LinkedIn allows future-facing Administrative Coordination',
+    /Administrative Coordination|Administrative \/ Office Coordinator/i.test(
+      acceptableLinkedIn.linkedinHeadlines.map((h) => h.text).join(' ')
+    )
+  );
+  assert(
+    'Fixture C fallback LinkedIn uses self-described organization/listening wording',
+    /Organization|Coordination|listen/i.test(
+      `${acceptableLinkedIn.linkedinAbout} ${acceptableLinkedIn.linkedinHeadlines.map((h) => h.text).join(' ')}`
+    )
+  );
+  assert(
+    'Fixture C zero resume bullets still enforced alongside LinkedIn gate',
+    applyResumeBulletGate(liveInvalidLinkedIn, fixtureCGate).resumeBullets.length === 0
+  );
+
+  assert(
+    'target-role scheduling keyword alone is not allowed without evidence for Fixture C',
+    findLinkedInUpgradeViolations('Organizing & Scheduling for office work', fixtureCGate, FIXTURE_C_TARGET).includes(
+      'scheduling'
+    )
+  );
+
   const fixtureBGate = gateRetainedEvidence(FIXTURE_B_STORY, []);
   assert(
     'Fixture B gate finds concrete caregiving past actions',
@@ -638,6 +732,7 @@ function main() {
     'index.html wires evidence gate into buildKit with rejected-skill provenance',
     INDEX_HTML.includes('loadEvidenceGate') &&
       INDEX_HTML.includes('applyResumeBulletGate') &&
+      INDEX_HTML.includes('applyLinkedInGate') &&
       INDEX_HTML.includes('gateRetainedEvidence') &&
       INDEX_HTML.includes('getRejectedSkills')
   );

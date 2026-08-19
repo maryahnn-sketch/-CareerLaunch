@@ -3221,9 +3221,11 @@ async function buildKit(){
   const {
     gateRetainedEvidence,
     applyResumeBulletGate,
+    applyLinkedInGate,
     formatEvidenceGateForPrompt,
     formatResumeBulletSources,
     formatLinkedInEvidenceContext,
+    formatLinkedInRulesForPrompt,
   } = await loadEvidenceGate();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const evidenceText = fullStoryText() + ' ' + retainedStorySkills.map(s=>s.evidence).join(' ');
@@ -3237,13 +3239,14 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
 1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
-2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment.
-3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence. Clearly separate existing qualities/experience from the role the user is moving toward.
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path — signal transition/building when evidence is thin), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment. Preserve evidence category semantics: self_described_ability and trait language must not upgrade into performed duties, strong coordinator language, scheduling, prioritizing, reliability, thriving, team-performance claims, or universal every-task scope unless explicitly evidenced.
+3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence categories. Clearly separate existing self-described qualities from the role the user is moving toward. Do not write thrive, work well across teams, reliable presence, every interaction/task, or keep things running smoothly unless explicitly in allowed evidence.
 4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
-  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
+  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\n${formatLinkedInRulesForPrompt(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
   try{
     const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
-    const gated = applyResumeBulletGate(result, evidenceGate);
+    const resumeGated = applyResumeBulletGate(result, evidenceGate);
+    const gated = applyLinkedInGate(resumeGated, evidenceGate, state.chosenPath.title);
     state.kit = purgeRejectedFromObject(gated, rejected);
     state.evidenceLibrary = retainedStorySkills.map(s=>({theme:s.name, evidence:s.evidence}));
     state.screen = 'kit';

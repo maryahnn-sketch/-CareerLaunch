@@ -540,3 +540,208 @@ export function formatLinkedInEvidenceContext(gate) {
     .map((i) => `[${i.category}] "${i.source}"`);
   return lines.length ? lines.join('\n') : 'none';
 }
+
+/** LinkedIn category-discipline block for buildKit user prompt. */
+export function formatLinkedInRulesForPrompt(gate) {
+  const hasConcrete = (gate?.concretePastActions || []).length > 0;
+  const lines = [
+    'LinkedIn evidence discipline (preserve category semantics — do not upgrade):',
+    '- self_described_ability: may say the user identifies organization/coordination/listening as personal strengths; must NOT become skilled scheduler, effective prioritizer, strong coordinator, or keeps operations running smoothly unless separately evidenced.',
+    '- trait: may say easygoing, understanding, attentive as self-described qualities; must NOT become works effectively across teams, reliable professional, thrives in collaborative environments, or universal claims like every interaction/task unless stated.',
+    '- preference: may express what the user likes/values; must NOT become professional competence or performed duties.',
+    '- target career: may be future-facing (Transitioning into / Building toward); must NOT imply the user currently holds the target title or has performed target-role duties.',
+    '- Recruiter headlines may include target ROLE KEYWORDS for searchability but must signal transition/building when the user has no concrete work history in that field.',
+  ];
+  if (!hasConcrete) {
+    lines.push(
+      '- ZERO concrete_past_action evidence: do NOT use scheduling, detail-oriented, prioritize, reliable, thrive, work well across teams, keep things running smoothly, Support Professional, or similar performance/identity upgrades unless those exact concepts appear in allowed evidence above.'
+    );
+  }
+  return lines.join('\n');
+}
+
+const LINKEDIN_UPGRADE_CHECKS = [
+  { id: 'scheduling', pattern: /\bschedul(?:e|es|ed|ing|er)\b/i, evidenceStems: ['schedul', 'appointment'] },
+  { id: 'detail-oriented', pattern: /\bdetail[- ]oriented\b/i, evidenceStems: ['detail'] },
+  { id: 'prioritize', pattern: /\bprioriti(?:z|s)(?:e|es|ed|ing|y|ies)\b/i, evidenceStems: ['priorit'] },
+  { id: 'reliable', pattern: /\breliab(?:le|ility)\b/i, evidenceStems: ['reliab'] },
+  { id: 'thrive', pattern: /\bthriv(?:e|es|ing)\b/i, evidenceStems: ['thriv'] },
+  {
+    id: 'work-across-teams',
+    pattern: /\b(?:work(?:s|ing)? well )?(?:across teams|with teams and)\b/i,
+    evidenceStems: ['team', 'teams'],
+  },
+  {
+    id: 'keep-things-running',
+    pattern: /\bkeep(?:s|ing)? things running smoothly\b/i,
+    evidenceStems: ['running', 'smooth'],
+  },
+  {
+    id: 'support-professional',
+    pattern: /\bsupport professional\b/i,
+    evidenceStems: ['support professional'],
+  },
+  {
+    id: 'universal-scope',
+    pattern: /\bevery (?:interaction|task|responsibility)\b/i,
+    evidenceStems: ['every interaction', 'every task', 'every responsibility'],
+  },
+];
+
+function buildLinkedInEvidenceCorpus(gate, targetPathTitle) {
+  const parts = (gate?.downstreamStoryItems || []).map((item) => item.source);
+  if (targetPathTitle) parts.push(targetPathTitle);
+  return parts.join(' ').toLowerCase();
+}
+
+function corpusHasStem(corpus, stems) {
+  const normalized = String(corpus || '').toLowerCase();
+  return (stems || []).some((stem) => normalized.includes(String(stem).toLowerCase()));
+}
+
+function linkedInTextBlocks(kitResult) {
+  const blocks = [];
+  if (kitResult?.linkedinAbout) blocks.push(String(kitResult.linkedinAbout));
+  for (const headline of kitResult?.linkedinHeadlines || []) {
+    if (headline?.text) blocks.push(String(headline.text));
+  }
+  return blocks;
+}
+
+/** Evidence-aware LinkedIn upgrade violations (empty = valid). */
+export function findLinkedInUpgradeViolations(text, gate, targetPathTitle = '') {
+  const corpus = buildLinkedInEvidenceCorpus(gate, targetPathTitle);
+  const hasConcrete = (gate?.concretePastActions || []).length > 0;
+  const violations = [];
+  const normalized = String(text || '');
+
+  for (const check of LINKEDIN_UPGRADE_CHECKS) {
+    if (!check.pattern.test(normalized)) continue;
+    if (corpusHasStem(corpus, check.evidenceStems)) continue;
+    violations.push(check.id);
+  }
+
+  if (
+    !hasConcrete &&
+    /\bstrong\b/i.test(normalized) &&
+    /\b(organization|organiz|coordinat|listen)/i.test(normalized) &&
+    !corpusHasStem(corpus, ['strong'])
+  ) {
+    violations.push('strong-ability-upgrade');
+  }
+
+  if (
+    !hasConcrete &&
+    /\b(?:organized )?(?:support )?professional\b/i.test(normalized) &&
+    !/\b(?:transition|building toward|aspiring|moving toward)\b/i.test(normalized)
+  ) {
+    violations.push('implied-professional-identity');
+  }
+
+  return [...new Set(violations)];
+}
+
+/** Validate all LinkedIn fields in a kit result. */
+export function validateLinkedInKit(kitResult, gate, targetPathTitle = '') {
+  const violations = [];
+  for (const block of linkedInTextBlocks(kitResult)) {
+    violations.push(...findLinkedInUpgradeViolations(block, gate, targetPathTitle));
+  }
+  const unique = [...new Set(violations)];
+  return { ok: unique.length === 0, violations: unique };
+}
+
+function summarizeTraitDescriptors(gate) {
+  const traits = (gate?.downstreamStoryItems || [])
+    .filter((i) => i.category === 'trait')
+    .map((i) => i.source);
+  const words = [];
+  if (traits.some((t) => /easygoing/i.test(t))) words.push('Easygoing');
+  if (traits.some((t) => /understanding/i.test(t))) words.push('Understanding');
+  if (traits.some((t) => /attentive/i.test(t))) words.push('Attentive');
+  if (traits.some((t) => /approachable/i.test(t))) words.push('Approachable');
+  return words.length ? words.join(', ') : 'Self-Aware';
+}
+
+function summarizeAbilityDescriptors(gate) {
+  const abilities = (gate?.downstreamStoryItems || [])
+    .filter((i) => i.category === 'self_described_ability')
+    .map((i) => i.source.toLowerCase());
+  const parts = [];
+  if (abilities.some((a) => /organiz/.test(a))) parts.push('Organization');
+  if (abilities.some((a) => /coordinat/.test(a))) parts.push('Coordination');
+  if (abilities.some((a) => /listen/.test(a))) parts.push('Active Listening');
+  return parts.length ? parts.join(' & ') : 'Personal Strengths';
+}
+
+function targetPathShortLabel(targetPathTitle) {
+  const title = String(targetPathTitle || 'Target Role').trim();
+  return title.replace(/\s*\/\s*/g, ' / ').replace(/\s+/g, ' ').trim();
+}
+
+function targetPathSearchKeywords(targetPathTitle) {
+  const short = targetPathShortLabel(targetPathTitle);
+  if (/administrative|office|coordinator/i.test(short)) {
+    return 'Administrative Coordination | Office Coordination';
+  }
+  return short;
+}
+
+/** Deterministic evidence-grounded LinkedIn fallback when model output fails validation. */
+export function buildFallbackLinkedIn(gate, targetPathTitle = '') {
+  const targetShort = targetPathShortLabel(targetPathTitle);
+  const searchKeywords = targetPathSearchKeywords(targetPathTitle);
+  const traits = summarizeTraitDescriptors(gate);
+  const abilities = summarizeAbilityDescriptors(gate);
+  const prefs = (gate?.downstreamStoryItems || [])
+    .filter((i) => i.category === 'preference')
+    .map((i) => i.source);
+
+  const preferencePhrase = prefs.some((p) => /listen|people|social/i.test(p))
+    ? 'People Connection & Socializing'
+    : '';
+
+  const recruiterParts = [searchKeywords, abilities, 'Building Office Skills'].filter(Boolean);
+  const linkedinHeadlines = [
+    {
+      style: 'Recruiter Search-Focused',
+      text: recruiterParts.join(' | '),
+    },
+    {
+      style: 'Career Transition-Focused',
+      text: `Transitioning into ${targetShort} | Self-Described Strengths in ${abilities}`,
+    },
+    {
+      style: 'Professional Brand-Focused',
+      text: `${traits} | Building Toward ${targetShort}`,
+    },
+  ];
+
+  const aboutParts = [
+    `I describe myself as ${traits.toLowerCase()} and value ${preferencePhrase ? 'connecting with people' : 'meaningful work'}.`,
+    `Organization and coordination are strengths I identify in myself, and I listen carefully to others.`,
+    `I am building toward ${targetShort} while looking for ways to turn these self-described strengths into concrete examples.`,
+  ];
+
+  return {
+    linkedinHeadlines,
+    linkedinAbout: aboutParts.join(' '),
+  };
+}
+
+/**
+ * Validate LinkedIn output and replace with deterministic fallback when upgrades are detected.
+ * Preserves resume bullets unchanged.
+ */
+export function applyLinkedInGate(kitResult, gate, targetPathTitle = '') {
+  if (!kitResult || typeof kitResult !== 'object') return kitResult;
+  const validation = validateLinkedInKit(kitResult, gate, targetPathTitle);
+  if (validation.ok) return kitResult;
+
+  const fallback = buildFallbackLinkedIn(gate, targetPathTitle);
+  return {
+    ...kitResult,
+    linkedinHeadlines: fallback.linkedinHeadlines,
+    linkedinAbout: fallback.linkedinAbout,
+  };
+}
