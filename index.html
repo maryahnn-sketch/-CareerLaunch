@@ -753,13 +753,24 @@ function extractFirstJsonObject(text){
   return null; // no complete, balanced object found — genuinely incomplete/malformed
 }
 
+async function buildClaudeAuthHeaders(){
+  const headers = { "Content-Type": "application/json" };
+  if(window.CareerLaunchAuth){
+    await window.CareerLaunchAuth.ready;
+    const token = await window.CareerLaunchAuth.getAccessToken();
+    if(token) headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal){
   let response;
   try{
     response = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await buildClaudeAuthHeaders(),
       body: JSON.stringify({
+        operation: operation,
         model: "claude-sonnet-4-6",
         max_tokens: maxTokens || 1000,
         system: system,
@@ -874,13 +885,14 @@ async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, si
 // whatever text comes back, which is exactly what a reply naturally is.
 // Preference extraction is a separate, small, structured call (profileDeltaTool)
 // that can fail independently without ever taking the reply down with it.
-async function callClaudeText(system, userPrompt, maxTokens, signal){
+async function callClaudeText(system, userPrompt, maxTokens, operation, signal){
   let response;
   try{
     response = await fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await buildClaudeAuthHeaders(),
       body: JSON.stringify({
+        operation: operation,
         model: "claude-sonnet-4-6",
         max_tokens: maxTokens || 500,
         system: system,
@@ -929,11 +941,11 @@ async function callClaudeText(system, userPrompt, maxTokens, signal){
 // since there's no schema to reshape here, just a plain-text regenerate.
 async function callTextWithRetry(operation, system, userPrompt, maxTokens){
   try{
-    return await callClaudeText(system, userPrompt, maxTokens);
+    return await callClaudeText(system, userPrompt, maxTokens, operation);
   }catch(firstErr){
     logDiag(operation, firstErr.category || 'unknown', firstErr.message || String(firstErr));
     try{
-      const text = await callClaudeText(system, userPrompt, maxTokens);
+      const text = await callClaudeText(system, userPrompt, maxTokens, operation);
       safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Plain-text retry produced a usable reply after: ${firstErr.code}`);
       return text;
     }catch(secondErr){
