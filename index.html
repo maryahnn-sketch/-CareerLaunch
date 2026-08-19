@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CareerLaunch AI</title>
+<title>iFindWorth</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
   :root{
@@ -1013,7 +1013,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
   // failure has nothing usable to send here, so it skips straight to tier 3.
   if(tier1Err.category === 'schema' && tier1Err.partial){
     try{
-      let reshapeSystem = `You are a strict data formatter for CareerLaunch AI. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
+      let reshapeSystem = `You are a strict data formatter for iFindWorth. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
       const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
       const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal);
@@ -1957,7 +1957,7 @@ function renderProgress(){
   let steps = '';
   STEP_ORDER.forEach((s,i)=>{ steps += `<span class="${i<idx?'done':(i===idx?'current':'')}"></span>`; });
   return `<div class="progress-bar"><div class="progress-inner">
-    <span class="brand-tiny" data-go="${state.paymentStatus==='paid'?'dashboard':'landing'}">CareerLaunch</span>
+    <span class="brand-tiny" data-go="${state.paymentStatus==='paid'?'dashboard':'landing'}">iFindWorth</span>
     <div class="progress-steps">${steps}</div>
     <span class="progress-label">${labels[state.screen]||''}</span>
   </div></div>`;
@@ -1965,7 +1965,7 @@ function renderProgress(){
 
 function subHeader(title){
   return `<div class="progress-bar"><div class="progress-inner">
-    <span class="brand-tiny" data-go="dashboard">CareerLaunch</span>
+    <span class="brand-tiny" data-go="dashboard">iFindWorth</span>
     <span class="progress-label" style="flex:1;text-align:right;">${title}</span>
   </div></div>`;
 }
@@ -1975,13 +1975,13 @@ function renderLanding(){
   return `
   <div class="wrap">
     <nav class="nav">
-      <div class="brand">CareerLaunch <em>AI</em></div>
+      <div class="brand">iFindWorth</div>
       <button class="btn btn-ghost btn-sm" data-go="intake">Discover My Career Options</button>
     </nav>
     <section class="hero">
       <div class="eyebrow"><span class="dot"></span>Experience Translator</div>
       <h1>You've done more <mark>than you think.</mark></h1>
-      <p class="lede">Tell CareerLaunch what you've actually done, in your own words. We'll help you uncover the skills inside your experience, explore the career paths they may transfer to, and build a practical path forward.</p>
+      <p class="lede">Tell iFindWorth what you've actually done, in your own words. We'll help you uncover the skills inside your experience, explore the career paths they may transfer to, and build a practical path forward.</p>
       <p class="micro">No perfect resume required. No professional terminology required. Just tell us your story.</p>
       <div class="hero-ctas">
         <button class="btn btn-primary" data-go="intake">Discover My Career Options</button>
@@ -2020,7 +2020,7 @@ function renderLanding(){
       </div>
     </section>
     <section class="section">
-      <div class="eyebrow"><span class="dot"></span>Why CareerLaunch is different</div>
+      <div class="eyebrow"><span class="dot"></span>Why iFindWorth is different</div>
       <h2>Not another quiz, board, or template</h2>
       <div class="diff-grid">
         <div class="diff-card"><div class="not">Not a resume builder</div><h3>We find the story before we format it.</h3></div>
@@ -2039,7 +2039,7 @@ function renderLanding(){
           <ul><li>Story intake, type or voice</li><li>Transferable skills with evidence</li><li>Career path preview by category</li><li>Recommendations that update as you talk</li></ul>
         </div>
         <div class="price-card featured">
-          <div class="eyebrow"><span class="dot"></span>CareerLaunch Starter</div>
+          <div class="eyebrow"><span class="dot"></span>iFindWorth Starter</div>
           <div class="amt">$19.99</div>
           <p style="font-size:14px;">Planned one-time price. Demo unlock during private beta — no card required, no real payment collected.</p>
           <ul><li>Career sequence + 7/30/60/90-day plan</li><li>Full gap analysis & learning ladder</li><li>Resume, LinkedIn & interview story bank</li><li>Command-center dashboard</li></ul>
@@ -2050,7 +2050,7 @@ function renderLanding(){
       <h2>Your experience counts. Let's find out where it can take you.</h2>
       <button class="btn btn-primary" data-go="intake">Start My Career Discovery</button>
     </section>
-    <footer>Guidance, not guarantees. CareerLaunch only knows what you share with it — recommendations are a starting point for your own judgment, not a verdict on your potential.</footer>
+    <footer>Guidance, not guarantees. iFindWorth only knows what you share with it — recommendations are a starting point for your own judgment, not a verdict on your potential.</footer>
   </div>`;
 }
 
@@ -2240,7 +2240,7 @@ function renderPaywall(){
     <div class="paywall-card">
       ${alreadyPaid ? `
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Demo Already Unlocked</div>
-        <p style="font-size:14px;">You've already unlocked CareerLaunch Starter in this demo — no card required, and you can explore another path without any real payment.</p>
+        <p style="font-size:14px;">You've already unlocked iFindWorth Starter in this demo — no card required, and you can explore another path without any real payment.</p>
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
       ` : `
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
@@ -2415,7 +2415,7 @@ function renderDashboard(){
       </div>
     </div>
 
-    <div class="dash-card mt-16"><h3>What CareerLaunch has learned about you</h3>
+    <div class="dash-card mt-16"><h3>What iFindWorth has learned about you</h3>
       <div class="path-tags">
         ${state.priorities.map(p=>`<span class="mini-tag">${p}</span>`).join('')}
         ${state.preferences.interests.map(p=>`<span class="learned-chip">✓ ${p}</span>`).join('')}
@@ -2501,7 +2501,7 @@ function renderJdResult(a){
 /* ============================= ERROR ============================= */
 function renderError(){
   return `<div class="wrap"><div class="screen">
-    <div class="error-box"><strong>Something went wrong reaching CareerLaunch's analysis.</strong><br/>${state.errorMsg}
+    <div class="error-box"><strong>Something went wrong reaching iFindWorth's analysis.</strong><br/>${state.errorMsg}
       <br/><button class="btn btn-primary btn-sm" id="retryBtn">${state.errorRetryLabel || 'Try Again'}</button>
     </div>
   </div></div>`;
@@ -2709,7 +2709,7 @@ async function analyzeSkills(){
   if(state.busy) return;
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Reading through what you shared…'; state.errorMsg=''; render();
-  const system = `You are the Experience Translator inside CareerLaunch AI. A user describes, in their own words, things they've done. Identify transferable professional skills genuinely supported by what they wrote.
+  const system = `You are the Experience Translator inside iFindWorth. A user describes, in their own words, things they've done. Identify transferable professional skills genuinely supported by what they wrote.
 ${NO_INVENTION_RULE}
 Rules: 1) Only include skills with real textual evidence. 2) evidence: a close paraphrase (max 16 words) of what they said, warm plain-language ("You described..."), staying literal — do not generalize it into a broader claim. 3) Calibrate strength honestly: "Strong" only for clear, repeated, or elaborated evidence; "Moderate" for a single plain mention without elaboration; "Developing" for something implied or mentioned only in passing; "Needs More Information" if the evidence is too thin to be confident but the activity is still plausibly relevant. Do not default to "Strong" just because an activity was mentioned once. 4) Return 4 to 7 skills, strongest first.`;
   try{
@@ -2732,7 +2732,7 @@ async function discoverPaths(){
   const validated = getValidatedSkills();
   const rejected = getRejectedSkillNames();
   const validatedNames = validated.map(s=>s.name);
-  const system = `You are the career path engine inside CareerLaunch AI. Given a user's story and validated transferable skills, generate realistic career path options.
+  const system = `You are the career path engine inside iFindWorth. Given a user's story and validated transferable skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
@@ -2790,7 +2790,7 @@ async function sendConvo(){
   // Step 1: the conversational reply — plain text, not a forced tool call.
   // Preferred, not guaranteed to be "structured," because it was never
   // supposed to be data in the first place.
-  const replySystem = `You are CareerLaunch AI, discussing career discovery results with a user before they choose a direction. Be warm, specific, and evidence-based — never generic encouragement.
+  const replySystem = `You are iFindWorth, discussing career discovery results with a user before they choose a direction. Be warm, specific, and evidence-based — never generic encouragement.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble, no field labels.${rejectedSkillsClause()}`;
@@ -2818,7 +2818,7 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
   // repair attempts) without ever retracting or blocking the reply already
   // shown, and the conversation simply continues either way.
   try{
-    const deltaSystem = `You extract structured preference signals for CareerLaunch AI's Career Intelligence Profile from one turn of a career-discovery conversation. Only include a genuine new preference signal — something the user wants more or less of in their work — never invent one. If nothing new was signaled, return empty arrays and an empty summary. Never repeat a preference already known.${rejectedSkillsClause()}`;
+    const deltaSystem = `You extract structured preference signals for iFindWorth's Career Intelligence Profile from one turn of a career-discovery conversation. Only include a genuine new preference signal — something the user wants more or less of in their work — never invent one. If nothing new was signaled, return empty arrays and an empty summary. Never repeat a preference already known.${rejectedSkillsClause()}`;
     const deltaPrompt = `Already known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}\nAssistant's reply: ${cleanReply}`;
     const delta = await callStructured('sendConvoProfileDelta', deltaSystem, deltaPrompt, profileDeltaTool, TOKEN_BUDGETS.profileDelta, validateProfileDeltaResult, normalizeProfileDeltaResult);
     const cleanDelta = purgeRejectedFromObject(delta, rejected);
@@ -2849,7 +2849,7 @@ async function refinePaths(){
   const validated = getValidatedSkills();
   const rejected = getRejectedSkillNames();
   const validatedNames = validated.map(s=>s.name);
-  const system = `You are the career path refinement engine inside CareerLaunch AI. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
+  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Keep these dimensions separate:
@@ -2902,7 +2902,7 @@ async function rerankPaths(){
   const rejected = getRejectedSkillNames();
   const validatedNames = validated.map(s=>s.name);
   const knownTitles = state.paths.map(p=>p.title);
-  const system = `You are the career reranking engine inside CareerLaunch AI. The user's career paths already exist in full — you are NOT re-describing them, only reclassifying them.
+  const system = `You are the career reranking engine inside iFindWorth. The user's career paths already exist in full — you are NOT re-describing them, only reclassifying them.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
@@ -2994,7 +2994,7 @@ async function buildRoadmapFoundation(){
   state.roadmapSectionError.foundation = null;
   state.loadingMsg = 'Understanding your starting point…'; state.errorMsg=''; state.errorRetryLabel=null; render();
   const rejected = getRejectedSkillNames();
-  const system = `You are the roadmap engine inside CareerLaunch AI, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
+  const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules: 1) whereYouAre: 2 sentences max, grounded in their validated skills. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.${rejectedSkillsClause()}`;
@@ -3037,7 +3037,7 @@ async function buildRoadmapActionPlan(){
   state.roadmapSectionError.actionPlan = null;
   state.loadingMsg = 'Building your action plan…'; render();
   const rejected = getRejectedSkillNames();
-  const system = `You are the roadmap engine inside CareerLaunch AI, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
+  const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief.`;
@@ -3080,7 +3080,7 @@ async function buildRoadmapDirection(){
   state.roadmapSectionError.direction = null;
   state.loadingMsg = 'Mapping your next steps…'; render();
   const rejected = getRejectedSkillNames();
-  const system = `You are the roadmap engine inside CareerLaunch AI, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
+  const system = `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally. Every item must be a short phrase, not a paragraph — this response must stay compact.`;
@@ -3152,7 +3152,7 @@ async function buildKit(){
   const validated = getValidatedSkills();
   const rejected = getRejectedSkillNames();
   const evidenceText = fullStoryText() + ' ' + validated.map(s=>s.evidence).join(' ');
-  const system = `You are the Application Kit builder inside CareerLaunch AI. Translate a user's validated real experience into professional resume and LinkedIn language for a specific target path.
+  const system = `You are the Application Kit builder inside iFindWorth. Translate a user's validated real experience into professional resume and LinkedIn language for a specific target path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
@@ -3210,7 +3210,7 @@ async function submitAddExperience(){
   state.additionalExperiences.push(text);
   state.addExpText = '';
   state.screen = 'analyzing'; state.loadingMsg = 'Updating your profile with this new experience…'; render();
-  const system = `You are the Experience Translator inside CareerLaunch AI, re-analyzing a user's full history (original story plus newly added experiences) to identify transferable professional skills.
+  const system = `You are the Experience Translator inside iFindWorth, re-analyzing a user's full history (original story plus newly added experiences) to identify transferable professional skills.
 ${NO_INVENTION_RULE}
 Rules: 1) Only include skills with real textual evidence. 2) evidence: a close paraphrase (max 16 words), "You described...", staying literal. 3) Calibrate strength honestly per the criteria above — don't default to "Strong" for a single brief mention. 4) Return 4 to 8 skills, strongest first.`;
   try{
@@ -3251,7 +3251,7 @@ async function buildStoryBank(){
   state.busy = true;
   const validated = getValidatedSkills();
   const rejected = getRejectedSkillNames();
-  const system = `You build an interview Story Bank inside CareerLaunch AI, using only the user's real, validated experience.
+  const system = `You build an interview Story Bank inside iFindWorth, using only the user's real, validated experience.
 ${NO_INVENTION_RULE}
 For each of these fixed categories, in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) with status "ready", or if there isn't enough evidence, set status "needs_more" with a short prompt (max 14 words) asking for the missing detail. Only draw on the "Validated skills" list below — the story text is provided for tone/context, but any skill or activity the user has rejected must not be used as evidence for a story.${rejectedSkillsClause()}`;
   const userPrompt = `Story: ${fullStoryText()}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
@@ -3272,7 +3272,7 @@ async function addStoryDetail(i, detail){
   render();
   const cat = state.storyBank.stories[i].category;
   const rejected = getRejectedSkillNames();
-  const system = `You write one interview story for CareerLaunch AI using only the true detail just given, plus prior known evidence. ${NO_INVENTION_RULE} 2-3 sentences, first person.${rejectedSkillsClause()}`;
+  const system = `You write one interview story for iFindWorth using only the true detail just given, plus prior known evidence. ${NO_INVENTION_RULE} 2-3 sentences, first person.${rejectedSkillsClause()}`;
   const userPrompt = `Category: ${cat}\nKnown context: ${fullStoryText()}\nNew detail from user: ${detail}`;
   try{
     const result = await callStructured('addStoryDetail', system, userPrompt, singleStoryTool, TOKEN_BUDGETS.singleStory, validateTextResult('story'));
@@ -3294,7 +3294,7 @@ async function analyzeJd(){
   const validated = getValidatedSkills();
   const validatedNames = validated.map(s=>s.name);
   const rejected = getRejectedSkillNames();
-  const system = `You compare a single pasted job description against a user's validated skills inside CareerLaunch AI. Base "marketAsks" only on what's actually in the pasted text below — that specific posting is a legitimate source for itself, but never generalize it into a claim about the wider market, other employers, salary, or demand.
+  const system = `You compare a single pasted job description against a user's validated skills inside iFindWorth. Base "marketAsks" only on what's actually in the pasted text below — that specific posting is a legitimate source for itself, but never generalize it into a claim about the wider market, other employers, salary, or demand.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text itself. youAlreadyHave = ONLY skill names copied exactly from the "User's validated skills" list below that genuinely match something in the posting — never a rejected skill, never one inferred from outside the posting. shouldStrengthen = 2-3 gaps between the posting and the user's validated skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information".${rejectedSkillsClause()}`;
