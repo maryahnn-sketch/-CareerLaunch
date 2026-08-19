@@ -6,221 +6,13 @@
  * function are not reliable for rate limiting.
  */
 
-const MODEL = 'claude-sonnet-4-6';
-const REPAIR_BUDGET_CAP = 4000;
-const RESHAPE_CAP = 1200;
-
-const MAX_BODY_BYTES = 512 * 1024;
-const MAX_SYSTEM_CHARS = 50_000;
-const MAX_USER_CONTENT_CHARS = 100_000;
-const MAX_TOOLS_JSON_BYTES = 64 * 1024;
-
-/** Base output-token budgets mirrored from TOKEN_BUDGETS in index.html */
-const BASE_OPERATION_LIMITS = {
-  analyzeSkills: 1000,
-  discoverPaths: 2000,
-  sendConvo: 500,
-  sendConvoProfileDelta: 400,
-  refinePaths: 2000,
-  rerankPaths: 700,
-  buildRoadmapFoundation: 700,
-  buildRoadmapActionPlan: 900,
-  buildRoadmapDirection: 1200,
-  buildKit: 1800,
-  strengthenBullet: 200,
-  submitAddExperience: 1000,
-  buildStoryBank: 2000,
-  addStoryDetail: 300,
-  analyzeJd: 1200,
-};
-
-const PLAIN_TEXT_OPERATIONS = new Set(['sendConvo']);
+import { MAX_BODY_BYTES, prepareAnthropicRequest } from './claude-operations.mjs';
 
 function jsonResponse(body, status = 200) {
   return Response.json(body, {
     status,
     headers: { 'cache-control': 'no-store' },
   });
-}
-
-function repairMaxTokens(baseLimit) {
-  return Math.min(Math.ceil(baseLimit * 1.6), REPAIR_BUDGET_CAP);
-}
-
-function reshapeMaxTokens(baseLimit) {
-  return Math.min(baseLimit, RESHAPE_CAP);
-}
-
-function parseOperation(rawOperation) {
-  if (typeof rawOperation !== 'string') {
-    return { ok: false, error: 'operation must be a string' };
-  }
-
-  const operation = rawOperation.trim();
-  if (!operation) {
-    return { ok: false, error: 'operation is required' };
-  }
-
-  if (operation.endsWith(':repair')) {
-    const base = operation.slice(0, -':repair'.length);
-    if (!base) return { ok: false, error: 'invalid operation suffix' };
-    return { ok: true, operation, base, suffix: 'repair' };
-  }
-
-  if (operation.endsWith(':reshape')) {
-    const base = operation.slice(0, -':reshape'.length);
-    if (!base) return { ok: false, error: 'invalid operation suffix' };
-    return { ok: true, operation, base, suffix: 'reshape' };
-  }
-
-  if (operation.includes(':')) {
-    return { ok: false, error: 'unsupported operation suffix' };
-  }
-
-  return { ok: true, operation, base: operation, suffix: null };
-}
-
-function getMaxTokensForOperation(baseOperation, suffix) {
-  const baseLimit = BASE_OPERATION_LIMITS[baseOperation];
-  if (!baseLimit) return null;
-
-  if (suffix === 'repair') return repairMaxTokens(baseLimit);
-  if (suffix === 'reshape') return reshapeMaxTokens(baseLimit);
-  return baseLimit;
-}
-
-function isPlainObject(value) {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function validateMessages(messages) {
-  if (!Array.isArray(messages) || messages.length !== 1) {
-    return { ok: false, error: 'messages must contain exactly one user turn' };
-  }
-
-  const message = messages[0];
-  if (!isPlainObject(message)) {
-    return { ok: false, error: 'message must be an object' };
-  }
-
-  if (message.role !== 'user') {
-    return { ok: false, error: 'message role must be user' };
-  }
-
-  if (typeof message.content !== 'string') {
-    return { ok: false, error: 'message content must be a string' };
-  }
-
-  const content = message.content;
-  if (!content.trim()) {
-    return { ok: false, error: 'message content must not be empty' };
-  }
-
-  if (content.length > MAX_USER_CONTENT_CHARS) {
-    return { ok: false, error: 'message content exceeds allowed length' };
-  }
-
-  return { ok: true };
-}
-
-function validateTools(tools, toolChoice, isPlainTextOperation) {
-  if (isPlainTextOperation) {
-    if (tools !== undefined && tools !== null) {
-      return { ok: false, error: 'tools are not allowed for this operation' };
-    }
-    if (toolChoice !== undefined && toolChoice !== null) {
-      return { ok: false, error: 'tool_choice is not allowed for this operation' };
-    }
-    return { ok: true };
-  }
-
-  if (!Array.isArray(tools) || tools.length !== 1) {
-    return { ok: false, error: 'tools must contain exactly one tool definition' };
-  }
-
-  const toolsJson = JSON.stringify(tools);
-  if (toolsJson.length > MAX_TOOLS_JSON_BYTES) {
-    return { ok: false, error: 'tools payload exceeds allowed size', status: 413 };
-  }
-
-  const tool = tools[0];
-  if (!isPlainObject(tool) || typeof tool.name !== 'string' || !tool.name.trim()) {
-    return { ok: false, error: 'tool definition is invalid' };
-  }
-
-  if (!isPlainObject(toolChoice)) {
-    return { ok: false, error: 'tool_choice is required for structured operations' };
-  }
-
-  if (
-    toolChoice.type !== 'tool' ||
-    typeof toolChoice.name !== 'string' ||
-    toolChoice.name !== tool.name
-  ) {
-    return { ok: false, error: 'tool_choice must target the provided tool' };
-  }
-
-  return { ok: true };
-}
-
-function validateClaudeRequest(body) {
-  if (!isPlainObject(body)) {
-    return { ok: false, error: 'request body must be a JSON object' };
-  }
-
-  const parsedOperation = parseOperation(body.operation);
-  if (!parsedOperation.ok) {
-    return { ok: false, error: parsedOperation.error };
-  }
-
-  const { base, suffix } = parsedOperation;
-  if (!Object.prototype.hasOwnProperty.call(BASE_OPERATION_LIMITS, base)) {
-    return { ok: false, error: 'unsupported operation' };
-  }
-
-  const isPlainTextOperation = PLAIN_TEXT_OPERATIONS.has(base);
-  if (suffix && isPlainTextOperation) {
-    return { ok: false, error: 'unsupported operation suffix' };
-  }
-
-  if (typeof body.system !== 'string' || !body.system.trim()) {
-    return { ok: false, error: 'system must be a non-empty string' };
-  }
-
-  if (body.system.length > MAX_SYSTEM_CHARS) {
-    return { ok: false, error: 'system prompt exceeds allowed length', status: 413 };
-  }
-
-  const messagesCheck = validateMessages(body.messages);
-  if (!messagesCheck.ok) {
-    return messagesCheck;
-  }
-
-  const toolsCheck = validateTools(body.tools, body.tool_choice, isPlainTextOperation);
-  if (!toolsCheck.ok) {
-    return toolsCheck;
-  }
-
-  const allowedMaxTokens = getMaxTokensForOperation(base, suffix);
-  const requestedMaxTokens = body.max_tokens;
-
-  if (
-    typeof requestedMaxTokens !== 'number' ||
-    !Number.isFinite(requestedMaxTokens) ||
-    requestedMaxTokens <= 0
-  ) {
-    return { ok: false, error: 'max_tokens must be a positive number' };
-  }
-
-  if (requestedMaxTokens > allowedMaxTokens) {
-    return { ok: false, error: 'max_tokens exceeds allowed limit for operation' };
-  }
-
-  return {
-    ok: true,
-    operation: parsedOperation.operation,
-    maxTokens: requestedMaxTokens,
-  };
 }
 
 function extractBearerToken(request) {
@@ -243,20 +35,6 @@ async function verifySupabaseAccessToken(accessToken, supabaseUrl, supabaseAnonK
 
   const user = await response.json();
   return !!user?.id;
-}
-
-function buildAnthropicPayload(body, maxTokens) {
-  const payload = {
-    model: MODEL,
-    max_tokens: maxTokens,
-    system: body.system,
-    messages: body.messages,
-  };
-
-  if (body.tools) payload.tools = body.tools;
-  if (body.tool_choice) payload.tool_choice = body.tool_choice;
-
-  return payload;
 }
 
 export default {
@@ -323,14 +101,12 @@ export default {
       return jsonResponse({ error: 'Invalid JSON' }, 400);
     }
 
-    const validation = validateClaudeRequest(body);
+    const validation = prepareAnthropicRequest(body);
     if (!validation.ok) {
       return jsonResponse({ error: validation.error }, validation.status || 400);
     }
 
     try {
-      const anthropicPayload = buildAnthropicPayload(body, validation.maxTokens);
-
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -338,7 +114,7 @@ export default {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
         },
-        body: JSON.stringify(anthropicPayload),
+        body: JSON.stringify(validation.anthropicPayload),
       });
 
       const result = await response.text();

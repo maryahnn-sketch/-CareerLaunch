@@ -763,7 +763,7 @@ async function buildClaudeAuthHeaders(){
   return headers;
 }
 
-async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal){
+async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, signal, apiContext){
   let response;
   try{
     response = await fetch("/api/claude", {
@@ -771,12 +771,12 @@ async function callClaudeTool(system, userPrompt, tool, maxTokens, operation, si
       headers: await buildClaudeAuthHeaders(),
       body: JSON.stringify({
         operation: operation,
-        model: "claude-sonnet-4-6",
         max_tokens: maxTokens || 1000,
-        system: system,
-        messages: [{ role: "user", content: userPrompt }],
-        tools: [tool],
-        tool_choice: { type: "tool", name: tool.name }
+        userPrompt: userPrompt,
+        context: {
+          rejectedSkillNames: getRejectedSkillNames(),
+          ...(apiContext || {})
+        }
       })
       // Deliberately NOT passing `signal` here — see runCancelable for why.
       // This artifact environment's fetch relays each request to the host
@@ -893,10 +893,11 @@ async function callClaudeText(system, userPrompt, maxTokens, operation, signal){
       headers: await buildClaudeAuthHeaders(),
       body: JSON.stringify({
         operation: operation,
-        model: "claude-sonnet-4-6",
         max_tokens: maxTokens || 500,
-        system: system,
-        messages: [{ role: "user", content: userPrompt }]
+        userPrompt: userPrompt,
+        context: {
+          rejectedSkillNames: getRejectedSkillNames()
+        }
       })
       // Same fix as callClaudeTool: no `signal` passed to fetch — an
       // AbortSignal cannot cross this environment's postMessage-based fetch
@@ -1046,7 +1047,10 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
       let reshapeSystem = `You are a strict data formatter for iFindWorth. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
       const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
-      const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal);
+      const raw = await callClaudeTool(reshapeSystem, reshapeUserPrompt, tool, Math.min(maxTokens, 1200), operation + ':reshape', signal, {
+        reshapeFailureDetail: tier1Err.detail || tier1Err.message,
+        extraRepairHint: extraRepairHint || ''
+      });
       const result = runValidation(raw);
       safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Format-only reshape recovered a valid result (original content preserved) after: ${tier1Err.code}`);
       return result;
