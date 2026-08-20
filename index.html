@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="iFindWorth helps you uncover professional skills hidden in your real-life experience, explore career possibilities, and build a practical path forward.">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/logo/iFindWorth_Favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
 <title>iFindWorth</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -72,6 +73,8 @@
   .nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;}
   .brand{font-family:var(--serif);font-weight:700;font-size:19px;}
   .brand em{font-style:normal;color:var(--clay);}
+  .brand-logo{display:block;width:180px;height:auto;flex-shrink:0;}
+  @media (max-width:640px){.brand-logo{width:145px;}}
 
   .hero{padding:56px 0 40px;text-align:left;}
   .hero h1{font-size:clamp(38px,6vw,60px);line-height:1.04;max-width:780px;}
@@ -2008,7 +2011,7 @@ function renderLanding(){
   return `
   <div class="wrap">
     <nav class="nav">
-      <div class="brand">iFindWorth</div>
+      <img class="brand-logo" src="/logo/iFindWorth_Logo_Primary_NoTagline_Transparent.png" alt="iFindWorth">
       <button class="btn btn-ghost btn-sm" data-go="intake">Discover My Career Options</button>
     </nav>
     <section class="hero">
