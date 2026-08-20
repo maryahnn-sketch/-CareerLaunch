@@ -571,12 +571,15 @@ function applyHydratedState(hydrated){
 
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
-function getValidatedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
-function getRejectedSkillNames(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no').map(s => s.name); }
-function acceptPendingSkills(){
-  state.skills.forEach(s => {
-    if(state.skillValidation[s.name] !== 'no') state.skillValidation[s.name] = 'yes';
-  });
+function getConfirmedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
+function getRetainedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
+function getRejectedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no'); }
+function getUnconfirmedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'yes' && state.skillValidation[s.name] !== 'no'); }
+function getRejectedSkillNames(){ return getRejectedSkills().map(s => s.name); }
+let evidenceGateModulePromise = null;
+function loadEvidenceGate(){
+  if(!evidenceGateModulePromise) evidenceGateModulePromise = import('/js/evidence-gate.mjs');
+  return evidenceGateModulePromise;
 }
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
@@ -1420,7 +1423,7 @@ const pathFieldsSchema = {
 
 const pathsTool = {
   name: 'report_career_paths',
-  description: 'Report realistic career path options mapped from the user\'s validated transferable skills.',
+  description: 'Report realistic career path options mapped from the user\'s retained story skills.',
   input_schema: {
     type: 'object',
     properties: {
@@ -1481,8 +1484,8 @@ const refinePathFieldsSchema = {
     why: { type: 'string', maxLength: 140 },
     transfers: { type: 'array', items: { type: 'string' }, maxItems: 3 },
     gaps: { type: 'array', items: { type: 'string' }, maxItems: 2 },
-    transition: { type: 'string', enum: STRENGTH_ENUM, description: 'Evidence fit ONLY — how strongly validated experience supports this path. Never Strong solely because the user wants it.' },
-    fitEvidence: { type: 'string', enum: STRENGTH_ENUM, description: 'Optional evidence-fit rating — same scale as transition, based on validated skills only.' },
+    transition: { type: 'string', enum: STRENGTH_ENUM, description: 'Evidence fit ONLY — how strongly story-supported experience supports this path. Never Strong solely because the user wants it.' },
+    fitEvidence: { type: 'string', enum: STRENGTH_ENUM, description: 'Optional evidence-fit rating — same scale as transition, based on retained story skills only.' },
     fitInterest: { type: 'string', enum: STRENGTH_ENUM, description: 'Interest fit — how well this path matches stated interests/dislikes/priorities.' },
     fitLifestyle: { type: 'string', enum: STRENGTH_ENUM, description: 'Lifestyle fit — only if preferences mention working conditions; otherwise use Needs More Information.' },
     workEnvironment: { type: 'string', maxLength: 50 },
@@ -1493,7 +1496,7 @@ const refinePathFieldsSchema = {
 
 const refinePathsTool = {
   name: 'report_refined_career_paths',
-  description: 'Report a refreshed set of 4-5 evidence-supported career paths after learning user preferences. May introduce new paths supported by validated skills and omit or deprioritize rejected directions.',
+  description: 'Report a refreshed set of 4-5 evidence-supported career paths after learning user preferences. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
   input_schema: {
     type: 'object',
     properties: {
@@ -1595,13 +1598,13 @@ const roadmapDirectionTool = {
 
 const kitTool = {
   name: 'report_application_kit',
-  description: 'Report resume bullets and LinkedIn positioning built only from the user\'s validated evidence.',
+  description: 'Report resume bullets and LinkedIn positioning built only from the experience the user shared.',
   input_schema: {
     type: 'object',
     properties: {
       resumeBullets: {
-        type: 'array', minItems: 2, maxItems: 4,
-        items: { type: 'object', properties: { text: { type: 'string', maxLength: 160 }, strengthen: { type: 'string', maxLength: 60 } }, required: ['text'] }
+        type: 'array', minItems: 0, maxItems: 4,
+        items: { type: 'object', properties: { text: { type: 'string', maxLength: 160 }, sourceQuote: { type: 'string', maxLength: 200, description: 'REQUIRED — exact verbatim concrete_past_action quote supporting this bullet.' }, strengthen: { type: 'string', maxLength: 60, description: 'Optional — ask for one concrete example when evidence is thin. Use instead of fabricating a bullet from a trait alone.' } }, required: ['text','sourceQuote'] }
       },
       linkedinHeadlines: {
         type: 'array', minItems: 3, maxItems: 3,
@@ -1621,7 +1624,7 @@ const bulletRepairTool = {
 
 const storyBankTool = {
   name: 'report_story_bank',
-  description: 'Report interview-ready stories for each fixed category, using only validated evidence.',
+  description: 'Report interview-ready stories for each fixed category, using only story-supported evidence.',
   input_schema: {
     type: 'object',
     properties: {
@@ -1651,7 +1654,7 @@ const singleStoryTool = {
 
 const jdTool = {
   name: 'report_jd_analysis',
-  description: 'Report how a single pasted job description compares to the user\'s validated skills.',
+  description: 'Report how a single pasted job description compares to the user\'s retained story skills.',
   input_schema: {
     type: 'object',
     properties: {
@@ -1776,7 +1779,7 @@ const SKILLS_REPAIR_HINT = `The schema requires skills: [{name, evidence, streng
 // in plain language for the repair passes.
 const PATHS_REPAIR_HINT = `Every path object MUST include transition — one of exactly "Strong" | "Moderate" | "Developing" | "Needs More Information", never omitted, never any other wording. Also required on every path: title, entryPoint, progression, category, why, and transfers (as an array). If you cannot supply all of those for a given path, leave that path out entirely rather than submitting it incomplete.`;
 const RERANK_REPAIR_HINT = `The "category" field for every rankedPaths entry MUST be exactly one of these five strings: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us". Do NOT reuse an original path's old category label (such as "Strong Evidence", "Worth Exploring", "Growth Path", or "Independent Path") — those are a different, earlier classification and are not valid values here, even for a path whose ranking stays similar.`;
-const REFINE_PATHS_REPAIR_HINT = `${PATHS_REPAIR_HINT} ${RERANK_REPAIR_HINT} The top-level changeSummary field is REQUIRED (max 25 words) and must name the preferences that drove the refresh. Every path MUST include fitInterest and fitLifestyle (interest/lifestyle fit, separate from transition which is evidence fit only). transition must reflect validated evidence — never Strong solely because the user wants the path.`;
+const REFINE_PATHS_REPAIR_HINT = `${PATHS_REPAIR_HINT} ${RERANK_REPAIR_HINT} The top-level changeSummary field is REQUIRED (max 25 words) and must name the preferences that drove the refresh. Every path MUST include fitInterest and fitLifestyle (interest/lifestyle fit, separate from transition which is evidence fit only). transition must reflect story-supported evidence — never Strong solely because the user wants the path.`;
 // Diagnosis: repair responses were dropping first7Days/learningStrategy
 // specifically because the generic repair note only said "return a
 // corrected, complete result" — it never named which fields a truncated or
@@ -1919,12 +1922,14 @@ function validateRoadmapDirectionResult(result){
 }
 
 function validateKitResult(result, sourceEvidenceText){
-  if(!result || !Array.isArray(result.resumeBullets) || result.resumeBullets.length === 0) return { ok:false, reason:'resumeBullets missing or empty' };
+  if(!result || !Array.isArray(result.resumeBullets)) return { ok:false, reason:'resumeBullets missing' };
+  if(result.resumeBullets.length > 4) return { ok:false, reason:'resumeBullets exceeds maximum of 4' };
   if(!Array.isArray(result.linkedinHeadlines) || result.linkedinHeadlines.length !== 3) return { ok:false, reason:'linkedinHeadlines must have exactly 3 entries' };
   if(!isNonEmptyStr(result.linkedinAbout)) return { ok:false, reason:'linkedinAbout is missing' };
   // Evidence-traceability heuristic (items A/B/G4): a number in generated resume
   // copy that never appears in the user's own story is very likely fabricated.
   for(const b of result.resumeBullets){
+    if(!isNonEmptyStr(b.sourceQuote)) return { ok:false, reason:'each resume bullet must include sourceQuote (exact concrete_past_action quote)' };
     const bad = findUnsupportedNumerals(b.text, sourceEvidenceText);
     if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}") — remove it, don't invent metrics` };
   }
@@ -2044,7 +2049,7 @@ function renderLanding(){
         <div class="how-step"><div class="num">03</div><h3>Explore possible paths</h3><p>Career directions your skills could transfer to — with why, and what's still uncertain.</p></div>
         <div class="how-step"><div class="num">04</div><h3>Tell us what matters</h3><p>As you talk, we update what we recommend — and always explain why it changed.</p></div>
         <div class="how-step"><div class="num">05</div><h3>Build your roadmap</h3><p>A Now → Next → Later sequence and a 7/30/60/90-day action plan, not just a category list.</p></div>
-        <div class="how-step"><div class="num">06</div><h3>Prepare to move</h3><p>Resume language, LinkedIn positioning, and interview stories — built only from validated evidence.</p></div>
+        <div class="how-step"><div class="num">06</div><h3>Prepare to move</h3><p>Resume language, LinkedIn positioning, and interview stories — built from the experience you shared, nothing invented.</p></div>
       </div>
     </section>
     <section class="section">
@@ -2273,7 +2278,7 @@ function renderChoose(){
 
 /* ============================= PAYWALL ============================= */
 function renderPaywall(){
-  const strengths = getValidatedSkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
+  const strengths = getRetainedStorySkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
   const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps[0];
   const alreadyPaid = state.paymentStatus === 'paid';
   return `
@@ -2389,11 +2394,11 @@ function renderKit(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Application kit</div>
     <h1 style="font-size:32px;">Positioning your experience.</h1>
-    <p>Built only from what you told us — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
+    <p>Built from the experience you shared — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
 
     <div class="kit-block mt-32">
       <h3>Resume bullets</h3>
-      ${(k.resumeBullets||[]).map((b,i)=>`
+      ${(k.resumeBullets||[]).length ? (k.resumeBullets||[]).map((b,i)=>`
         <div class="bullet-row">
           <p id="bulletText${i}">${typeof b === 'string' ? b : b.text}</p>
           ${b.strengthen ? `
@@ -2403,7 +2408,7 @@ function renderKit(){
               <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
               <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
             </div>` : ''}
-        </div>`).join('')}
+        </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you've actually done before we can write evidence-based resume bullets.</p>`}
     </div>
 
     <div class="kit-block">
@@ -2424,8 +2429,8 @@ function renderKit(){
 /* ============================= DASHBOARD (Command Center) ============================= */
 function renderDashboard(){
   const r = state.roadmap;
-  const strengths = getValidatedSkills().filter(s=>s.strength==='Strong').map(s=>s.name);
-  const building = getValidatedSkills().filter(s=>s.strength!=='Strong').map(s=>s.name);
+  const confirmedSkillNames = getConfirmedSkills().map(s=>s.name);
+  const unconfirmedStorySkillNames = getUnconfirmedStorySkills().map(s=>s.name);
   return `
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Command Center</div>
@@ -2448,8 +2453,8 @@ function renderDashboard(){
     </div>
 
     <div class="dash-grid two-col">
-      <div class="dash-card"><h3>Your strengths</h3><div class="path-tags">${strengths.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None validated yet</span>'}</div></div>
-      <div class="dash-card"><h3>Skills you're building</h3><div class="path-tags">${building.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
+      <div class="dash-card"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet — mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
+      <div class="dash-card"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
     </div>
 
     <div class="dash-card mt-16"><h3>Evidence library</h3>
@@ -2457,7 +2462,7 @@ function renderDashboard(){
     </div>
 
     <div class="dash-card mt-16"><h3>Your application kit</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from your validated evidence.</p>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from the experience you shared — nothing invented.</p>
       <div class="tool-row">
         <button class="btn btn-ghost btn-sm" id="backToKit">View Resume & LinkedIn</button>
         <button class="btn btn-ghost btn-sm" id="openStoryBank">Interview Story Bank</button>
@@ -2502,7 +2507,7 @@ function renderStoryBank(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Interview prep</div>
     <h1 style="font-size:30px;">My Story Bank</h1>
-    <p>Interview-ready stories, built only from what you've validated — nothing invented.</p>
+    <p>Interview-ready stories, built from the experience you shared — nothing invented.</p>
     <div class="mt-32">
       ${state.storyBank.stories.map((s,i)=>`
         <div class="story-card">
@@ -2526,7 +2531,7 @@ function renderJdAnalyzer(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Job match analysis</div>
     <h1 style="font-size:30px;">Analyze a job description.</h1>
-    <p style="max-width:520px;">Paste a real job posting. We'll compare it against your validated skills — based only on the text you paste, not live market data.</p>
+    <p style="max-width:520px;">Paste a real job posting. We'll compare it against skills from your story — based only on the text you paste, not live market data.</p>
     <div class="intake-card mt-32"><textarea class="plain-textarea" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
     <div class="mt-32"><button class="btn btn-primary" id="submitJd">Analyze Against My Profile</button></div>
 
@@ -2602,7 +2607,7 @@ function attachHandlers(){
       render();
     });
   });
-  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', ()=>{ acceptPendingSkills(); discoverPaths(); });
+  const toPaths = document.getElementById('toPaths'); if(toPaths) toPaths.addEventListener('click', ()=>{ discoverPaths(); });
 
   // paths
   document.querySelectorAll('[data-path]').forEach(el=>{
@@ -2764,7 +2769,8 @@ ${NO_INVENTION_RULE}
 Rules: 1) Only include skills with real textual evidence. 2) evidence: a close paraphrase (max 16 words) of what they said, warm plain-language ("You described..."), staying literal — do not generalize it into a broader claim. 3) Calibrate strength honestly: "Strong" only for clear, repeated, or elaborated evidence; "Moderate" for a single plain mention without elaboration; "Developing" for something implied or mentioned only in passing; "Needs More Information" if the evidence is too thin to be confident but the activity is still plausibly relevant. Do not default to "Strong" just because an activity was mentioned once. 4) Return 4 to 7 skills, strongest first.`;
   try{
     const result = await callStructured('analyzeSkills', system, fullStoryText(), skillsTool, TOKEN_BUDGETS.skills, validateSkillsResult, normalizeSkillsResult, SKILLS_REPAIR_HINT);
-    state.skills = result.skills;
+    const { enrichSkillsWithSourceQuotes } = await loadEvidenceGate();
+    state.skills = enrichSkillsWithSourceQuotes(result.skills, fullStoryText());
     state.screen = 'skills';
   }catch(err){
     logDiag('analyzeSkills', 'final_failure', err.message || String(err));
@@ -2779,10 +2785,10 @@ async function discoverPaths(){
   if(state.busy) return;
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; render();
-  const validated = getValidatedSkills();
+  const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
-  const validatedNames = validated.map(s=>s.name);
-  const system = `You are the career path engine inside iFindWorth. Given a user's story and validated transferable skills, generate realistic career path options.
+  const retainedSkillNames = retainedStorySkills.map(s=>s.name);
+  const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
@@ -2790,10 +2796,13 @@ Rules:
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
-5) transfers must ONLY use skill names copied exactly from the "Validated skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
+5) transfers must ONLY use skill names copied exactly from the "Retained story skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
-7) title = the entryPoint; why max 18 words, evidence-based, no filler; transfers = 2-3 exact names from the validated skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise.${rejectedSkillsClause()}`;
-  const userPrompt = `User's story:\n${fullStoryText()}\n\nValidated skills (the only names allowed in "transfers"):\n${skillsSummaryStr(validated)}`;
+7) title = the entryPoint; why max 18 words, evidence-based, no filler; transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, validatePathsResult, normalizePathsResult, PATHS_REPAIR_HINT);
     let paths = result.paths;
@@ -2803,7 +2812,7 @@ Rules:
     // reasoning text before this ever reaches the UI.
     paths = paths.map(p => ({
       ...p,
-      transfers: filterToValidatedNames(p.transfers, validatedNames),
+      transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
       // Filled in client-side, not generated: no preference data exists yet
       // at this point in the flow, so there's nothing real to compute here —
       // rerankPaths() replaces these with real values once the user has told
@@ -2844,7 +2853,7 @@ async function sendConvo(){
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble, no field labels.${rejectedSkillsClause()}`;
-  const replyContext = `Original story: ${state.story}\n\nValidated skills: ${getValidatedSkills().map(s=>s.name).join(', ')}\n\nCareer paths shown: ${state.paths.map(p=>p.title).join(', ')}\n\nAlready known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}`;
+  const replyContext = `Original story: ${state.story}\n\nRetained story skills: ${getRetainedStorySkills().map(s=>s.name).join(', ')}\n\nCareer paths shown: ${state.paths.map(p=>p.title).join(', ')}\n\nAlready known interests: ${state.preferences.interests.join(', ')}\nAlready known dislikes: ${state.preferences.dislikes.join(', ')}\n\nUser's message: ${userText}`;
 
   let cleanReply;
   try{
@@ -2896,35 +2905,38 @@ async function refinePaths(){
   state.busy = true;
   const priorPaths = state.paths;
   state.screen = 'analyzing'; state.loadingMsg = 'Updating your recommendations…'; state.errorMsg=''; render();
-  const validated = getValidatedSkills();
+  const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
-  const validatedNames = validated.map(s=>s.name);
+  const retainedSkillNames = retainedStorySkills.map(s=>s.name);
   const system = `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Keep these dimensions separate:
-- transition (and fitEvidence if included): EVIDENCE FIT ONLY — how strongly the user's validated experience supports this path. Never rate Strong solely because the user wants this direction.
+- transition (and fitEvidence if included): EVIDENCE FIT ONLY — how strongly the user's story-supported experience supports this path. Never rate Strong solely because the user wants this direction.
 - fitInterest: INTEREST FIT — how well this path matches stated interests, dislikes, and priorities. May be Moderate/Developing even when interest is high if evidence is thin.
 - fitLifestyle: LIFESTYLE FIT — rate only from known working-condition preferences; use "Needs More Information" when unknown.
 - gaps: honest development areas still to strengthen (short phrases).
 
 Refinement rules:
 1) Return 4-5 paths. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
-2) You MAY introduce NEW paths when validated skills reasonably support them AND stated interests make them relevant.
+2) You MAY introduce NEW paths when retained story skills reasonably support them AND stated interests make them relevant.
 3) You MAY omit original paths the user explicitly rejected. If kept, place rejected directions in "Lower Interest Based on What You Told Us" — never in "Best Paths to Explore First" or "Strong Alternatives".
-4) transfers must ONLY use skill names copied exactly from the Validated skills list below — never rejected skills, never names inferred only from preferences.
+4) transfers must ONLY use skill names copied exactly from the Retained story skills list below — never rejected skills, never names inferred only from preferences.
 5) title = entryPoint; why max 18 words, evidence-based; transition required on every path.
 6) fitInterest and fitLifestyle are required on every path.
 7) changeSummary (max 25 words): explain what shifted based on preferences — specific, not generic.
-8) User interest is NOT evidence.${rejectedSkillsClause()}`;
+8) User interest is NOT evidence. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
   const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const convoPrefs = state.convo.filter(c => c.who === 'user').map(c => c.text).join('\n');
-  const userPrompt = `User's story:\n${fullStoryText()}\n\nValidated skills (the only names allowed in "transfers"):\n${skillsSummaryStr(validated)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
   try{
     const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
       ...p,
-      transfers: filterToValidatedNames(p.transfers, validatedNames),
+      transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
     }));
     paths = purgeRejectedFromObject(paths, rejected);
     state.paths = paths;
@@ -2948,9 +2960,9 @@ async function rerankPaths(){
   if(state.busy) return;
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Updating your recommendations…'; state.errorMsg=''; render();
-  const validated = getValidatedSkills();
+  const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
-  const validatedNames = validated.map(s=>s.name);
+  const retainedSkillNames = retainedStorySkills.map(s=>s.name);
   const knownTitles = state.paths.map(p=>p.title);
   const system = `You are the career reranking engine inside iFindWorth. The user's career paths already exist in full — you are NOT re-describing them, only reclassifying them.
 ${NO_INVENTION_RULE}
@@ -2966,16 +2978,16 @@ Rules:
   // context) — only the OUTPUT schema is compact. Input tokens aren't what
   // was truncating; the model's own generated output was.
   const compactPaths = state.paths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers, fitInterest: p.fitInterest, fitLifestyle: p.fitLifestyle }));
-  const userPrompt = `Existing paths (for context — reclassify only, do not re-describe):\n${JSON.stringify(compactPaths)}\n\nValidated skills: ${skillsSummaryStr(validated)}\n\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\nPriorities: ${state.priorities.join(', ')}`;
+  const userPrompt = `Existing paths (for context — reclassify only, do not re-describe):\n${JSON.stringify(compactPaths)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}\n\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\nPriorities: ${state.priorities.join(', ')}`;
   try{
     const result = await callStructured('rerankPaths', system, userPrompt, rerankTool, TOKEN_BUDGETS.rerank, validateRerankResult, (r)=>normalizeRerankResult(r, knownTitles), RERANK_REPAIR_HINT);
     let paths = mergeRerankIntoPaths(state.paths, result.rankedPaths);
     // Defense-in-depth: transfers are no longer regenerated by this call (they
     // were already filtered when the path was first created), but we still
-    // re-verify them against the current validated list, and scrub any
+    // re-verify them against the current retained story skills list, and scrub any
     // rejected-skill mention out of the newly-added whyChanged/changeSummary
     // text — the only new freeform text this call produces.
-    paths = paths.map(p => ({ ...p, transfers: filterToValidatedNames(p.transfers, validatedNames) }));
+    paths = paths.map(p => ({ ...p, transfers: filterToValidatedNames(p.transfers, retainedSkillNames) }));
     paths = purgeRejectedFromObject(paths, rejected);
     state.paths = paths;
     state.changeSummary = purgeRejectedMentions(result.changeSummary, rejected);
@@ -3044,11 +3056,14 @@ async function buildRoadmapFoundation(){
   state.roadmapSectionError.foundation = null;
   state.loadingMsg = 'Understanding your starting point…'; state.errorMsg=''; state.errorRetryLabel=null; render();
   const rejected = getRejectedSkillNames();
+  const retainedStorySkills = getRetainedStorySkills();
+  const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) whereYouAre: 2 sentences max, grounded in their validated skills. 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Keep every field concise.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\nValidated skills: ${skillsSummaryStr(getValidatedSkills())}`;
+Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only — never call self-described abilities or traits "demonstrated strengths." 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Use conditional language when only self-described abilities exist (e.g. organizing/coordinating) — do not imply the user already performs those tasks.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapFoundation', system, userPrompt, roadmapFoundationTool, TOKEN_BUDGETS.roadmapFoundation, validateRoadmapFoundationResult, undefined, undefined, signal),
@@ -3087,12 +3102,14 @@ async function buildRoadmapActionPlan(){
   state.roadmapSectionError.actionPlan = null;
   state.loadingMsg = 'Building your action plan…'; render();
   const rejected = getRejectedSkillNames();
+  const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief.`;
+Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists — use conditional steps such as "Review past responsibilities for real organizing examples; if none, treat as an area to build."`;
   const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
-  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapActionPlan', system, userPrompt, roadmapActionPlanTool, TOKEN_BUDGETS.roadmapActionPlan, validateRoadmapActionPlanResult, undefined, ACTION_PLAN_REPAIR_HINT, signal),
@@ -3130,11 +3147,14 @@ async function buildRoadmapDirection(){
   state.roadmapSectionError.direction = null;
   state.loadingMsg = 'Mapping your next steps…'; render();
   const rejected = getRejectedSkillNames();
+  const retainedStorySkills = getRetainedStorySkills();
+  const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const system = `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally. Every item must be a short phrase, not a paragraph — this response must stay compact.`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}`;
+Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally — never call self-described abilities or traits "demonstrated strengths" and never imply performed organizing/coordinating/listening tasks unless concrete_past_action evidence exists; if only self_described_ability exists, say the user identifies those strengths in themselves while building concrete examples. Every item must be a short phrase, not a paragraph — this response must stay compact.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapDirection', system, userPrompt, roadmapDirectionTool, TOKEN_BUDGETS.roadmapDirection, validateRoadmapDirectionResult, undefined, DIRECTION_REPAIR_HINT, signal),
@@ -3199,22 +3219,39 @@ async function buildKit(){
   if(state.busy) return;
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Positioning your experience professionally…'; state.errorMsg=''; render();
-  const validated = getValidatedSkills();
+  const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
-  const evidenceText = fullStoryText() + ' ' + validated.map(s=>s.evidence).join(' ');
-  const system = `You are the Application Kit builder inside iFindWorth. Translate a user's validated real experience into professional resume and LinkedIn language for a specific target path.
+  const {
+    gateRetainedEvidence,
+    applyResumeBulletGate,
+    applyLinkedInGate,
+    formatEvidenceGateForPrompt,
+    formatResumeBulletSources,
+    formatLinkedInEvidenceContext,
+    formatLinkedInRulesForPrompt,
+  } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const evidenceText = fullStoryText() + ' ' + retainedStorySkills.map(s=>s.evidence).join(' ');
+  const preferenceContext = [
+    state.preferences.interests.length ? `Interests: ${state.preferences.interests.join(', ')}` : '',
+    state.preferences.dislikes.length ? `Dislikes: ${state.preferences.dislikes.join(', ')}` : '',
+    state.priorities.length ? `Priorities: ${state.priorities.join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+  const system = `You are the Application Kit builder inside iFindWorth. Translate a user's real past experience into professional resume and LinkedIn language for a specific target path they are moving toward.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
-1) 3-4 resume bullets, one line each, action-verb led, using only what's implied by their story/skills. Never include a number/statistic the user didn't provide. For any bullet that would be meaningfully stronger with a specific number or detail (events count, frequency, scale) the user didn't provide, add a short "strengthen" field naming exactly what to ask (max 10 words) — otherwise omit "strengthen".
-2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward), "Career Transition-Focused" (names the transition explicitly), "Professional Brand-Focused" (reads as a personal brand statement).
-3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence.
-4) Only draw on the "Validated skills" list below — the user accepted these for use in their analysis (and rejected any marked "Not quite"). Do not incorporate any other skill or activity the story text might mention.${rejectedSkillsClause()}`;
-  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only — use ONLY the validated skills below as source material for claims): ${state.story}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
+1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path — signal transition/building when evidence is thin), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment. Preserve evidence category semantics: self_described_ability and trait language must not upgrade into performed duties, strong coordinator language, scheduling, prioritizing, reliability, thriving, team-performance claims, or universal every-task scope unless explicitly evidenced.
+3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence categories. Clearly separate existing self-described qualities from the role the user is moving toward. Do not write thrive, work well across teams, reliable presence, every interaction/task, or keep things running smoothly unless explicitly in allowed evidence.
+4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
+  const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\n${formatLinkedInRulesForPrompt(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
   try{
     const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
-    state.kit = purgeRejectedFromObject(result, rejected);
-    state.evidenceLibrary = validated.map(s=>({theme:s.name, evidence:s.evidence}));
+    const resumeGated = applyResumeBulletGate(result, evidenceGate);
+    const gated = applyLinkedInGate(resumeGated, evidenceGate, state.chosenPath.title);
+    state.kit = purgeRejectedFromObject(gated, rejected);
+    state.evidenceLibrary = retainedStorySkills.map(s=>({theme:s.name, evidence:s.evidence}));
     state.screen = 'kit';
   }catch(err){
     logDiag('buildKit', 'final_failure', err.message || String(err));
@@ -3267,7 +3304,8 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     const result = await callStructured('submitAddExperience', system, fullStoryText(), skillsTool, TOKEN_BUDGETS.skills, validateSkillsResult, normalizeSkillsResult, SKILLS_REPAIR_HINT);
     const newSkills = result.skills;
     const addedNames = newSkills.filter(s=>!beforeNames.has(s.name)).map(s=>s.name);
-    state.skills = newSkills;
+    const { enrichSkillsWithSourceQuotes } = await loadEvidenceGate();
+    state.skills = enrichSkillsWithSourceQuotes(newSkills, fullStoryText());
     const currentNames = new Set(newSkills.map(s => s.name));
     Object.keys(state.skillValidation).forEach(name => {
       if (!currentNames.has(name)) delete state.skillValidation[name];
@@ -3299,12 +3337,12 @@ async function openStoryBankFn(){
 async function buildStoryBank(){
   if(state.busy) return;
   state.busy = true;
-  const validated = getValidatedSkills();
+  const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
-  const system = `You build an interview Story Bank inside iFindWorth, using only the user's real, validated experience.
+  const system = `You build an interview Story Bank inside iFindWorth, using only the user's real, story-supported experience.
 ${NO_INVENTION_RULE}
-For each of these fixed categories, in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) with status "ready", or if there isn't enough evidence, set status "needs_more" with a short prompt (max 14 words) asking for the missing detail. Only draw on the "Validated skills" list below — the story text is provided for tone/context, but any skill or activity the user has rejected must not be used as evidence for a story.${rejectedSkillsClause()}`;
-  const userPrompt = `Story: ${fullStoryText()}\nValidated skills: ${validated.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
+For each of these fixed categories, in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) with status "ready", or if there isn't enough evidence, set status "needs_more" with a short prompt (max 14 words) asking for the missing detail. Only draw on the "Retained story skills" list below — the story text is provided for tone/context, but any skill or activity the user has rejected must not be used as evidence for a story.${rejectedSkillsClause()}`;
+  const userPrompt = `Story: ${fullStoryText()}\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
     const result = await callStructured('buildStoryBank', system, userPrompt, storyBankTool, TOKEN_BUDGETS.storyBank, validateStoryBankResult);
     state.storyBank = purgeRejectedFromObject(result, rejected);
@@ -3341,18 +3379,18 @@ async function analyzeJd(){
   if(!state.jdText.trim()) return;
   state.busy = true;
   state.errorMsg=''; state.screen = 'analyzing'; state.loadingMsg = 'Comparing the posting against your profile…'; render();
-  const validated = getValidatedSkills();
-  const validatedNames = validated.map(s=>s.name);
+  const retainedStorySkills = getRetainedStorySkills();
+  const retainedSkillNames = retainedStorySkills.map(s=>s.name);
   const rejected = getRejectedSkillNames();
-  const system = `You compare a single pasted job description against a user's validated skills inside iFindWorth. Base "marketAsks" only on what's actually in the pasted text below — that specific posting is a legitimate source for itself, but never generalize it into a claim about the wider market, other employers, salary, or demand.
+  const system = `You compare a single pasted job description against a user's retained story skills inside iFindWorth. Base "marketAsks" only on what's actually in the pasted text below — that specific posting is a legitimate source for itself, but never generalize it into a claim about the wider market, other employers, salary, or demand.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text itself. youAlreadyHave = ONLY skill names copied exactly from the "User's validated skills" list below that genuinely match something in the posting — never a rejected skill, never one inferred from outside the posting. shouldStrengthen = 2-3 gaps between the posting and the user's validated skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information".${rejectedSkillsClause()}`;
-  const userPrompt = `Job description:\n${state.jdText}\n\nUser's validated skills (the only names allowed in "youAlreadyHave"): ${skillsSummaryStr(validated)}`;
+Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text itself. youAlreadyHave = ONLY skill names copied exactly from the "Retained story skills" list below that genuinely match something in the posting — never a rejected skill, never one inferred from outside the posting. shouldStrengthen = 2-3 gaps between the posting and the user's retained story skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information".${rejectedSkillsClause()}`;
+  const userPrompt = `Job description:\n${state.jdText}\n\nRetained story skills (the only names allowed in "youAlreadyHave"): ${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await callStructured('analyzeJd', system, userPrompt, jdTool, TOKEN_BUDGETS.jd, validateJdResult);
     const cleaned = purgeRejectedFromObject(result, rejected);
-    cleaned.youAlreadyHave = filterToValidatedNames(cleaned.youAlreadyHave, validatedNames);
+    cleaned.youAlreadyHave = filterToValidatedNames(cleaned.youAlreadyHave, retainedSkillNames);
     state.jdAnalysis = cleaned;
     state.screen = 'jdAnalyzer';
   }catch(err){
