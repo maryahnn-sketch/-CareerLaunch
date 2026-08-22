@@ -220,11 +220,33 @@ function closeBetaGate() {
   document.getElementById(BETA_MODAL_ID)?.remove();
 }
 
+function betaGateCopy(mode) {
+  if (mode === 'completed') {
+    return {
+      title: 'You already completed this beta.',
+      body: 'Thank you for testing iFindWorth. This invitation has already been used for a completed journey. Your existing results remain available on this browser.',
+    };
+  }
+
+  if (mode === 'already_used') {
+    return {
+      title: 'This invitation has already been used.',
+      body: 'Beta invitations can only be activated once. If you already started testing iFindWorth, please continue on the browser where you began. If you believe this is an error, contact us.',
+    };
+  }
+
+  return {
+    title: 'Your invitation opens the experience.',
+    body: 'The iFindWorth website is public, but the career-discovery experience is currently invite-only. Enter the code that came with your invitation to continue.',
+  };
+}
+
 function showBetaGate(mode = 'invite', initialError = '') {
   injectBetaGateStyles();
   closeBetaGate();
 
-  const isCompleted = mode === 'completed';
+  const isTerminal = mode === 'completed' || mode === 'already_used';
+  const copy = betaGateCopy(mode);
   const backdrop = document.createElement('div');
   backdrop.id = BETA_MODAL_ID;
   backdrop.className = 'ifw-beta-backdrop';
@@ -233,12 +255,10 @@ function showBetaGate(mode = 'invite', initialError = '') {
     <div class="ifw-beta-card" role="dialog" aria-modal="true" aria-labelledby="ifwBetaTitle">
       <img class="ifw-beta-logo" src="/logo/iFindWorth_Logo_Primary_NoTagline_Transparent.png" alt="iFindWorth">
       <div class="ifw-beta-kicker">Private Beta</div>
-      <h2 id="ifwBetaTitle">${isCompleted ? 'You already completed this beta.' : 'Your invitation opens the experience.'}</h2>
-      <p>${isCompleted
-        ? 'Thank you for testing iFindWorth. This invitation has already been used for a completed journey. Your existing results remain available on this browser.'
-        : 'The iFindWorth website is public, but the career-discovery experience is currently invite-only. Enter the code that came with your invitation to continue.'}</p>
+      <h2 id="ifwBetaTitle">${copy.title}</h2>
+      <p>${copy.body}</p>
 
-      ${isCompleted ? `
+      ${isTerminal ? `
         <div class="ifw-beta-actions">
           <button type="button" class="ifw-beta-button ifw-beta-secondary" id="ifwBetaClose">Close</button>
         </div>
@@ -259,7 +279,7 @@ function showBetaGate(mode = 'invite', initialError = '') {
 
   document.body.appendChild(backdrop);
 
-  if (isCompleted) {
+  if (isTerminal) {
     document.getElementById('ifwBetaClose')?.addEventListener('click', closeBetaGate);
     return;
   }
@@ -286,7 +306,7 @@ function showBetaGate(mode = 'invite', initialError = '') {
       const { response, result } = await betaApiRequest({ action: 'redeem', code });
 
       if (result?.errorCode === 'already_redeemed') {
-        showBetaGate('completed');
+        showBetaGate('already_used');
         return;
       }
 
@@ -366,7 +386,7 @@ async function validateInviteFromUrl() {
     history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 
     if (result?.errorCode === 'already_redeemed') {
-      showBetaGate('completed');
+      showBetaGate('already_used');
       return true;
     }
 

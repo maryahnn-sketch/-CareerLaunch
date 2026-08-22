@@ -12,6 +12,9 @@ import {
   sha256Hex,
 } from '../api/beta-auth.mjs';
 import {
+  BETA_GATE_COPY,
+  resolveBetaGateModeFromAccess,
+  resolveBetaGateModeFromRedeem,
   shouldBlockNavigation,
   shouldEnforceBetaGate,
 } from '../api/beta-gate-logic.mjs';
@@ -402,7 +405,24 @@ async function main() {
       { Authorization: 'Bearer user-b' }
     ));
     const body = await response.json();
-    return response.status === 409 && body.errorCode === 'already_redeemed';
+    return response.status === 409
+      && body.errorCode === 'already_redeemed'
+      && resolveBetaGateModeFromRedeem(body.errorCode) === 'already_used'
+      && resolveBetaGateModeFromRedeem(body.errorCode) !== 'completed';
+  });
+
+  await runTest('already_redeemed maps to already_used modal copy', async () => {
+    const mode = resolveBetaGateModeFromRedeem('already_redeemed');
+    return mode === 'already_used'
+      && BETA_GATE_COPY.already_used.title === 'This invitation has already been used.'
+      && BETA_GATE_COPY.already_used.body.includes('Beta invitations can only be activated once');
+  });
+
+  await runTest('completed modal only for own completed server status', async () => {
+    return resolveBetaGateModeFromAccess({ status: 'completed' }) === 'completed'
+      && resolveBetaGateModeFromAccess({ status: 'in_progress' }) === 'invite'
+      && resolveBetaGateModeFromAccess(null) === 'invite'
+      && resolveBetaGateModeFromRedeem('already_redeemed') !== 'completed';
   });
 
   await runTest('Complete journey marks completed', async () => {
