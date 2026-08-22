@@ -16,6 +16,11 @@ const authState = {
   client: null
 };
 
+const betaState = {
+  privateBetaEnabled: true,
+  gateActive: false
+};
+
 function readBetaAccess() {
   try {
     const raw = localStorage.getItem(BETA_ACCESS_STORAGE_KEY);
@@ -37,39 +42,62 @@ function writeBetaAccess(access) {
   }
 }
 
-function hydrateBetaAccessFromUser(user) {
-  const metadata = user?.user_metadata;
-  if (!metadata || readBetaAccess()) return;
-
-  const inviteId = metadata.ifw_beta_invite_id;
-  const status = metadata.ifw_beta_status;
-  if (!inviteId || !['in_progress', 'completed'].includes(status)) return;
-
-  writeBetaAccess({
-    inviteId,
-    status,
-    reusable: metadata.ifw_beta_reusable === true,
-    grantedAt: metadata.ifw_beta_granted_at || null,
-    completedAt: metadata.ifw_beta_completed_at || null
-  });
+function clearBetaAccessCache() {
+  try {
+    localStorage.removeItem(BETA_ACCESS_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
 }
 
-async function syncBetaAccessToUser(access) {
-  const client = authState.client;
-  if (!client || !access) return;
+function cacheAccessFromServer(payload) {
+  if (!payload?.hasAccess) {
+    clearBetaAccessCache();
+    return null;
+  }
 
+  const access = {
+    inviteId: payload.inviteId,
+    status: payload.status,
+    reusable: payload.reusable === true,
+    grantedAt: payload.grantedAt || null,
+    completedAt: payload.completedAt || null
+  };
+
+  writeBetaAccess(access);
+  return access;
+}
+
+async function betaApiRequest(body) {
+  const headers = { 'content-type': 'application/json' };
+  const token = await window.CareerLaunchAuth.getAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch('/api/beta-access', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
+  });
+
+  const result = await response.json().catch(() => ({}));
+  return { response, result };
+}
+
+async function hydrateBetaAccessFromServer() {
   try {
-    await client.auth.updateUser({
-      data: {
-        ifw_beta_invite_id: access.inviteId,
-        ifw_beta_status: access.status,
-        ifw_beta_reusable: access.reusable === true,
-        ifw_beta_granted_at: access.grantedAt || null,
-        ifw_beta_completed_at: access.completedAt || null
-      }
-    });
+    const { result } = await betaApiRequest({ action: 'status' });
+    betaState.privateBetaEnabled = result?.privateBetaEnabled !== false;
+
+    if (!betaState.privateBetaEnabled) {
+      clearBetaAccessCache();
+      return { skipGate: true };
+    }
+
+    return cacheAccessFromServer(result);
   } catch {
-    // Local access still works if metadata sync fails.
+    return readBetaAccess();
   }
 }
 
@@ -78,11 +106,10 @@ function settleUnauthenticated() {
   authState.isAuthenticated = false;
 }
 
-function settleAuthenticated(userId, client, user) {
+function settleAuthenticated(userId, client) {
   authState.userId = userId;
   authState.isAuthenticated = true;
   authState.client = client;
-  hydrateBetaAccessFromUser(user);
 }
 
 async function bootstrapAuth() {
@@ -127,11 +154,7 @@ async function bootstrapAuth() {
     }
 
     if (sessionData?.session?.user?.id) {
-      settleAuthenticated(
-        sessionData.session.user.id,
-        client,
-        sessionData.session.user
-      );
+      settleAuthenticated(sessionData.session.user.id, client);
       return;
     }
 
@@ -143,11 +166,7 @@ async function bootstrapAuth() {
       return;
     }
 
-    settleAuthenticated(
-      signInData.session.user.id,
-      client,
-      signInData.session.user
-    );
+    settleAuthenticated(signInData.session.user.id, client);
   } catch {
     settleUnauthenticated();
   }
@@ -259,32 +278,28 @@ function showBetaGate(mode = 'invite', initialError = '') {
     submit.textContent = 'Checking…';
 
     try {
-      const response = await fetch('/api/beta-access', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ code })
-      });
+      await window.CareerLaunchAuth.ready;
+      const { response, result } = await betaApiRequest({ action: 'redeem', code });
 
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result?.valid !== true) {
+      if (result?.errorCode === 'already_redeemed') {
+        showBetaGate('completed');
+        return;
+      }
+
+      if (!response.ok || result?.ok !== true) {
         error.textContent = 'That code is not valid. Please check the invitation and try again.';
         return;
       }
 
-      const access = {
+      cacheAccessFromServer({
+        hasAccess: true,
         inviteId: result.inviteId,
-        status: 'in_progress',
-        reusable: result.reusable === true,
-        grantedAt: new Date().toISOString(),
+        status: result.status || 'in_progress',
+        reusable: result.reusable,
+        grantedAt: result.grantedAt,
         completedAt: null
-      };
-
-      writeBetaAccess(access);
+      });
       closeBetaGate();
-
-      window.CareerLaunchAuth?.ready
-        ?.then(() => syncBetaAccessToUser(access))
-        .catch(() => {});
     } catch {
       error.textContent = 'We could not verify the code right now. Please try again.';
     } finally {
@@ -301,7 +316,9 @@ function currentViewLooksProtected() {
   return Boolean(document.querySelector('#app .progress-bar'));
 }
 
-function markBetaCompleted() {
+async function markBetaCompleted() {
+  if (!betaState.privateBetaEnabled) return;
+
   const access = readBetaAccess();
   if (!access || access.reusable === true || access.status === 'completed') return;
 
@@ -312,46 +329,56 @@ function markBetaCompleted() {
   };
   writeBetaAccess(completed);
 
-  window.CareerLaunchAuth?.ready
-    ?.then(() => syncBetaAccessToUser(completed))
-    .catch(() => {});
+  try {
+    await window.CareerLaunchAuth.ready;
+    const { result } = await betaApiRequest({ action: 'complete' });
+    if (result?.ok) {
+      cacheAccessFromServer({
+        hasAccess: true,
+        inviteId: access.inviteId,
+        status: 'completed',
+        reusable: access.reusable === true,
+        grantedAt: access.grantedAt,
+        completedAt: completed.completedAt
+      });
+    }
+  } catch {
+    // Local cache still reflects completion for this browser.
+  }
 }
 
 async function validateInviteFromUrl() {
+  if (!betaState.privateBetaEnabled) return false;
+
   const url = new URL(window.location.href);
   const code = url.searchParams.get('invite');
   if (!code || readBetaAccess()) return false;
 
   try {
-    const response = await fetch('/api/beta-access', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code })
-    });
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok || result?.valid !== true) {
-      url.searchParams.delete('invite');
-      history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-      showBetaGate('invite', 'This invitation link is not valid. Please enter your access code.');
-      return true;
-    }
-
-    const access = {
-      inviteId: result.inviteId,
-      status: 'in_progress',
-      reusable: result.reusable === true,
-      grantedAt: new Date().toISOString(),
-      completedAt: null
-    };
-    writeBetaAccess(access);
+    await window.CareerLaunchAuth.ready;
+    const { response, result } = await betaApiRequest({ action: 'redeem', code });
 
     url.searchParams.delete('invite');
     history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 
-    window.CareerLaunchAuth?.ready
-      ?.then(() => syncBetaAccessToUser(access))
-      .catch(() => {});
+    if (result?.errorCode === 'already_redeemed') {
+      showBetaGate('completed');
+      return true;
+    }
+
+    if (!response.ok || result?.ok !== true) {
+      showBetaGate('invite', 'This invitation link is not valid. Please enter your access code.');
+      return true;
+    }
+
+    cacheAccessFromServer({
+      hasAccess: true,
+      inviteId: result.inviteId,
+      status: result.status || 'in_progress',
+      reusable: result.reusable,
+      grantedAt: result.grantedAt,
+      completedAt: null
+    });
 
     return true;
   } catch {
@@ -361,12 +388,16 @@ async function validateInviteFromUrl() {
 }
 
 function handleBetaNavigation(event) {
+  if (!betaState.privateBetaEnabled || !betaState.gateActive) return;
+
   const target = event.target;
   if (!(target instanceof Element)) return;
 
   const dashboardButton = target.closest('#toDashboard');
   if (dashboardButton) {
-    setTimeout(markBetaCompleted, 0);
+    setTimeout(() => {
+      markBetaCompleted();
+    }, 0);
     return;
   }
 
@@ -382,8 +413,6 @@ function handleBetaNavigation(event) {
 
   if (access?.status === 'in_progress') return;
 
-  // A completed tester can still open their existing dashboard/results, but
-  // cannot start a fresh beta journey with the same access.
   if (access?.status === 'completed' && destination === 'dashboard') return;
 
   event.preventDefault();
@@ -393,18 +422,31 @@ function handleBetaNavigation(event) {
 }
 
 function initializeBetaGate() {
-  injectBetaGateStyles();
-  document.addEventListener('click', handleBetaNavigation, true);
+  window.CareerLaunchAuth.ready
+    .then(hydrateBetaAccessFromServer)
+    .then((statusResult) => {
+      if (statusResult?.skipGate || betaState.privateBetaEnabled === false) {
+        betaState.gateActive = false;
+        return;
+      }
 
-  Promise.resolve()
-    .then(validateInviteFromUrl)
-    .finally(() => {
-      window.CareerLaunchAuth.ready.finally(() => {
+      betaState.gateActive = true;
+      injectBetaGateStyles();
+      document.addEventListener('click', handleBetaNavigation, true);
+
+      return validateInviteFromUrl().finally(() => {
         const access = readBetaAccess();
         if (currentViewLooksProtected() && !access) {
           showBetaGate('invite');
         }
       });
+    })
+    .catch(() => {
+      betaState.gateActive = betaState.privateBetaEnabled;
+      if (betaState.gateActive) {
+        injectBetaGateStyles();
+        document.addEventListener('click', handleBetaNavigation, true);
+      }
     });
 }
 
