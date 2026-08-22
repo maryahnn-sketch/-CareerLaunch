@@ -22,7 +22,11 @@ const authState = {
 
 const betaState = {
   privateBetaEnabled: true,
-  gateActive: false
+  gateActive: false,
+  serverValidated: false,
+  validationFailed: false,
+  unavailable: false,
+  serverAccess: null,
 };
 
 function readBetaAccess() {
@@ -89,19 +93,74 @@ async function betaApiRequest(body) {
   return { response, result };
 }
 
+function getEffectiveBetaAccess() {
+  if (!betaState.privateBetaEnabled) {
+    return { reusable: true, status: 'in_progress' };
+  }
+
+  if (betaState.validationFailed || !betaState.serverValidated) {
+    return null;
+  }
+
+  return betaState.serverAccess;
+}
+
+function markServerValidationFailure({ unavailable = false } = {}) {
+  betaState.serverValidated = false;
+  betaState.validationFailed = true;
+  betaState.unavailable = unavailable;
+  betaState.serverAccess = null;
+  clearBetaAccessCache();
+}
+
+function markServerValidationSuccess(access = null) {
+  betaState.serverValidated = true;
+  betaState.validationFailed = false;
+  betaState.unavailable = false;
+  betaState.serverAccess = access;
+}
+
+function currentViewLooksProtected() {
+  return Boolean(document.querySelector('#app .progress-bar'));
+}
+
 async function hydrateBetaAccessFromServer() {
   try {
-    const { result } = await betaApiRequest({ action: 'status' });
-    betaState.privateBetaEnabled = result?.privateBetaEnabled !== false;
+    const { response, result } = await betaApiRequest({ action: 'status' });
+
+    if (!response.ok) {
+      markServerValidationFailure({
+        unavailable: response.status === 503 && result?.errorCode === 'unavailable',
+      });
+      betaState.privateBetaEnabled = result?.privateBetaEnabled !== false;
+      return { blocked: true, unavailable: betaState.unavailable };
+    }
+
+    if (!result || typeof result !== 'object' || !('privateBetaEnabled' in result)) {
+      markServerValidationFailure();
+      betaState.privateBetaEnabled = true;
+      return { blocked: true };
+    }
+
+    betaState.privateBetaEnabled = result.privateBetaEnabled !== false;
 
     if (!betaState.privateBetaEnabled) {
-      clearBetaAccessCache();
+      markServerValidationSuccess(null);
       return { skipGate: true };
     }
 
-    return cacheAccessFromServer(result);
+    if (result.hasAccess === true) {
+      const access = cacheAccessFromServer(result);
+      markServerValidationSuccess(access);
+      return { access };
+    }
+
+    markServerValidationSuccess(null);
+    return { blocked: true };
   } catch {
-    return readBetaAccess();
+    markServerValidationFailure();
+    betaState.privateBetaEnabled = true;
+    return { blocked: true };
   }
 }
 
@@ -114,6 +173,14 @@ function settleAuthenticated(userId, client) {
   authState.userId = userId;
   authState.isAuthenticated = true;
   authState.client = client;
+}
+
+function redeemErrorMessage(result, response) {
+  if (result?.errorCode === 'unavailable' || response?.status === 503) {
+    return 'We could not verify your invitation right now. Please try again.';
+  }
+
+  return 'That code is not valid. Please check the invitation and try again.';
 }
 
 async function bootstrapAuth() {
@@ -310,12 +377,17 @@ function showBetaGate(mode = 'invite', initialError = '') {
         return;
       }
 
-      if (!response.ok || result?.ok !== true) {
-        error.textContent = 'That code is not valid. Please check the invitation and try again.';
+      if (result?.errorCode === 'unavailable' || response.status === 503) {
+        error.textContent = redeemErrorMessage(result, response);
         return;
       }
 
-      cacheAccessFromServer({
+      if (!response.ok || result?.ok !== true) {
+        error.textContent = redeemErrorMessage(result, response);
+        return;
+      }
+
+      const access = cacheAccessFromServer({
         hasAccess: true,
         inviteId: result.inviteId,
         status: result.status || 'in_progress',
@@ -323,9 +395,10 @@ function showBetaGate(mode = 'invite', initialError = '') {
         grantedAt: result.grantedAt,
         completedAt: null
       });
+      markServerValidationSuccess(access);
       closeBetaGate();
     } catch {
-      error.textContent = 'We could not verify the code right now. Please try again.';
+      error.textContent = 'We could not verify your invitation right now. Please try again.';
     } finally {
       submit.disabled = false;
       submit.classList.remove('ifw-beta-spinner');
@@ -336,14 +409,79 @@ function showBetaGate(mode = 'invite', initialError = '') {
   requestAnimationFrame(() => input?.focus());
 }
 
-function currentViewLooksProtected() {
-  return Boolean(document.querySelector('#app .progress-bar'));
+function currentProtectedDestination() {
+  const label = document.querySelector('#app .progress-label');
+  if (!label) return null;
+
+  const text = label.textContent?.trim();
+  const labelToScreen = {
+    'Your story': 'intake',
+    'Analyzing': 'analyzing',
+    'Skills': 'skills',
+    'Career paths': 'paths',
+    'Discuss results': 'conversation',
+    'Choose direction': 'choose',
+    'Unlock roadmap': 'paywall',
+    'Your roadmap': 'roadmap',
+    'Positioning': 'kit',
+    'Dashboard': 'dashboard',
+  };
+
+  return labelToScreen[text] || 'protected';
+}
+
+function shouldBlockCurrentProtectedView() {
+  if (!betaState.privateBetaEnabled || !betaState.gateActive) {
+    return false;
+  }
+
+  if (!currentViewLooksProtected()) {
+    return false;
+  }
+
+  const access = getEffectiveBetaAccess();
+
+  if (access?.reusable === true) {
+    return false;
+  }
+
+  if (access?.status === 'in_progress') {
+    return false;
+  }
+
+  if (access?.status === 'completed') {
+    return currentProtectedDestination() !== 'dashboard';
+  }
+
+  return true;
+}
+
+function enforceProtectedViewGate() {
+  if (!shouldBlockCurrentProtectedView()) {
+    return;
+  }
+
+  const access = getEffectiveBetaAccess();
+  showBetaGate(access?.status === 'completed' ? 'completed' : 'invite');
+}
+
+function startProtectedViewObserver() {
+  const app = document.getElementById('app');
+  if (!app || app.dataset.ifwBetaObserver === '1') {
+    return;
+  }
+
+  app.dataset.ifwBetaObserver = '1';
+  const observer = new MutationObserver(() => {
+    enforceProtectedViewGate();
+  });
+  observer.observe(app, { childList: true, subtree: true });
 }
 
 async function markBetaCompleted() {
   if (!betaState.privateBetaEnabled) return;
 
-  const access = readBetaAccess();
+  const access = getEffectiveBetaAccess();
   if (!access || access.reusable === true || access.status === 'completed') return;
 
   const completed = {
@@ -357,7 +495,7 @@ async function markBetaCompleted() {
     await window.CareerLaunchAuth.ready;
     const { result } = await betaApiRequest({ action: 'complete' });
     if (result?.ok) {
-      cacheAccessFromServer({
+      const completedAccess = cacheAccessFromServer({
         hasAccess: true,
         inviteId: access.inviteId,
         status: 'completed',
@@ -365,6 +503,7 @@ async function markBetaCompleted() {
         grantedAt: access.grantedAt,
         completedAt: completed.completedAt
       });
+      markServerValidationSuccess(completedAccess);
     }
   } catch {
     // Local cache still reflects completion for this browser.
@@ -376,7 +515,7 @@ async function validateInviteFromUrl() {
 
   const url = new URL(window.location.href);
   const code = url.searchParams.get('invite');
-  if (!code || readBetaAccess()) return false;
+  if (!code || getEffectiveBetaAccess()) return false;
 
   try {
     await window.CareerLaunchAuth.ready;
@@ -390,12 +529,17 @@ async function validateInviteFromUrl() {
       return true;
     }
 
-    if (!response.ok || result?.ok !== true) {
-      showBetaGate('invite', 'This invitation link is not valid. Please enter your access code.');
+    if (result?.errorCode === 'unavailable' || response.status === 503) {
+      showBetaGate('invite', redeemErrorMessage(result, response));
       return true;
     }
 
-    cacheAccessFromServer({
+    if (!response.ok || result?.ok !== true) {
+      showBetaGate('invite', redeemErrorMessage(result, response));
+      return true;
+    }
+
+    const access = cacheAccessFromServer({
       hasAccess: true,
       inviteId: result.inviteId,
       status: result.status || 'in_progress',
@@ -403,10 +547,11 @@ async function validateInviteFromUrl() {
       grantedAt: result.grantedAt,
       completedAt: null
     });
+    markServerValidationSuccess(access);
 
     return true;
   } catch {
-    showBetaGate('invite', 'We could not verify this invitation link. Please enter the code manually.');
+    showBetaGate('invite', 'We could not verify your invitation right now. Please try again.');
     return true;
   }
 }
@@ -431,7 +576,7 @@ function handleBetaNavigation(event) {
   const destination = goElement.getAttribute('data-go');
   if (!destination || destination === 'landing') return;
 
-  const access = readBetaAccess();
+  const access = getEffectiveBetaAccess();
 
   if (access?.reusable === true) return;
 
@@ -457,19 +602,20 @@ function initializeBetaGate() {
       betaState.gateActive = true;
       injectBetaGateStyles();
       document.addEventListener('click', handleBetaNavigation, true);
+      startProtectedViewObserver();
 
       return validateInviteFromUrl().finally(() => {
-        const access = readBetaAccess();
-        if (currentViewLooksProtected() && !access) {
-          showBetaGate('invite');
-        }
+        enforceProtectedViewGate();
       });
     })
     .catch(() => {
+      markServerValidationFailure();
       betaState.gateActive = betaState.privateBetaEnabled;
       if (betaState.gateActive) {
         injectBetaGateStyles();
         document.addEventListener('click', handleBetaNavigation, true);
+        startProtectedViewObserver();
+        enforceProtectedViewGate();
       }
     });
 }

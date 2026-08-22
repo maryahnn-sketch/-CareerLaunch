@@ -7,16 +7,23 @@ import betaAccessHandler from '../api/beta-access.mjs';
 import claudeHandler from '../api/claude.mjs';
 import {
   ensureBetaAccessForUser,
+  getBetaAccess,
+  getSupabaseEnv,
+  invokeBetaRpc,
   isPrivateBetaEnabled,
   mapRedeemPayload,
   sha256Hex,
 } from '../api/beta-auth.mjs';
 import {
   BETA_GATE_COPY,
+  buildBetaAdminHeaders,
   resolveBetaGateModeFromAccess,
   resolveBetaGateModeFromRedeem,
+  resolveRedeemErrorMessage,
   shouldBlockNavigation,
   shouldEnforceBetaGate,
+  shouldGateProtectedView,
+  shouldGrantBetaAccess,
 } from '../api/beta-gate-logic.mjs';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -35,8 +42,25 @@ let failed = 0;
 function setEnv(overrides = {}) {
   process.env.SUPABASE_URL = overrides.SUPABASE_URL ?? 'https://example.supabase.co';
   process.env.SUPABASE_ANON_KEY = overrides.SUPABASE_ANON_KEY ?? 'anon-key-test';
-  process.env.SUPABASE_SERVICE_ROLE_KEY = overrides.SUPABASE_SERVICE_ROLE_KEY ?? 'service-role-test';
+  if (Object.prototype.hasOwnProperty.call(overrides, 'SUPABASE_SERVICE_ROLE_KEY')) {
+    if (overrides.SUPABASE_SERVICE_ROLE_KEY === undefined) {
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    } else {
+      process.env.SUPABASE_SERVICE_ROLE_KEY = overrides.SUPABASE_SERVICE_ROLE_KEY;
+    }
+  } else {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
+  }
   process.env.ANTHROPIC_API_KEY = overrides.ANTHROPIC_API_KEY ?? 'anthropic-key-test';
+  if (Object.prototype.hasOwnProperty.call(overrides, 'SUPABASE_SECRET_KEY')) {
+    if (overrides.SUPABASE_SECRET_KEY === undefined) {
+      delete process.env.SUPABASE_SECRET_KEY;
+    } else {
+      process.env.SUPABASE_SECRET_KEY = overrides.SUPABASE_SECRET_KEY;
+    }
+  } else {
+    delete process.env.SUPABASE_SECRET_KEY;
+  }
   if (Object.prototype.hasOwnProperty.call(overrides, 'PRIVATE_BETA_ENABLED')) {
     if (overrides.PRIVATE_BETA_ENABLED === undefined) {
       delete process.env.PRIVATE_BETA_ENABLED;
@@ -608,6 +632,199 @@ async function main() {
     return access.has_access === false
       && gate.ok === false
       && response.status === 403;
+  });
+
+  await runTest('SUPABASE_SECRET_KEY preferred over SERVICE_ROLE for RPC headers', async () => {
+    setEnv({
+      PRIVATE_BETA_ENABLED: 'true',
+      SUPABASE_SECRET_KEY: 'sb_secret_test_key',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-test',
+    });
+
+    const env = getSupabaseEnv();
+    const headers = buildBetaAdminHeaders(env);
+    return headers.apikey === 'sb_secret_test_key'
+      && !headers.Authorization;
+  });
+
+  await runTest('Secret key RPC uses apikey only (no Authorization bearer)', async () => {
+    setEnv({
+      PRIVATE_BETA_ENABLED: 'true',
+      SUPABASE_SECRET_KEY: 'sb_secret_test_key',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-test',
+    });
+
+    let capturedHeaders = null;
+    const priorFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      if (String(url).includes('/rest/v1/rpc/get_beta_access')) {
+        capturedHeaders = options.headers;
+        return new Response(JSON.stringify({ has_access: false }), { status: 200 });
+      }
+      return priorFetch(url, options);
+    };
+
+    await getBetaAccess('user-123');
+    globalThis.fetch = priorFetch;
+
+    return capturedHeaders?.apikey === 'sb_secret_test_key'
+      && !capturedHeaders?.Authorization;
+  });
+
+  await runTest('Legacy service_role RPC sends apikey and Authorization Bearer', async () => {
+    setEnv({
+      PRIVATE_BETA_ENABLED: 'true',
+      SUPABASE_SECRET_KEY: undefined,
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-test',
+    });
+
+    let capturedHeaders = null;
+    const priorFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      if (String(url).includes('/rest/v1/rpc/get_beta_access')) {
+        capturedHeaders = options.headers;
+        return new Response(JSON.stringify({ has_access: false }), { status: 200 });
+      }
+      return priorFetch(url, options);
+    };
+
+    await getBetaAccess('user-123');
+    globalThis.fetch = priorFetch;
+
+    return capturedHeaders?.apikey === 'service-role-test'
+      && capturedHeaders?.Authorization === 'Bearer service-role-test';
+  });
+
+  await runTest('Status RPC 503 fails closed with unavailable payload', async () => {
+    setEnv({ PRIVATE_BETA_ENABLED: 'true' });
+    const priorFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      const target = String(url);
+      if (target.includes('/auth/v1/user')) {
+        return new Response(JSON.stringify({ id: 'user-123' }), { status: 200 });
+      }
+      if (target.includes('/rest/v1/rpc/get_beta_access')) {
+        return new Response('upstream unavailable', { status: 503 });
+      }
+      return priorFetch(url, options);
+    };
+
+    const response = await betaAccessHandler.fetch(makeBetaRequest(
+      { action: 'status' },
+      { Authorization: 'Bearer valid-token' }
+    ));
+    const body = await response.json();
+    globalThis.fetch = priorFetch;
+
+    return response.status === 503
+      && body.privateBetaEnabled === true
+      && body.hasAccess === false
+      && body.errorCode === 'unavailable';
+  });
+
+  await runTest('Redeem RPC 503 returns unavailable not invalid', async () => {
+    setEnv({ PRIVATE_BETA_ENABLED: 'true' });
+    const priorFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      const target = String(url);
+      if (target.includes('/auth/v1/user')) {
+        return new Response(JSON.stringify({ id: 'user-123' }), { status: 200 });
+      }
+      if (target.includes('/rest/v1/rpc/redeem_beta_invite')) {
+        return new Response('upstream unavailable', { status: 503 });
+      }
+      return priorFetch(url, options);
+    };
+
+    const response = await betaAccessHandler.fetch(makeBetaRequest(
+      { action: 'redeem', code: 'IFW-BETA-001' },
+      { Authorization: 'Bearer valid-token' }
+    ));
+    const body = await response.json();
+    globalThis.fetch = priorFetch;
+
+    return response.status === 503
+      && body.ok === false
+      && body.errorCode === 'unavailable'
+      && body.errorCode !== 'invalid';
+  });
+
+  await runTest('Cached beta cannot authorize when server validation failed', async () => {
+    const cachedAccess = {
+      inviteId: 'BETA-001',
+      status: 'in_progress',
+      reusable: false,
+    };
+
+    return shouldGrantBetaAccess({
+      privateBetaEnabled: true,
+      serverValidated: false,
+      validationFailed: true,
+      cachedAccess,
+    }) === false
+      && shouldGrantBetaAccess({
+        privateBetaEnabled: true,
+        serverValidated: true,
+        validationFailed: false,
+        serverAccess: cachedAccess,
+      }) === true;
+  });
+
+  await runTest('Protected view during status failure is gated', async () => {
+    return shouldGateProtectedView({
+      privateBetaEnabled: true,
+      gateActive: true,
+      serverValidated: false,
+      validationFailed: true,
+      cachedAccess: { inviteId: 'BETA-001', status: 'in_progress' },
+      hasProgressBar: true,
+      destination: 'intake',
+    }) === true
+      && shouldGateProtectedView({
+        privateBetaEnabled: true,
+        gateActive: true,
+        serverValidated: false,
+        validationFailed: true,
+        cachedAccess: { inviteId: 'BETA-001', status: 'in_progress' },
+        hasProgressBar: false,
+        destination: 'landing',
+      }) === false;
+  });
+
+  await runTest('Public landing accessible during status failure', async () => {
+    return shouldBlockNavigation(
+      { inviteId: 'BETA-001', status: 'in_progress' },
+      'landing',
+      true
+    ) === false
+      && shouldGateProtectedView({
+        privateBetaEnabled: true,
+        gateActive: true,
+        serverValidated: false,
+        validationFailed: true,
+        destination: 'landing',
+      }) === false;
+  });
+
+  await runTest('503/unavailable redeem copy avoids invalid-code message', async () => {
+    const message = resolveRedeemErrorMessage('unavailable', 503);
+    return message === 'We could not verify your invitation right now. Please try again.'
+      && message !== 'That code is not valid. Please check the invitation and try again.';
+  });
+
+  await runTest('invokeBetaRpc throws when no admin credentials configured', async () => {
+    setEnv({
+      PRIVATE_BETA_ENABLED: 'true',
+      SUPABASE_SECRET_KEY: undefined,
+      SUPABASE_SERVICE_ROLE_KEY: undefined,
+    });
+
+    try {
+      await invokeBetaRpc('get_beta_access', { p_user_id: 'user-123' });
+      return false;
+    } catch (error) {
+      return error.message.includes('admin credentials');
+    }
   });
 
   globalThis.fetch = originalFetch;

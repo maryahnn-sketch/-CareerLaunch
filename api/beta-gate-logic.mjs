@@ -41,6 +41,116 @@ export function shouldBlockNavigation(access, destination, privateBetaEnabled) {
   return true;
 }
 
+export const PROTECTED_BETA_DESTINATIONS = new Set([
+  'intake',
+  'analyzing',
+  'skills',
+  'paths',
+  'conversation',
+  'choose',
+  'paywall',
+  'roadmap',
+  'kit',
+  'dashboard',
+]);
+
+export function isProtectedBetaDestination(destination) {
+  return PROTECTED_BETA_DESTINATIONS.has(destination);
+}
+
+/**
+ * Fail-closed: cached/local access never grants protected views when server
+ * validation failed or is still pending.
+ */
+export function shouldGrantBetaAccess({
+  privateBetaEnabled,
+  serverValidated = false,
+  validationFailed = false,
+  serverAccess = null,
+  cachedAccess = null,
+}) {
+  if (!shouldEnforceBetaGate(privateBetaEnabled)) {
+    return true;
+  }
+
+  if (validationFailed || !serverValidated) {
+    return false;
+  }
+
+  return Boolean(serverAccess?.inviteId || cachedAccess?.inviteId);
+}
+
+export function shouldGateProtectedView({
+  privateBetaEnabled,
+  gateActive = true,
+  serverValidated = false,
+  validationFailed = false,
+  serverAccess = null,
+  cachedAccess = null,
+  hasProgressBar = false,
+  destination = null,
+}) {
+  if (!shouldEnforceBetaGate(privateBetaEnabled) || !gateActive) {
+    return false;
+  }
+
+  if (destination && !isProtectedBetaDestination(destination) && destination !== 'landing') {
+    return false;
+  }
+
+  if (!hasProgressBar && !destination) {
+    return false;
+  }
+
+  if (destination === 'landing') {
+    return false;
+  }
+
+  const access = serverValidated && !validationFailed
+    ? (serverAccess || cachedAccess)
+    : null;
+
+  if (access?.reusable === true) {
+    return false;
+  }
+
+  if (access?.status === 'in_progress') {
+    return false;
+  }
+
+  if (access?.status === 'completed' && destination === 'dashboard') {
+    return false;
+  }
+
+  return Boolean(hasProgressBar || (destination && isProtectedBetaDestination(destination)));
+}
+
+export function resolveRedeemErrorMessage(errorCode, responseStatus) {
+  if (errorCode === 'unavailable' || responseStatus === 503) {
+    return 'We could not verify your invitation right now. Please try again.';
+  }
+
+  return 'That code is not valid. Please check the invitation and try again.';
+}
+
+export function buildBetaAdminHeaders({ secretKey = null, serviceRoleKey = null } = {}) {
+  const adminKey = secretKey || serviceRoleKey;
+  if (!adminKey) {
+    throw new Error('Supabase admin credentials are not configured');
+  }
+
+  const headers = {
+    'content-type': 'application/json',
+    apikey: adminKey,
+  };
+
+  if (!secretKey && serviceRoleKey) {
+    headers.Authorization = `Bearer ${serviceRoleKey}`;
+  }
+
+  return headers;
+}
+
 /** @typedef {'invite' | 'completed' | 'already_used'} BetaGateMode */
 
 export const BETA_GATE_COPY = {

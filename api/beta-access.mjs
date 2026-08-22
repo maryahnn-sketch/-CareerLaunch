@@ -49,7 +49,11 @@ async function handleStatus(request) {
     access = await getBetaAccess(auth.userId);
   } catch (error) {
     console.error('[iFindWorth beta] status lookup failed', error);
-    return jsonResponse({ error: 'Unable to read beta access status' }, 503);
+    return jsonResponse({
+      privateBetaEnabled: true,
+      hasAccess: false,
+      errorCode: 'unavailable',
+    }, 503);
   }
 
   return jsonResponse(publicStatusBody(access));
@@ -81,7 +85,7 @@ async function handleRedeem(request, payload) {
     result = await redeemBetaInvite(codeHash, auth.userId);
   } catch (error) {
     console.error('[iFindWorth beta] redeem failed for user', auth.userId, error);
-    return jsonResponse({ ok: false, errorCode: 'invalid' }, 503);
+    return jsonResponse({ ok: false, errorCode: 'unavailable' }, 503);
   }
 
   const mapped = mapRedeemPayload(result);

@@ -34,6 +34,7 @@ export function getSupabaseEnv() {
   return {
     url: process.env.SUPABASE_URL,
     anonKey: process.env.SUPABASE_ANON_KEY,
+    secretKey: process.env.SUPABASE_SECRET_KEY,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   };
 }
@@ -56,18 +57,23 @@ export async function verifySupabaseAccessToken(accessToken) {
 }
 
 export async function invokeBetaRpc(rpcName, body) {
-  const { url, serviceRoleKey } = getSupabaseEnv();
-  if (!url || !serviceRoleKey) {
-    throw new Error('Supabase service role is not configured');
+  const { url, secretKey, serviceRoleKey } = getSupabaseEnv();
+  const adminKey = secretKey || serviceRoleKey;
+  if (!url || !adminKey) {
+    throw new Error('Supabase admin credentials are not configured');
+  }
+
+  const headers = {
+    'content-type': 'application/json',
+    apikey: adminKey,
+  };
+  if (!secretKey && serviceRoleKey) {
+    headers.Authorization = `Bearer ${serviceRoleKey}`;
   }
 
   const response = await fetch(`${url.replace(/\/$/, '')}/rest/v1/rpc/${rpcName}`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
