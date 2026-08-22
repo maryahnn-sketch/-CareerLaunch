@@ -65,6 +65,7 @@ export async function invokeBetaRpc(rpcName, body) {
 
   const headers = {
     'content-type': 'application/json',
+    'Content-Profile': 'public',
     apikey: adminKey,
   };
   if (!secretKey && serviceRoleKey) {

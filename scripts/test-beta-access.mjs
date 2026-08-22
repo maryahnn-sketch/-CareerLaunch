@@ -671,6 +671,29 @@ async function main() {
       && !capturedHeaders?.Authorization;
   });
 
+  await runTest('Beta RPC requests include Content-Profile: public', async () => {
+    setEnv({
+      PRIVATE_BETA_ENABLED: 'true',
+      SUPABASE_SECRET_KEY: 'sb_secret_test_key',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-test',
+    });
+
+    let capturedHeaders = null;
+    const priorFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      if (String(url).includes('/rest/v1/rpc/get_beta_access')) {
+        capturedHeaders = options.headers;
+        return new Response(JSON.stringify({ has_access: false }), { status: 200 });
+      }
+      return priorFetch(url, options);
+    };
+
+    await getBetaAccess('user-123');
+    globalThis.fetch = priorFetch;
+
+    return capturedHeaders?.['Content-Profile'] === 'public';
+  });
+
   await runTest('Legacy service_role RPC sends apikey and Authorization Bearer', async () => {
     setEnv({
       PRIVATE_BETA_ENABLED: 'true',
