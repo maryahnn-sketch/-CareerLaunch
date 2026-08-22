@@ -52,32 +52,32 @@ CREATE INDEX beta_invites_unredeemed_idx
 -- ------------------------------------------------------------
 
 INSERT INTO public.beta_invites (id, code_hash, reusable) VALUES
-  ('BETA-001', '5a50f1d66be34adbc8781191a16a6e2a595a8fc42946982ab40ba4669c73f1bb', false),
-  ('BETA-002', 'f3dd25e1d32a33511a03e06664fb814065be7e28c12289155b3a84acb7eeea73', false),
-  ('BETA-003', 'e51a5cee6392e14cf146155db8cb6a9cd7c75a6deaa6f5c3fa9fa888fd3e41f0', false),
-  ('BETA-004', '78ba7000a7754735a3ba14b3d8f15fc0a7019066dc8e5ff508d47eafb3e786af', false),
-  ('BETA-005', 'b420d7864c1c9824b7cdc882f593e4beff9d3b93f9a0e423b399b4f4dd5241a0', false),
-  ('BETA-006', '7f64af0e2b4ef634540ea117e3c0f327618d795ed36072a11c243be6c3ffda65', false),
-  ('BETA-007', '5c124be4c7508cf7df3c8f1e717df56f6a7e65edb1cd876d848e50f72357849e', false),
-  ('BETA-008', '9784b7beca2f6b08cba16e46ae2724f2112a23f6ce41fd17c018d43213142505', false),
-  ('BETA-009', 'aa6c70141471b99b6373e43deee9f785df040b07600211a28fa0890ee6eeee0b', false),
-  ('BETA-010', 'bb3fb1ca2ee83867169b2d05a3fc7cf1e3fcd1114f05a9f10cd3c9ce31349ee9', false),
-  ('BETA-011', 'f4f091a6b15eba9bf0095bfa474117e19cb6926119f5293a971ab1dff0ee728b', false),
-  ('BETA-012', 'ce7257a515a77bd6371dfc248b0540b5379101af7bf3f315d8a4c4f8f6486e47', false),
-  ('BETA-013', '7f376900cb9eb5852ea7aa5b90b54791757a8c3cce9273f20e26322ca80f9c84', false),
-  ('BETA-014', '01701554d1359f707612eb3b1450b59d783b8009eba5e74b277c815b560646fa', false),
-  ('BETA-015', 'e3a8f7228075743174bc761d5bc7b709eab291b9129f74582494036ee4f0c49a', false),
-  ('BETA-016', '46716fe83d8bdf8aabebcf7e39be7ee77e0daf15b33a9a014152cfe2ea040725', false),
-  ('BETA-017', 'c0a151947ad79bcbada7cdfa96e88c8b9df43e9ac54d49585bdeee04b59d2865', false),
-  ('BETA-018', 'd683aae44dcbc4fa20664b4ec0545f4f14d72758f73831c53e9c708a4c2e91ff', false),
-  ('BETA-019', '955e9c49cce65dd35c94f5ca72cb505e3f1c8ffd208987f42046c4b5fbeb313d', false),
-  ('BETA-020', '38cb2009afb8c25159a17f920257cf6bd52b3324c0e9a29730aa4bd951204d0f', false),
-  ('BETA-021', '80e236b206ca2cb029cc300cace0fa4b91a8bca0807171d7bf8eebb526e59dfc', false),
-  ('BETA-022', '24fd08942a35c98a1e538539ff98d91631c84d0d0d6587364706c8d9fe56680b', false),
-  ('BETA-023', 'b0aba8e8a981c1c7683cb4156674d1560cb7f23783ac4f6d095683b4219ddf36', false),
-  ('BETA-024', '904581294dcc0d855d04d289c7d0c1950c96146a570ef63738bd20029abf78a6', false),
-  ('BETA-025', '631cf47175e131ddcb3af48383ffbf2824e262bce869e3012337102b4d34ba23', false),
-  ('OWNER',    'fb8824971a848e16922eb80b74bfefeb30bb65a528555ef9a531ba75c3c41ace', true);
+  ('BETA-001', 'dd8f9bfc318026a9c6796a8a16ff68a51020cc0be6cbb5ce2918d2f8557eb5ee', false),
+  ('BETA-002', '538d289e6f053e25c56a35d00a48298f80faa402acab8d96d06c96f32f649f1c', false),
+  ('BETA-003', 'bff1b730a3531f1c5ddd350a3498360d85723316208dce383b897f0b60306605', false),
+  ('BETA-004', 'e4f4d7aee57b5905838672cdc4b76191985e92b402035d8e729e5a81a72d6c09', false),
+  ('BETA-005', 'd439740ec9f8f4066ef5d77241cf159ed9af84844c96a7c1466a52940e4ef7c7', false),
+  ('BETA-006', '1e1513bd7584b4116867244d823235d69c83be420e1c53bf472305c1d42f847b', false),
+  ('BETA-007', 'f5444c0693337015d0d4c29e20be61f5fbc19eade795b1a1aff24789c7e3ad02', false),
+  ('BETA-008', '8b45e48870b417b9f9d70100c0dc65fc0da054be5520555b7b78cce34a01f5f7', false),
+  ('BETA-009', '7e2857c7567f1a70849859aff6c52cc7d66a549d29e3bd69dad32da5b77f641c', false),
+  ('BETA-010', 'a0419a443aaa7a2d0392a2d634d9ed48a2e73f8d477f6d39283745db1bfe709d', false),
+  ('BETA-011', '3ad76c48bbf5a93730e46da849d24f547468c9ace4f91f563a7668ee452d5aba', false),
+  ('BETA-012', 'e1619ce67e0d2e56dc4b6b370108c057e8fb2d9ef82b52de60844385bf9f5ebd', false),
+  ('BETA-013', '484ab57215980868903457b914852cbc27f5f8b621433d7a40f5579013478c99', false),
+  ('BETA-014', '38f5c8e71bcde67b168479b2fac2ae8648da8cd0aca091c6247e47133f84ed2d', false),
+  ('BETA-015', 'b8deacfe66e8dd7a97f016ac206588cedc725236fd0c4f6f7fdddd7defc7bdba', false),
+  ('BETA-016', 'f04540358d7a40e2a462795389aea46a0cfcaf8172172fde1eb0be10bb7f112a', false),
+  ('BETA-017', 'aa1de3dd2207bf0e96164f2f7cfc5fba21432358d106cb3b766a6f19539f24be', false),
+  ('BETA-018', '7dd49e06c73bceec8292bc8552f6dd5cd377231d027f72dd2bd162f491640b5d', false),
+  ('BETA-019', 'eaffdbd4f440f0370dfeb634fc288194312d2f34450f588b1e389232c3ae18aa', false),
+  ('BETA-020', '7853c36c6b37f197bbe65cc50d835f87460a231d2d18ab5450e6fda22245f6aa', false),
+  ('BETA-021', 'e571a3cc2c7e603e161f5fbfeef2d6e31723b3c42a8a82110af90c29e4f62533', false),
+  ('BETA-022', 'f3bfe940020bada83e6649ec7d561e1627329aabc52e7925ae780f7bec214171', false),
+  ('BETA-023', 'b0605d3052adf8a20900892979cf4eb1110b9559ae48d67b55c714071dbc49b1', false),
+  ('BETA-024', '2f5a7489097e8d01cea1d37eea8bc4f090e14f21bcf3ddbfba372aa90079e100', false),
+  ('BETA-025', '81b58d390d7655683e50a723b01e3aebf7c7fbaaa5fcfd9a7de7b61b53b41ba1', false),
+  ('OWNER',    '6a91a67cbb8d4b224f78ba9219b677c022da567593aa47d562cbb05e373441df', true);
 
 -- ------------------------------------------------------------
 -- RLS
@@ -187,7 +187,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.redeem_beta_invite(text, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.redeem_beta_invite(text, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.redeem_beta_invite(text, uuid) TO service_role;
 
 -- ------------------------------------------------------------
@@ -242,7 +242,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.complete_beta_journey(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.complete_beta_journey(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.complete_beta_journey(uuid) TO service_role;
 
 -- ------------------------------------------------------------
@@ -275,5 +275,5 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.get_beta_access(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_beta_access(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_beta_access(uuid) TO service_role;
