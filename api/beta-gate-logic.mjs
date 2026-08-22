@@ -1,13 +1,20 @@
 /**
  * Pure helpers for private-beta gate decisions (shared by API tests).
+ *
+ * Fail-closed: only explicit false disables protection; missing/malformed stays protected.
  */
 
+export function isPrivateBetaDisabledFlag(value) {
+  return value === false || value === 'false';
+}
+
+/** @deprecated Use isPrivateBetaDisabledFlag; kept for test clarity. */
 export function isPrivateBetaEnabledFlag(value) {
-  return value === true || value === 'true';
+  return !isPrivateBetaDisabledFlag(value);
 }
 
 export function shouldEnforceBetaGate(privateBetaEnabled) {
-  return isPrivateBetaEnabledFlag(privateBetaEnabled);
+  return !isPrivateBetaDisabledFlag(privateBetaEnabled);
 }
 
 export function shouldBlockNavigation(access, destination, privateBetaEnabled) {

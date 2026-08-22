@@ -1,11 +1,18 @@
 /**
  * Shared Supabase auth + private beta access helpers for API routes.
+ *
+ * Anonymous beta access is tied to the Supabase anonymous user/session created in
+ * each browser. A single-use invite code binds to that user id; another browser
+ * cannot recover the same redemption in this phase (no cross-browser recovery).
+ *
+ * PRIVATE_BETA_ENABLED fail-closed: only the literal string "false" disables
+ * protection; missing, empty, or any other value keeps beta enforcement on.
  */
 
 const NO_STORE_HEADERS = { 'cache-control': 'no-store' };
 
 export function isPrivateBetaEnabled() {
-  return process.env.PRIVATE_BETA_ENABLED === 'true';
+  return process.env.PRIVATE_BETA_ENABLED !== 'false';
 }
 
 export function jsonResponse(body, status = 200) {

@@ -7,6 +7,7 @@ import betaAccessHandler from '../api/beta-access.mjs';
 import claudeHandler from '../api/claude.mjs';
 import {
   ensureBetaAccessForUser,
+  isPrivateBetaEnabled,
   mapRedeemPayload,
   sha256Hex,
 } from '../api/beta-auth.mjs';
@@ -106,6 +107,9 @@ function redeemInvite(codeHash, userId) {
   const existing = rpcState.redemptions.get(userId);
   if (existing) {
     const linked = rpcState.invites.get(existing.invite_id);
+    if (linked.revoked_at) {
+      return { ok: false, error_code: 'revoked', invite_id: linked.id };
+    }
     return {
       ok: true,
       invite_id: linked.id,
@@ -158,6 +162,10 @@ function completeJourney(userId) {
   }
 
   const invite = rpcState.invites.get(redemption.invite_id);
+  if (invite.revoked_at) {
+    return { ok: false, error_code: 'revoked', invite_id: invite.id };
+  }
+
   if (invite.reusable) {
     return {
       ok: true,
@@ -184,6 +192,10 @@ function getAccess(userId) {
   }
 
   const invite = rpcState.invites.get(redemption.invite_id);
+  if (invite.revoked_at) {
+    return { has_access: false };
+  }
+
   return {
     has_access: true,
     invite_id: invite.id,
@@ -289,9 +301,32 @@ async function main() {
   const originalFetch = installFetchMock();
 
   await runTest('PRIVATE_BETA_ENABLED=false bypasses client gate helper', async () => {
-    return shouldEnforceBetaGate(false) === false
-      && shouldBlockNavigation(null, 'intake', false) === false
-      && shouldBlockNavigation({ status: 'completed' }, 'intake', false) === false;
+    return shouldEnforceBetaGate('false') === false
+      && shouldEnforceBetaGate(false) === false
+      && shouldBlockNavigation(null, 'intake', 'false') === false
+      && shouldBlockNavigation({ status: 'completed' }, 'intake', 'false') === false;
+  });
+
+  await runTest('Missing/malformed PRIVATE_BETA_ENABLED stays protected (fail closed)', async () => {
+    return shouldEnforceBetaGate(undefined) === true
+      && shouldEnforceBetaGate(null) === true
+      && shouldEnforceBetaGate('') === true
+      && shouldEnforceBetaGate('true') === true
+      && shouldEnforceBetaGate('TRUE') === true
+      && shouldEnforceBetaGate('yes') === true
+      && shouldBlockNavigation(null, 'intake', undefined) === true;
+  });
+
+  setEnv({ PRIVATE_BETA_ENABLED: undefined });
+  resetRpcState();
+
+  await runTest('Missing env keeps server beta enforcement (fail closed)', async () => {
+    return isPrivateBetaEnabled() === true;
+  });
+
+  await runTest('Malformed env keeps server beta enforcement (fail closed)', async () => {
+    setEnv({ PRIVATE_BETA_ENABLED: 'TRUE' });
+    return isPrivateBetaEnabled() === true;
   });
 
   await runTest('Client gate blocks completed tester from fresh intake when enabled', async () => {
@@ -511,6 +546,48 @@ async function main() {
     setEnv({ PRIVATE_BETA_ENABLED: 'false' });
     const result = await ensureBetaAccessForUser('user-123');
     return result.ok === true && result.betaRequired === false;
+  });
+
+  resetRpcState();
+  await bindInviteCode('BETA-001', 'IFW-BETA-001');
+  redeemInvite(await sha256Hex('IFW-BETA-001'), 'user-123');
+  rpcState.invites.get('BETA-001').revoked_at = new Date().toISOString();
+
+  await runTest('Revoked invite blocks get_beta_access after redemption', async () => {
+    setEnv({ PRIVATE_BETA_ENABLED: 'true' });
+    const access = getAccess('user-123');
+    const gate = await ensureBetaAccessForUser('user-123');
+    return access.has_access === false && gate.ok === false;
+  });
+
+  resetRpcState();
+  await bindInviteCode('BETA-001', 'IFW-BETA-001');
+  redeemInvite(await sha256Hex('IFW-BETA-001'), 'user-123');
+  rpcState.invites.get('BETA-001').revoked_at = new Date().toISOString();
+
+  await runTest('Revoked invite rejects existing redemption path', async () => {
+    setEnv({ PRIVATE_BETA_ENABLED: 'true' });
+    const response = await betaAccessHandler.fetch(makeBetaRequest(
+      { action: 'redeem', code: 'IFW-BETA-001' },
+      { Authorization: 'Bearer valid-token' }
+    ));
+    const body = await response.json();
+    return response.status === 403 && body.errorCode === 'revoked';
+  });
+
+  resetRpcState();
+  await bindInviteCode('OWNER', 'IFW-OWNER');
+  redeemInvite(await sha256Hex('IFW-OWNER'), 'user-123');
+  rpcState.invites.get('OWNER').revoked_at = new Date().toISOString();
+
+  await runTest('Revoked OWNER access blocked', async () => {
+    setEnv({ PRIVATE_BETA_ENABLED: 'true' });
+    const access = getAccess('user-123');
+    const gate = await ensureBetaAccessForUser('user-123');
+    const response = await claudeHandler.fetch(makeClaudeRequest());
+    return access.has_access === false
+      && gate.ok === false
+      && response.status === 403;
   });
 
   globalThis.fetch = originalFetch;

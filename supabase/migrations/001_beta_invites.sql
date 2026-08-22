@@ -1,6 +1,13 @@
 -- ============================================================
 -- iFindWorth private beta — invite + redemption schema
 -- Run in Supabase SQL Editor (staging first, then prod)
+--
+-- Anonymous beta access is tied to the Supabase anonymous user/session in each
+-- browser. Single-use codes bind to that user id; another browser cannot reuse
+-- the same redemption in this phase (no cross-browser recovery).
+--
+-- revoked_at revokes existing access (including OWNER). expires_at applies only
+-- to the redemption window — testers who already redeemed keep access after expiry.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -112,6 +119,9 @@ BEGIN
 
   IF FOUND THEN
     SELECT * INTO v_invite FROM public.beta_invites WHERE id = v_existing.invite_id;
+    IF v_invite.revoked_at IS NOT NULL THEN
+      RETURN jsonb_build_object('ok', false, 'error_code', 'revoked', 'invite_id', v_invite.id);
+    END IF;
     RETURN jsonb_build_object(
       'ok', true,
       'invite_id', v_invite.id,
@@ -204,6 +214,10 @@ BEGIN
 
   SELECT * INTO v_invite FROM public.beta_invites WHERE id = v_row.invite_id;
 
+  IF v_invite.revoked_at IS NOT NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error_code', 'revoked', 'invite_id', v_invite.id);
+  END IF;
+
   IF v_invite.reusable THEN
     RETURN jsonb_build_object(
       'ok', true,
@@ -255,6 +269,7 @@ AS $$
       FROM public.beta_redemptions r
       JOIN public.beta_invites i ON i.id = r.invite_id
       WHERE r.user_id = p_user_id
+        AND i.revoked_at IS NULL
     ),
     jsonb_build_object('has_access', false)
   );

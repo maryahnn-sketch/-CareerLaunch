@@ -4,6 +4,10 @@
  *
  * Also owns the private-beta access gate so the public landing page can stay
  * visible while the career-discovery journey remains invite-only.
+ *
+ * Beta protection is fail-closed on the client: gate stays active unless the
+ * server explicitly reports privateBetaEnabled === false. Anonymous access is
+ * bound to the Supabase session in this browser (no cross-browser recovery).
  */
 
 const SUPABASE_JS_VERSION = '2.49.8';
