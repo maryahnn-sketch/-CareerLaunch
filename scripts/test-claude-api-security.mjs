@@ -11,7 +11,9 @@ const ORIGINAL_ENV = { ...process.env };
 function setEnv(overrides = {}) {
   process.env.SUPABASE_URL = overrides.SUPABASE_URL ?? 'https://example.supabase.co';
   process.env.SUPABASE_ANON_KEY = overrides.SUPABASE_ANON_KEY ?? 'anon-key-test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = overrides.SUPABASE_SERVICE_ROLE_KEY ?? 'service-role-test';
   process.env.ANTHROPIC_API_KEY = overrides.ANTHROPIC_API_KEY ?? 'anthropic-key-test';
+  process.env.PRIVATE_BETA_ENABLED = overrides.PRIVATE_BETA_ENABLED ?? 'false';
 }
 
 function restoreEnv() {

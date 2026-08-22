@@ -6,6 +6,7 @@
  * function are not reliable for rate limiting.
  */
 
+import { ensureBetaAccessForUser, requireAuthenticatedUser } from './beta-auth.mjs';
 import { MAX_BODY_BYTES, prepareAnthropicRequest } from './claude-operations.mjs';
 
 function jsonResponse(body, status = 200) {
@@ -13,28 +14,6 @@ function jsonResponse(body, status = 200) {
     status,
     headers: { 'cache-control': 'no-store' },
   });
-}
-
-function extractBearerToken(request) {
-  const header = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!header) return null;
-
-  const match = header.match(/^Bearer\s+(\S+)\s*$/i);
-  return match ? match[1] : null;
-}
-
-async function verifySupabaseAccessToken(accessToken, supabaseUrl, supabaseAnonKey) {
-  const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      apikey: supabaseAnonKey,
-    },
-  });
-
-  if (!response.ok) return false;
-
-  const user = await response.json();
-  return !!user?.id;
 }
 
 export default {
@@ -60,25 +39,14 @@ export default {
       return jsonResponse({ error: 'AI service is not configured' }, 500);
     }
 
-    const accessToken = extractBearerToken(request);
-    if (!accessToken) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
+    const auth = await requireAuthenticatedUser(request);
+    if (!auth.ok) {
+      return auth.response;
     }
 
-    let isAuthenticated = false;
-    try {
-      isAuthenticated = await verifySupabaseAccessToken(
-        accessToken,
-        supabaseUrl,
-        supabaseAnonKey
-      );
-    } catch (error) {
-      console.error('[CareerLaunch API] Supabase token verification failed', error);
-      return jsonResponse({ error: 'Unauthorized' }, 401);
-    }
-
-    if (!isAuthenticated) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
+    const betaGate = await ensureBetaAccessForUser(auth.userId);
+    if (!betaGate.ok) {
+      return betaGate.response;
     }
 
     let rawBody;
