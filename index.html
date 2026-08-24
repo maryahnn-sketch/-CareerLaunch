@@ -133,18 +133,33 @@
 
   .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);}
   textarea#storyInput, textarea.plain-textarea{width:100%;min-height:260px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
-  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:var(--ink-faint);font-style:italic;}
+  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:var(--ink-soft);opacity:0.72;font-style:normal;font-size:17px;}
   .intake-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid var(--line);}
   .mic-btn{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:var(--sage-soft);color:var(--sage);font-weight:600;font-size:13.5px;border:1px solid rgba(79,117,97,0.3);}
+  .mic-icon{width:15px;height:15px;flex-shrink:0;}
   .mic-btn.recording{background:var(--clay-soft);color:var(--clay);border-color:rgba(181,96,63,0.35);}
   .mic-dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
   .mic-btn.recording .mic-dot{animation:pulse 1s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
   .wordcount{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);}
-  .prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;}
+  .intake-cta-row{display:flex;gap:14px;align-items:center;margin-top:24px;flex-wrap:wrap;}
+  .prompt-helper{font-size:14px;color:var(--ink-soft);margin:28px 0 12px;line-height:1.45;}
+  .prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:0;}
   .prompt-chip{font-size:13px;padding:8px 13px;border-radius:10px;background:var(--card);border:1px dashed var(--line);color:var(--ink-soft);}
   .prompt-chip:hover{border-color:var(--ink-soft);color:var(--ink);}
   .privacy-note{font-size:12.5px;color:var(--ink-faint);margin-top:22px;max-width:500px;}
+  @media (max-width:768px){
+    textarea#storyInput, textarea.plain-textarea{min-height:220px;font-size:18px;padding:18px;}
+    .intake-cta-row .btn-primary{flex:1;min-width:0;}
+  }
+  @media (max-width:390px){
+    .wrap{padding:0 16px;}
+    textarea#storyInput, textarea.plain-textarea{min-height:200px;font-size:17px;padding:16px;}
+    .intake-toolbar{flex-wrap:wrap;gap:10px;}
+    .intake-cta-row{flex-direction:column;align-items:stretch;}
+    .intake-cta-row .btn{width:100%;}
+    .prompt-helper{font-size:13.5px;margin:24px 0 10px;}
+  }
 
   .analyzing-wrap{text-align:center;padding:100px 0;}
   .analyzing-wrap .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
@@ -173,6 +188,26 @@
 
   .path-category{margin-top:44px;}
   .path-category h3{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:18px;}
+  .path-tier{margin-top:44px;}
+  .path-tier h3{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:6px;}
+  .path-tier .tier-desc{font-size:13.5px;color:var(--ink-soft);margin-bottom:18px;line-height:1.45;}
+  .novelty-feedback{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
+  .novelty-btn{font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);background:var(--paper);}
+  .novelty-btn:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .novelty-btn.active-known{background:var(--paper-dim);border-color:var(--ink-faint);color:var(--ink-faint);}
+  .novelty-btn.active-new{background:var(--sage-soft);border-color:transparent;color:var(--sage);}
+  .novelty-btn.active-not{background:var(--clay-soft);border-color:transparent;color:var(--clay);}
+  .regen-cap-hint{flex-basis:100%;font-size:13px;color:var(--ink-soft);margin:4px 0 0;line-height:1.45;}
+  @media (max-width:768px){
+    .path-card{padding:18px 20px;}
+    .novelty-feedback{gap:6px;}
+  }
+  @media (max-width:390px){
+    .path-tier{margin-top:32px;}
+    .novelty-feedback{flex-direction:column;}
+    .novelty-btn{width:100%;text-align:center;}
+    .paywall-card{padding:28px 20px;}
+  }
   .path-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;cursor:pointer;transition:border-color .15s ease;}
   .path-card:hover{border-color:var(--ink-soft);}
   .path-card.selected{border-color:var(--highlight);box-shadow:0 0 0 1px var(--highlight);}
@@ -211,6 +246,7 @@
 
   .paywall-card{background:var(--card);border:1px solid var(--ink);border-radius:20px;padding:40px;box-shadow:var(--shadow);margin-top:20px;}
   .paywall-card .amt{font-family:var(--serif);font-size:52px;margin:6px 0 18px;}
+  .paywall-intro{font-size:15.5px;color:var(--ink-soft);max-width:480px;margin:16px auto 0;line-height:1.55;}
   .unlock-list{text-align:left;max-width:420px;margin:22px auto;display:flex;flex-direction:column;gap:10px;font-size:14.5px;color:var(--ink-soft);}
   .unlock-list li{list-style:none;display:flex;gap:10px;align-items:flex-start;}
   .unlock-list li::before{content:'✓';color:var(--sage);font-weight:700;}
@@ -341,14 +377,18 @@ function createDefaultState(){
     convoBusy: false,
     kitBusyIndex: null,
     storyBankBusyIndex: null,
+    // Per-path novelty feedback — separate from skillValidation (name -> 'known' | 'new' | 'not_interested')
+    pathFeedback: {},
+    pathRegenerationCount: 0,
   };
 }
 
 const state = createDefaultState();
+let regenCapHintTitle = null;
 
 /* ============================= PROFILE SERIALIZATION (V1) ============================= */
 // Local-only persistence layer — browser localStorage (V1 profile snapshot).
-const PROFILE_SCHEMA_VERSION = 1;
+const PROFILE_SCHEMA_VERSION = 2;
 const TRANSIENT_SCREENS = new Set(['analyzing']);
 const ROADMAP_SECTION_KEYS = ['foundation', 'actionPlan', 'direction'];
 const ROADMAP_SECTION_TERMINAL = new Set(['idle', 'ready', 'failed']);
@@ -364,6 +404,15 @@ function isPlainObject(value){
 function cloneStringArray(value){
   if(!Array.isArray(value)) return [];
   return value.filter(item => typeof item === 'string').map(item => item);
+}
+
+function clonePathFeedback(value){
+  if(!isPlainObject(value)) return {};
+  const out = {};
+  for(const title in value){
+    if(value[title] === 'known' || value[title] === 'new' || value[title] === 'not_interested') out[title] = value[title];
+  }
+  return out;
 }
 
 function cloneSkillValidation(value){
@@ -474,6 +523,8 @@ function serializeProfile(sourceState){
     storyBank: sourceState.storyBank && typeof sourceState.storyBank === 'object' ? jsonClone(sourceState.storyBank) : null,
     jdText: typeof sourceState.jdText === 'string' ? sourceState.jdText : '',
     jdAnalysis: sourceState.jdAnalysis && typeof sourceState.jdAnalysis === 'object' ? jsonClone(sourceState.jdAnalysis) : null,
+    pathFeedback: clonePathFeedback(sourceState.pathFeedback),
+    pathRegenerationCount: Number.isInteger(sourceState.pathRegenerationCount) && sourceState.pathRegenerationCount >= 0 ? sourceState.pathRegenerationCount : 0,
   };
 }
 
@@ -486,6 +537,11 @@ function migrateProfile(savedProfile){
   if(typeof version !== 'number' || !Number.isFinite(version)) return null;
   if(version > PROFILE_SCHEMA_VERSION) return null;
   if(version < 1) version = 1;
+  if(version < 2){
+    if(!isPlainObject(cloned.pathFeedback)) cloned.pathFeedback = {};
+    if(typeof cloned.pathRegenerationCount !== 'number') cloned.pathRegenerationCount = 0;
+    version = 2;
+  }
   cloned.schemaVersion = version;
   return cloned;
 }
@@ -528,6 +584,8 @@ function hydrateProfile(savedProfile){
   if(migrated.storyBank && isPlainObject(migrated.storyBank)) restored.storyBank = jsonClone(migrated.storyBank);
   if(typeof migrated.jdText === 'string') restored.jdText = migrated.jdText;
   if(migrated.jdAnalysis && isPlainObject(migrated.jdAnalysis)) restored.jdAnalysis = jsonClone(migrated.jdAnalysis);
+  if(isPlainObject(migrated.pathFeedback)) restored.pathFeedback = clonePathFeedback(migrated.pathFeedback);
+  if(Number.isInteger(migrated.pathRegenerationCount) && migrated.pathRegenerationCount >= 0) restored.pathRegenerationCount = migrated.pathRegenerationCount;
 
   restored.skillValidation = pruneSkillValidationForSkills(restored.skillValidation, restored.skills);
   if(restored.chosenPath){
@@ -571,6 +629,22 @@ function applyHydratedState(hydrated){
 
 const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
+function hasMeaningfulStoryContent(text){
+  const t = (text || '').trim();
+  if(!t) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  return t.length >= 12 || words.length >= 2;
+}
+function intakePromptHelperText(){
+  return hasMeaningfulStoryContent(state.story)
+    ? 'Want to add another experience? These prompts are optional.'
+    : 'Not sure where to start? Tap an example below.';
+}
+function updateIntakePromptHelper(){
+  const el = document.getElementById('promptHelper');
+  if(el) el.textContent = intakePromptHelperText();
+}
+const MIC_ICON_SVG = '<svg class="mic-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 function getConfirmedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
 function getRetainedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
 function getRejectedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no'); }
@@ -2112,27 +2186,28 @@ function renderLanding(){
 /* ============================= INTAKE ============================= */
 function renderIntake(){
   const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
+  const micLabel = state.recording ? 'Listening… tap to stop' : 'Use microphone';
   return `
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Step one</div>
     <h1 style="font-size:36px;">Tell me your story.</h1>
     <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Tell me what you've actually done — jobs, businesses, volunteering, family responsibilities, side hustles, school projects, community work. Whatever feels relevant.</p>
     <div class="intake-card mt-32">
-      <textarea id="storyInput" placeholder="Start typing, or tap the microphone to talk instead...">${state.story}</textarea>
+      <textarea id="storyInput" placeholder="Type your story here, or tap the microphone to speak.">${state.story}</textarea>
       <div class="intake-toolbar">
-        <button class="mic-btn ${state.recording?'recording':''}" id="micBtn"><span class="mic-dot"></span> ${state.recording ? 'Listening… tap to stop' : 'Just talk'}</button>
+        <button class="mic-btn ${state.recording?'recording':''}" id="micBtn" type="button" aria-label="${state.recording ? 'Stop microphone input' : 'Use microphone to speak your story'}">${state.recording ? '<span class="mic-dot"></span>' : MIC_ICON_SVG} ${micLabel}</button>
         <span class="wordcount">${wc} words</span>
       </div>
     </div>
     <div id="voiceWarning"></div>
-    <p class="eyebrow mt-32" style="margin-bottom:12px;"><span class="dot"></span>Not sure where to start?</p>
+    <div class="intake-cta-row">
+      <button class="btn btn-primary" id="submitStory" ${wc < 8 ? 'disabled':''}>Discover My Skills</button>
+      <button class="btn btn-text" data-go="landing">Back</button>
+    </div>
+    <p class="prompt-helper" id="promptHelper">${intakePromptHelperText()}</p>
     <div class="prompts">
       ${['Have you ever sold anything?','Managed money or a budget?','Trained or onboarded someone?','Handled an angry customer?','Organized an event?','Managed household logistics?','Built a social media page?','Solved a problem without being told how?']
         .map(p=>`<span class="prompt-chip">${p}</span>`).join('')}
-    </div>
-    <div class="mt-40" style="display:flex;gap:14px;align-items:center;">
-      <button class="btn btn-primary" id="submitStory" ${wc < 8 ? 'disabled':''}>Discover My Skills</button>
-      <button class="btn btn-text" data-go="landing">Back</button>
     </div>
     <p class="privacy-note">We only analyze what you write here to identify skills and possible directions. You can edit or delete your story at any time, and every recommendation is guidance — not a guarantee.</p>
   </div></div>`;
@@ -2171,45 +2246,113 @@ function renderSkills(){
 }
 
 /* ============================= PATHS ============================= */
-const CATEGORY_ORDER = ['Strong Evidence','Best Paths to Explore First','Worth Exploring','Strong Alternatives','Growth Path','Growth Directions','Independent Path','Longer-Term / Independent Paths','Lower Interest Based on What You Told Us'];
+const DISCOVERY_TIERS = ['Strongest matches','Adjacent opportunities','Unexpected possibilities'];
+const TIER_DESCRIPTIONS = {
+  'Strongest matches': 'Paths where your validated experience and transferable skills align most directly.',
+  'Adjacent opportunities': 'Realistic directions that build on what you bring, with a step or two of stretch.',
+  'Unexpected possibilities': 'Evidence-supported options that may not match your first guess — worth exploring with honest gaps noted.',
+};
+const PATH_STRENGTH_SCORE = { 'Strong': 4, 'Moderate': 3, 'Developing': 2, 'Needs More Information': 1 };
+function pathStrengthScore(val){ return PATH_STRENGTH_SCORE[val] || 1; }
+function pathObviousnessScore(category){
+  const c = (category || '').toLowerCase();
+  if(c.includes('strong evidence') || c.includes('best paths')) return 4;
+  if(c.includes('worth exploring') || c.includes('strong alternatives')) return 3;
+  if(c.includes('growth')) return 2;
+  if(c.includes('independent') || c.includes('longer-term')) return 1;
+  if(c.includes('lower interest')) return 2;
+  return 2;
+}
+function classifyPathsIntoTiers(paths){
+  const visible = paths.filter(p => state.pathFeedback[p.title] !== 'not_interested');
+  const buckets = { 'Strongest matches': [], 'Adjacent opportunities': [], 'Unexpected possibilities': [] };
+  if(!visible.length) return buckets;
+  const scored = visible.map(path => {
+    const evidence = pathStrengthScore(path.transition || path.fitEvidence);
+    const transfers = Math.min((path.transfers || []).length, 3);
+    const interest = pathStrengthScore(path.fitInterest);
+    const obvious = pathObviousnessScore(path.category);
+    const matchScore = evidence * 2.5 + transfers + interest * 0.75 + obvious;
+    const surpriseScore = (5 - obvious) * 2 + Math.max(0, 4 - evidence) * 0.5 + ((path.category || '').toLowerCase().includes('independent') ? 2 : 0);
+    return { path, matchScore, surpriseScore };
+  });
+  const maxMatch = Math.max(...scored.map(s => s.matchScore), 1);
+  const maxSurprise = Math.max(...scored.map(s => s.surpriseScore), 1);
+  for(const item of scored){
+    const normMatch = item.matchScore / maxMatch;
+    const normSurprise = item.surpriseScore / maxSurprise;
+    if(normSurprise >= 0.72 && normMatch < 0.82){
+      buckets['Unexpected possibilities'].push(item.path);
+    } else if(normMatch >= 0.68){
+      buckets['Strongest matches'].push(item.path);
+    } else {
+      buckets['Adjacent opportunities'].push(item.path);
+    }
+  }
+  for(const tier of DISCOVERY_TIERS){
+    if(!buckets[tier].length){
+      const donorTier = DISCOVERY_TIERS.find(t => buckets[t].length > 1);
+      if(donorTier){
+        buckets[tier].push(buckets[donorTier].pop());
+      } else if(visible.length){
+        buckets[tier].push(visible.find(p => !DISCOVERY_TIERS.some(t => buckets[t].some(x => x.title === p.title))) || visible[0]);
+      }
+    }
+  }
+  return buckets;
+}
+function renderPathNoveltyFeedback(title){
+  const fb = state.pathFeedback[title];
+  const capHint = regenCapHintTitle === title
+    ? `<p class="regen-cap-hint" role="status">We've already explored less obvious directions from your story. To surface more, add an experience or tell us more in conversation.</p>`
+    : '';
+  return `<div class="novelty-feedback" role="group" aria-label="Feedback for ${title}">
+    <button type="button" class="novelty-btn ${fb==='known'?'active-known':''}" data-path-feedback="known" data-path-title="${encodeURIComponent(title)}">I already knew this</button>
+    <button type="button" class="novelty-btn ${fb==='new'?'active-new':''}" data-path-feedback="new" data-path-title="${encodeURIComponent(title)}">This is new to me</button>
+    <button type="button" class="novelty-btn ${fb==='not_interested'?'active-not':''}" data-path-feedback="not_interested" data-path-title="${encodeURIComponent(title)}">Not interested</button>
+    ${capHint}
+  </div>`;
+}
+function renderPathCard(p){
+  const sel = state.chosenPath && state.chosenPath.title===p.title;
+  const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
+  return `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
+    <div class="path-title">${p.title}</div>
+    ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
+    <div class="path-why">${p.why}</div>
+    ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
+    <div class="path-meta">
+      <div><span class="k">Transfers</span><div class="path-tags">${(p.transfers||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+      <div><span class="k">Still developing</span><div class="path-tags">${(p.gaps||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+      <div><span class="k">Transition</span><div class="${transClass}" style="font-weight:600;">${p.transition}</div></div>
+    </div>
+    <div class="path-meta">
+      <div><span class="k">Work environment</span>${p.workEnvironment||''}</div>
+      <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+    </div>
+    ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
+      <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'—'}</div>
+      <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
+      <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
+    </div>`:''}
+    ${renderPathNoveltyFeedback(p.title)}
+  </div>`;
+}
 function renderPaths(){
   if(state.errorMsg) return renderError();
-  const byCat = {};
-  state.paths.forEach(p=>{ const c = p.category || 'Worth Exploring'; (byCat[c]=byCat[c]||[]).push(p); });
+  const tierBuckets = classifyPathsIntoTiers(state.paths);
   let html = `<div class="wrap-wide"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Career path discovery</div>
-    <h1 style="font-size:34px;">We found ${state.paths.length} career paths you may not have considered.</h1>
-    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Tap one that resonates, or one that doesn't feel like you — you'll get a chance to talk it through next.</p>`;
+    <h1 style="font-size:34px;">We found ${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length} career paths you may not have considered.</h1>
+    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Each tier reflects evidence strength and how close it sits to what you've already done — tap one that resonates, or one that doesn't feel like you.</p>`;
   if(state.reranked && state.changeSummary){
     html += `<div class="change-summary mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
   }
-  CATEGORY_ORDER.forEach(cat=>{
-    if(!byCat[cat] || !byCat[cat].length) return;
-    html += `<div class="path-category"><h3>${cat}</h3>`;
-    byCat[cat].forEach(p=>{
-      const sel = state.chosenPath && state.chosenPath.title===p.title;
-      const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
-      html += `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
-        <div class="path-title">${p.title}</div>
-        ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
-        <div class="path-why">${p.why}</div>
-        ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
-        <div class="path-meta">
-          <div><span class="k">Transfers</span><div class="path-tags">${(p.transfers||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-          <div><span class="k">Still developing</span><div class="path-tags">${(p.gaps||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-          <div><span class="k">Transition</span><div class="${transClass}" style="font-weight:600;">${p.transition}</div></div>
-        </div>
-        <div class="path-meta">
-          <div><span class="k">Work environment</span>${p.workEnvironment||''}</div>
-          <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-        </div>
-        ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
-          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'—'}</div>
-          <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
-          <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
-        </div>`:''}
-      </div>`;
-    });
+  DISCOVERY_TIERS.forEach(tier=>{
+    const paths = tierBuckets[tier];
+    if(!paths || !paths.length) return;
+    html += `<div class="path-tier"><h3>${tier}</h3><p class="tier-desc">${TIER_DESCRIPTIONS[tier]}</p>`;
+    paths.forEach(p => { html += renderPathCard(p); });
     html += `</div>`;
   });
   html += `<div class="mt-40"><button class="btn btn-primary" id="toConvo">Let's Talk About These</button></div></div></div>`;
@@ -2262,7 +2405,7 @@ function renderChoose(){
     <div class="eyebrow"><span class="dot"></span>Pick a path</div>
     <h1 style="font-size:32px;">Which direction do you want to build toward?</h1>
     <div class="mt-32">
-      ${state.paths.map(p=>{
+      ${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').map(p=>{
         const sel = state.chosenPath && state.chosenPath.title===p.title;
         return `<div class="path-card ${sel?'selected':''}" data-choose="${encodeURIComponent(p.title)}"><div class="path-title">${p.title}</div><div class="path-why">${p.why}</div></div>`;
       }).join('')}
@@ -2285,6 +2428,7 @@ function renderPaywall(){
   <div class="wrap"><div class="screen center">
     <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now let's build the path.</div>
     <h1 style="font-size:30px;">${state.chosenPath ? state.chosenPath.title : 'Your next role'}</h1>
+    <p class="paywall-intro">We've taken what you've shared — your story, validated skills, and the direction you chose — and shaped it into a personalized career intelligence package. Evidence-based, guided, and built around your actual experience.</p>
 
     <div class="bring-card">
       <h4>What you already bring</h4>
@@ -2298,17 +2442,17 @@ function renderPaywall(){
         <p style="font-size:14px;">You've already unlocked iFindWorth Starter in this demo — no card required, and you can explore another path without any real payment.</p>
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
       ` : `
-        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Your career intelligence package</div>
         <div class="amt">$19.99</div>
+        <p style="font-size:14px;color:var(--ink-soft);max-width:420px;margin:0 auto 6px;line-height:1.5;">A one-time unlock that turns your evidence and chosen direction into a practical execution plan — not a generic résumé template.</p>
         <ul class="unlock-list">
-          <li>Career sequence: Now → Next → Later</li>
-          <li>7 / 30 / 60 / 90-day action plan</li>
-          <li>Full skill-gap plan & learning strategy</li>
-          <li>Resume positioning, never fabricated</li>
-          <li>LinkedIn positioning, multiple strategies</li>
-          <li>Evidence-strengthening prompts</li>
-          <li>Search terms & interview story starters</li>
-          <li>Your personal Command Center dashboard</li>
+          <li>Deep-dive analysis of your evidence and positioning for this direction</li>
+          <li>Career sequence: Now → Next → Later with honest gap notes</li>
+          <li>7 / 30 / 60 / 90-day action roadmap with next best step</li>
+          <li>Job-targeted résumé language drawn from your story — never fabricated</li>
+          <li>LinkedIn positioning strategies tailored to your direction</li>
+          <li>Interview story starters and evidence-strengthening prompts</li>
+          <li>Search terms and your personal Command Center dashboard</li>
         </ul>
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Demo Unlock My Career Plan</button>
         <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">Planned one-time price.</p>
@@ -2579,6 +2723,7 @@ function attachHandlers(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       document.querySelector('.wordcount').textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      updateIntakePromptHelper();
       saveProfileToStorage(state);
     });
   }
@@ -2593,6 +2738,8 @@ function attachHandlers(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       document.querySelector('.wordcount').textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      updateIntakePromptHelper();
+      saveProfileToStorage(state);
     });
   });
   const micBtn = document.getElementById('micBtn'); if(micBtn) micBtn.addEventListener('click', toggleVoice);
@@ -2611,11 +2758,18 @@ function attachHandlers(){
 
   // paths
   document.querySelectorAll('[data-path]').forEach(el=>{
-    el.addEventListener('click', ()=>{
+    el.addEventListener('click', (e)=>{
+      if(e.target.closest('[data-path-feedback]')) return;
       const title = decodeURIComponent(el.getAttribute('data-path'));
       const p = state.paths.find(p=>p.title===title);
       state.chosenPath = (state.chosenPath && state.chosenPath.title===title) ? null : p;
       render();
+    });
+  });
+  document.querySelectorAll('[data-path-feedback]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      handlePathFeedback(decodeURIComponent(el.getAttribute('data-path-title')), el.getAttribute('data-path-feedback'));
     });
   });
   const toConvo = document.getElementById('toConvo');
@@ -2749,6 +2903,7 @@ function toggleVoice(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       const wcEl = document.querySelector('.wordcount'); if(wcEl) wcEl.textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      updateIntakePromptHelper();
     }
   };
   recognition.onerror = ()=>{
@@ -2824,6 +2979,9 @@ Rules:
     }));
     paths = purgeRejectedFromObject(paths, rejected);
     state.paths = paths;
+    state.pathFeedback = {};
+    state.pathRegenerationCount = 0;
+    regenCapHintTitle = null;
     state.reranked = false; state.changeSummary='';
     state.screen = 'paths';
   }catch(err){
@@ -2897,6 +3055,96 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
   }finally{
     state.convoBusy = false; render();
     const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
+  }
+}
+
+function handlePathFeedback(title, feedback){
+  if(!title || !feedback) return;
+  const prev = state.pathFeedback[title];
+  const togglingOff = prev === feedback;
+  state.pathFeedback[title] = togglingOff ? undefined : feedback;
+  if(feedback === 'not_interested'){
+    const dislikeLabel = `Not interested in ${title}`;
+    if(togglingOff){
+      state.preferences.dislikes = state.preferences.dislikes.filter(d => d !== dislikeLabel);
+    } else {
+      if(!state.preferences.dislikes.includes(dislikeLabel)) state.preferences.dislikes.push(dislikeLabel);
+      if(state.chosenPath && state.chosenPath.title === title) state.chosenPath = null;
+    }
+  }
+  saveProfileToStorage(state);
+  if(feedback === 'known' && state.pathFeedback[title] === 'known'){
+    if(state.pathRegenerationCount < 2 && !state.busy){
+      regenCapHintTitle = null;
+      regenerateLessObviousPaths();
+      return;
+    }
+    if(state.pathRegenerationCount >= 2){
+      regenCapHintTitle = title;
+    }
+  } else if(regenCapHintTitle === title){
+    regenCapHintTitle = null;
+  }
+  render();
+}
+
+async function regenerateLessObviousPaths(){
+  if(state.busy) return;
+  if(state.pathRegenerationCount >= 2) return;
+  state.busy = true;
+  const priorPaths = state.paths;
+  const knownTitles = Object.entries(state.pathFeedback).filter(([,v]) => v === 'known').map(([t]) => t);
+  const notInterested = Object.entries(state.pathFeedback).filter(([,v]) => v === 'not_interested').map(([t]) => t);
+  state.pathRegenerationCount++;
+  state.screen = 'analyzing'; state.loadingMsg = 'Finding less obvious directions…'; state.errorMsg=''; render();
+  const retainedStorySkills = getRetainedStorySkills();
+  const rejected = getRejectedSkillNames();
+  const retainedSkillNames = retainedStorySkills.map(s=>s.name);
+  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed career paths and marked some as "already knew" — meaning those directions felt too obvious. Regenerate a fresh set of 4-5 DIFFERENT evidence-supported career path options that are less obvious but still honestly supported by retained story skills.
+${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
+Critical rules for this regeneration:
+1) Introduce DIFFERENT path titles — do NOT return the same titles the user already saw unless absolutely unavoidable. This is NOT a reorder — it is new candidate generation.
+2) Prioritize paths with moderate/developing evidence fit that still have real story support — adjacent and unexpected directions over the most literal match.
+3) Evidence still governs: never inflate fit because the user wants surprise. Preference never overrides evidence.
+4) Omit paths the user marked as not interested: ${notInterested.join(', ') || 'none'}.
+5) Avoid paths the user already knew (too obvious): ${knownTitles.join(', ') || 'none'} — replace with genuinely different directions.
+6) Return 4-5 paths. Categories: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+7) transfers must ONLY use skill names from Retained story skills. transition required on every path. fitInterest and fitLifestyle required.
+8) changeSummary (max 25 words): explain that less obvious, still evidence-supported directions were surfaced.${rejectedSkillsClause()}`;
+  const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills:\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (DO NOT repeat these titles — generate different ones):\n${JSON.stringify(compactPrior)}\n\nPaths user already knew (too obvious): ${knownTitles.join(', ') || 'none'}\nPaths user is not interested in: ${notInterested.join(', ') || 'none'}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}`;
+  try{
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    let paths = result.paths.map(p => ({
+      ...p,
+      transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
+    }));
+    paths = purgeRejectedFromObject(paths, rejected);
+    const priorTitleSet = new Set(priorPaths.map(p => p.title));
+    const newTitleCount = paths.filter(p => !priorTitleSet.has(p.title)).length;
+    if(newTitleCount === 0){
+      state.pathRegenerationCount = Math.max(0, state.pathRegenerationCount - 1);
+    }
+    state.paths = paths;
+    state.changeSummary = purgeRejectedMentions(result.changeSummary, rejected);
+    state.reranked = true;
+    if (state.chosenPath && !paths.some(p => p.title === state.chosenPath.title)) {
+      state.chosenPath = null;
+    }
+    state.screen = 'paths';
+    saveProfileToStorage(state);
+  }catch(err){
+    logDiag('regenerateLessObviousPaths', 'final_failure', err.message || String(err));
+    state.paths = priorPaths;
+    state.pathRegenerationCount = Math.max(0, state.pathRegenerationCount - 1);
+    state.errorMsg = "We couldn't surface less obvious directions just now. Nothing was lost — you can try again.";
+    state.errorRetry = regenerateLessObviousPaths; state.screen = 'paths';
+  }finally{
+    state.busy = false; render();
   }
 }
 
