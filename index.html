@@ -7,6 +7,43 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
 <title>iFindWorth</title>
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="fo po init Fo Oo qo Zs Lo Bo Ro capture Do vo Go calculateEventProperties Vo register register_once register_for_session unregister unregister_for_session Ko Ao Zo getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync Yo identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset Xo shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Qo Uo createPersonProfile setInternalOrTestUser Jo Eo il opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ho debug Js mn getPageViewId captureTraceFeedback captureTraceMetric Co".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_p4TSuWAbFEfK946ATixj2k8aCgjTMjeo2eLZnHUtoyvF', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-05-30',
+        person_profiles: 'identified_only',
+        // PostHog defaults (2026-05-30) already provide:
+        // - Session replay: all inputs masked by default; password fields always masked
+        // - Autocapture: ph-no-autocapture elements excluded; capture_copied_text: false
+        // - capture_pageview: 'history_change' (SPA-friendly pageviews)
+        // - strictMinimumDuration for session recordings (2025-11-30+)
+        // - rageclick ignores text-selection surfaces and stepper controls (2026-05-30)
+        session_recording: {
+            maskAllInputs: true,
+            maskInputOptions: {
+                password: true,
+                email: true,
+                text: true,
+                tel: true,
+                textarea: true,
+            },
+            maskTextSelector: '.ph-career-content, .ph-mask, #storyInput, #jdInput, #addExpInput, #convoInput, [id^="strengthenInput"], [id^="storyDetail"]',
+        },
+        autocapture: {
+            css_selector_ignorelist: [
+                '.ph-no-capture', '[data-ph-no-capture]',
+                '.ph-no-autocapture', '[data-ph-no-autocapture]',
+                '.ph-career-content',
+                '#storyInput', '#jdInput', '#addExpInput', '#convoInput',
+                '[id^="strengthenInput"]', '[id^="storyDetail"]',
+                'textarea', 'input[type="text"]', 'input[type="email"]', 'input[type="search"]',
+            ],
+            dom_event_allowlist: ['click', 'submit'],
+            capture_copied_text: false,
+        },
+    })
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
   :root{
@@ -2118,7 +2155,7 @@ function renderIntake(){
     <h1 style="font-size:36px;">Tell me your story.</h1>
     <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Tell me what you've actually done — jobs, businesses, volunteering, family responsibilities, side hustles, school projects, community work. Whatever feels relevant.</p>
     <div class="intake-card mt-32">
-      <textarea id="storyInput" placeholder="Start typing, or tap the microphone to talk instead...">${state.story}</textarea>
+      <textarea id="storyInput" class="ph-no-capture" placeholder="Start typing, or tap the microphone to talk instead...">${state.story}</textarea>
       <div class="intake-toolbar">
         <button class="mic-btn ${state.recording?'recording':''}" id="micBtn"><span class="mic-dot"></span> ${state.recording ? 'Listening… tap to stop' : 'Just talk'}</button>
         <span class="wordcount">${wc} words</span>
@@ -2156,7 +2193,7 @@ function renderSkills(){
         const v = state.skillValidation[s.name];
         return `<div class="skill-card ${v==='no'?'rejected':''}">
           <div class="skill-top"><div class="skill-name">${s.name}</div><span class="strength-pill strength-${(s.strength||'').replace(/\s+/g,'')}">${s.strength}</span></div>
-          <div class="skill-evidence"><span class="lbl">Why we identified this</span>${s.evidence}</div>
+          <div class="skill-evidence ph-career-content"><span class="lbl">Why we identified this</span>${s.evidence}</div>
           <div class="skill-actions">
             <button class="validate-btn ${v==='yes'?'active-yes':''}" data-validate="${encodeURIComponent(s.name)}" data-val="yes">Yes, that's right</button>
             <button class="validate-btn ${v==='no'?'active-no':''}" data-validate="${encodeURIComponent(s.name)}" data-val="no">Not quite</button>
@@ -2181,7 +2218,7 @@ function renderPaths(){
     <h1 style="font-size:34px;">We found ${state.paths.length} career paths you may not have considered.</h1>
     <p style="max-width:560px;">These are possibilities to explore, not verdicts. Tap one that resonates, or one that doesn't feel like you — you'll get a chance to talk it through next.</p>`;
   if(state.reranked && state.changeSummary){
-    html += `<div class="change-summary mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
+    html += `<div class="change-summary ph-career-content mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
   }
   CATEGORY_ORDER.forEach(cat=>{
     if(!byCat[cat] || !byCat[cat].length) return;
@@ -2191,6 +2228,7 @@ function renderPaths(){
       const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
       html += `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
         <div class="path-title">${p.title}</div>
+        <div class="ph-career-content">
         ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
         <div class="path-why">${p.why}</div>
         ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
@@ -2208,6 +2246,7 @@ function renderPaths(){
           <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
           <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
         </div>`:''}
+        </div>
       </div>`;
     });
     html += `</div>`;
@@ -2223,7 +2262,7 @@ function renderConversation(){
     <div class="eyebrow"><span class="dot"></span>Before you choose</div>
     <h1 style="font-size:32px;">Let's talk about your results.</h1>
     <p>Anything here surprise you? Anything missing, or not feel like you? Tell me more and I'll refine what I'm seeing — and update your recommendations.</p>
-    <div class="convo-log">
+    <div class="convo-log ph-career-content">
       ${state.convo.map(c=>{
         if(c.who==='learned') return renderLearnedCard(c);
         return `<div class="convo-bubble ${c.who==='ai'?'ai':''}">${c.text}</div>`;
@@ -2235,7 +2274,7 @@ function renderConversation(){
         .map(p=>`<span class="prompt-chip" data-fill="${encodeURIComponent(p)}">${p}</span>`).join('')}
     </div>
     <div class="convo-input-row">
-      <input id="convoInput" type="text" placeholder="Tell me what you're thinking…" ${state.convoBusy?'disabled':''} />
+      <input id="convoInput" class="ph-no-capture" type="text" placeholder="Tell me what you're thinking…" ${state.convoBusy?'disabled':''} />
       <button class="btn btn-primary btn-sm" id="convoSend" ${state.convoBusy?'disabled':''}>${state.convoBusy?'Sending…':'Send'}</button>
     </div>
     <div class="mt-40"><button class="btn btn-primary" id="toChoose" ${state.convoBusy?'disabled':''}>Ready to Pick a Direction</button></div>
@@ -2245,8 +2284,8 @@ function renderLearnedCard(c){
 
   return `<div class="learned-card">
     <h4>I've learned something new about what you're looking for.</h4>
-    ${c.interests && c.interests.length ? `<div class="learned-row">${c.interests.map(i=>`<span class="learned-chip">✓ ${i}</span>`).join('')}</div>`:''}
-    ${c.dislikes && c.dislikes.length ? `<div class="learned-row">${c.dislikes.map(i=>`<span class="learned-chip down">↓ ${i}</span>`).join('')}</div>`:''}
+    ${c.interests && c.interests.length ? `<div class="learned-row ph-career-content">${c.interests.map(i=>`<span class="learned-chip">✓ ${i}</span>`).join('')}</div>`:''}
+    ${c.dislikes && c.dislikes.length ? `<div class="learned-row ph-career-content">${c.dislikes.map(i=>`<span class="learned-chip down">↓ ${i}</span>`).join('')}</div>`:''}
     <div style="display:flex;gap:10px;margin-top:8px;">
       <button class="btn btn-primary btn-sm" data-rerank="1">Update My Recommendations</button>
       <button class="btn btn-text btn-sm" data-dismiss-learned="1">Keep Talking</button>
@@ -2264,7 +2303,7 @@ function renderChoose(){
     <div class="mt-32">
       ${state.paths.map(p=>{
         const sel = state.chosenPath && state.chosenPath.title===p.title;
-        return `<div class="path-card ${sel?'selected':''}" data-choose="${encodeURIComponent(p.title)}"><div class="path-title">${p.title}</div><div class="path-why">${p.why}</div></div>`;
+        return `<div class="path-card ${sel?'selected':''}" data-choose="${encodeURIComponent(p.title)}"><div class="path-title">${p.title}</div><div class="path-why ph-career-content">${p.why}</div></div>`;
       }).join('')}
     </div>
     <div class="eyebrow mt-40" style="margin-bottom:6px;"><span class="dot"></span>What matters most to you?</div>
@@ -2286,11 +2325,11 @@ function renderPaywall(){
     <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now let's build the path.</div>
     <h1 style="font-size:30px;">${state.chosenPath ? state.chosenPath.title : 'Your next role'}</h1>
 
-    <div class="bring-card">
+    <div class="bring-card ph-career-content">
       <h4>What you already bring</h4>
       <div class="path-tags">${strengths.map(s=>`<span class="mini-tag">${s.name}</span>`).join('')}</div>
     </div>
-    ${gap ? `<div class="gap-preview"><strong>One area worth strengthening:</strong> ${gap}</div>`:''}
+    ${gap ? `<div class="gap-preview ph-career-content"><strong>One area worth strengthening:</strong> ${gap}</div>`:''}
 
     <div class="paywall-card">
       ${alreadyPaid ? `
@@ -2332,28 +2371,28 @@ function renderRoadmap(){
   const sections = state.roadmapSections;
   const sectionErrors = state.roadmapSectionError;
 
-  const actionPlanBlock = sections.actionPlan === 'ready' ? `<div class="roadmap-section">
+  const actionPlanBlock = sections.actionPlan === 'ready' ? `<div class="roadmap-section ph-career-content">
       <h3>Your action plan</h3>
       <div class="ladder-level"><div class="lvl-name">First 7 days</div><ul>${(r.plan.first7||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
       <div class="ladder-level"><div class="lvl-name">Days 8–30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
       <div class="ladder-level"><div class="lvl-name">Days 31–60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
       <div class="ladder-level"><div class="lvl-name">Days 61–90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
     </div>
-    <div class="roadmap-section"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>`
+    <div class="roadmap-section ph-career-content"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>`
     : renderRoadmapSectionRetry('Your action plan', 'actionPlan', sections.actionPlan, sectionErrors.actionPlan);
 
   const directionBlock = sections.direction === 'ready' ? `
     <div class="eyebrow mt-32"><span class="dot"></span>Your Career Sequence</div>
-    <div class="sequence-track">
+    <div class="sequence-track ph-career-content">
       <div class="seq-stop"><div class="seq-lbl">Now</div><h4>${r.sequence.now.title}</h4><p>${r.sequence.now.desc}</p></div>
       <div class="seq-stop"><div class="seq-lbl">Next</div><h4>${r.sequence.next.title}</h4><p>${r.sequence.next.desc}</p></div>
       <div class="seq-stop"><div class="seq-lbl">Later</div><h4>${r.sequence.later.title}</h4><p>${r.sequence.later.desc}</p></div>
     </div>
-    <div class="roadmap-section"><h3>Learning ladder</h3>
+    <div class="roadmap-section ph-career-content"><h3>Learning ladder</h3>
       ${(r.learn||[]).map(l=>`<div class="ladder-level"><div class="lvl-name">${l.level}</div><ul>${(l.items||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}
     </div>
-    <div class="roadmap-section"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
-    <div class="roadmap-section"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>`
+    <div class="roadmap-section ph-career-content"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
+    <div class="roadmap-section ph-career-content"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>`
     : renderRoadmapSectionRetry('Your career sequence & learning strategy', 'direction', sections.direction, sectionErrors.direction);
 
   return `
@@ -2366,10 +2405,10 @@ function renderRoadmap(){
 
     ${directionBlock}
 
-    <div class="roadmap-section"><h3>Where you are now</h3><p style="color:var(--ink);">${r.whereYouAre}</p></div>
-    <div class="roadmap-section"><h3>What already transfers</h3><ul>${(r.transfers||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
-    <div class="roadmap-section"><h3>What we need to understand better</h3><ul>${(r.understandBetter||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
-    <div class="roadmap-section"><h3>What you may need to strengthen</h3><ul>${(r.strengthen||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    <div class="roadmap-section ph-career-content"><h3>Where you are now</h3><p style="color:var(--ink);">${r.whereYouAre}</p></div>
+    <div class="roadmap-section ph-career-content"><h3>What already transfers</h3><ul>${(r.transfers||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    <div class="roadmap-section ph-career-content"><h3>What we need to understand better</h3><ul>${(r.understandBetter||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+    <div class="roadmap-section ph-career-content"><h3>What you may need to strengthen</h3><ul>${(r.strengthen||[]).map(t=>`<li>${t}</li>`).join('')}</ul></div>
 
     ${actionPlanBlock}
 
@@ -2396,7 +2435,7 @@ function renderKit(){
     <h1 style="font-size:32px;">Positioning your experience.</h1>
     <p>Built from the experience you shared — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
 
-    <div class="kit-block mt-32">
+    <div class="kit-block mt-32 ph-career-content">
       <h3>Resume bullets</h3>
       ${(k.resumeBullets||[]).length ? (k.resumeBullets||[]).map((b,i)=>`
         <div class="bullet-row">
@@ -2404,14 +2443,14 @@ function renderKit(){
           ${b.strengthen ? `
             <span class="strengthen-link" data-strengthen-open="${i}">Help me strengthen this — ${b.strengthen}</span>
             <div class="strengthen-box" id="strengthenBox${i}" style="display:none;">
-              <input type="text" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" ${state.kitBusyIndex===i?'disabled':''} />
+              <input type="text" class="ph-no-capture" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" ${state.kitBusyIndex===i?'disabled':''} />
               <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
               <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
             </div>` : ''}
         </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you've actually done before we can write evidence-based resume bullets.</p>`}
     </div>
 
-    <div class="kit-block">
+    <div class="kit-block ph-career-content">
       <h3>LinkedIn headline — choose a strategy</h3>
       ${(k.linkedinHeadlines||[]).map((h,i)=>`
         <div class="headline-option ${state.selectedHeadline===i?'selected':''}" data-headline="${i}">
@@ -2420,7 +2459,7 @@ function renderKit(){
         </div>`).join('')}
     </div>
 
-    <div class="kit-block"><h3>LinkedIn about</h3><p>${k.linkedinAbout||''}</p></div>
+    <div class="kit-block ph-career-content"><h3>LinkedIn about</h3><p>${k.linkedinAbout||''}</p></div>
 
     <div class="mt-40"><button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button></div>
   </div></div>`;
@@ -2437,15 +2476,15 @@ function renderDashboard(){
     <h1 style="font-size:32px;">Welcome back.</h1>
 
     <div class="dash-grid two-col mt-32">
-      <div class="dash-card"><h3>Where you're going</h3>
+      <div class="dash-card ph-career-content"><h3>Where you're going</h3>
         <p style="font-family:var(--serif);font-size:19px;margin:0 0 10px;">${state.chosenPath ? state.chosenPath.title : '—'}</p>
         ${r && r.sequence ? `<div style="font-size:13px;color:var(--ink-soft);">${r.sequence.now.title} &rarr; ${r.sequence.next.title} &rarr; ${r.sequence.later.title}</div>`:''}
       </div>
-      <div class="dash-card next-step-card"><h3>What should I do next</h3><p class="big">${r ? r.nextStep : 'Unlock your roadmap to see your next step.'}</p></div>
+      <div class="dash-card next-step-card ph-career-content"><h3>What should I do next</h3><p class="big">${r ? r.nextStep : 'Unlock your roadmap to see your next step.'}</p></div>
     </div>
 
     <div class="dash-grid two-col">
-      <div class="dash-card"><h3>This week</h3><ul>${r&&r.plan ? r.plan.first7.map(i=>`<li>${i}</li>`).join('') : '<li>Unlock your roadmap.</li>'}</ul></div>
+      <div class="dash-card ph-career-content"><h3>This week</h3><ul>${r&&r.plan ? r.plan.first7.map(i=>`<li>${i}</li>`).join('') : '<li>Unlock your roadmap.</li>'}</ul></div>
       <div class="dash-card"><h3>30-day progress</h3>
         <p style="font-size:13.5px;">You're just getting started on this plan.</p>
         <div class="progress-track"><div class="fill" style="width:8%;"></div></div>
@@ -2453,11 +2492,11 @@ function renderDashboard(){
     </div>
 
     <div class="dash-grid two-col">
-      <div class="dash-card"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet — mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
-      <div class="dash-card"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
+      <div class="dash-card ph-career-content"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet — mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
+      <div class="dash-card ph-career-content"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
     </div>
 
-    <div class="dash-card mt-16"><h3>Evidence library</h3>
+    <div class="dash-card mt-16 ph-career-content"><h3>Evidence library</h3>
       ${state.evidenceLibrary.map(e=>`<div class="evidence-lib-card"><span class="theme">${e.theme}</span> — ${e.evidence}</div>`).join('') || '<p style="font-size:13px;">Build your kit to populate your evidence library.</p>'}
     </div>
 
@@ -2470,7 +2509,7 @@ function renderDashboard(){
       </div>
     </div>
 
-    <div class="dash-card mt-16"><h3>What iFindWorth has learned about you</h3>
+    <div class="dash-card mt-16 ph-career-content"><h3>What iFindWorth has learned about you</h3>
       <div class="path-tags">
         ${state.priorities.map(p=>`<span class="mini-tag">${p}</span>`).join('')}
         ${state.preferences.interests.map(p=>`<span class="learned-chip">✓ ${p}</span>`).join('')}
@@ -2491,7 +2530,7 @@ function renderAddExperience(){
   <div class="wrap"><div class="screen">
     <h1 style="font-size:30px;">What else have you done?</h1>
     <p style="max-width:500px;">Another job, a side hustle, a volunteer role, a school project, freelance work — anything you didn't mention before.</p>
-    <div class="intake-card mt-32"><textarea class="plain-textarea" id="addExpInput" placeholder="Tell me about it...">${state.addExpText}</textarea></div>
+    <div class="intake-card mt-32"><textarea class="plain-textarea ph-no-capture" id="addExpInput" placeholder="Tell me about it...">${state.addExpText}</textarea></div>
     <div class="mt-32" style="display:flex;gap:14px;">
       <button class="btn btn-primary" id="submitAddExp">Update My Profile</button>
       <button class="btn btn-text" data-go="dashboard">Cancel</button>
@@ -2508,14 +2547,14 @@ function renderStoryBank(){
     <div class="eyebrow"><span class="dot"></span>Interview prep</div>
     <h1 style="font-size:30px;">My Story Bank</h1>
     <p>Interview-ready stories, built from the experience you shared — nothing invented.</p>
-    <div class="mt-32">
+    <div class="mt-32 ph-career-content">
       ${state.storyBank.stories.map((s,i)=>`
         <div class="story-card">
           <h4>${s.category}</h4>
           ${s.status==='ready' ? `<p style="font-size:14.5px;">${s.story}</p>` : `
             <div class="status-need">Not enough evidence yet — ${s.prompt || 'tell me more?'}</div>
             <div class="story-add-row">
-              <input type="text" id="storyDetail${i}" placeholder="Add a detail..." ${state.storyBankBusyIndex===i?'disabled':''} />
+              <input type="text" class="ph-no-capture" id="storyDetail${i}" placeholder="Add a detail..." ${state.storyBankBusyIndex===i?'disabled':''} />
               <button class="btn btn-primary btn-sm" data-story-add="${i}" ${state.storyBankBusyIndex!==null?'disabled':''}>${state.storyBankBusyIndex===i?'Adding…':'Add'}</button>
             </div>`}
         </div>`).join('')}
@@ -2532,7 +2571,7 @@ function renderJdAnalyzer(){
     <div class="eyebrow"><span class="dot"></span>Job match analysis</div>
     <h1 style="font-size:30px;">Analyze a job description.</h1>
     <p style="max-width:520px;">Paste a real job posting. We'll compare it against skills from your story — based only on the text you paste, not live market data.</p>
-    <div class="intake-card mt-32"><textarea class="plain-textarea" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
+    <div class="intake-card mt-32"><textarea class="plain-textarea ph-no-capture" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
     <div class="mt-32"><button class="btn btn-primary" id="submitJd">Analyze Against My Profile</button></div>
 
     ${state.jdAnalysis ? renderJdResult(state.jdAnalysis) : ''}
@@ -2543,13 +2582,13 @@ function renderJdAnalyzer(){
 function renderJdResult(a){
   const badgeClass = 'transition-' + (a.overallFit||'').replace(/\s+/g,'');
   return `
-  <div class="jd-result mt-32">
+  <div class="jd-result ph-career-content mt-32">
     <h3>Overall fit</h3>
     <span class="fit-badge ${badgeClass}" style="background:var(--paper-dim);">${a.overallFit}</span>
   </div>
-  <div class="jd-result"><h3>Market asks for</h3><div class="path-tags">${(a.marketAsks||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-  <div class="jd-result"><h3>You already have</h3><div class="path-tags">${(a.youAlreadyHave||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-  <div class="jd-result"><h3>Worth strengthening</h3><div class="path-tags">${(a.shouldStrengthen||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+  <div class="jd-result ph-career-content"><h3>Market asks for</h3><div class="path-tags">${(a.marketAsks||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+  <div class="jd-result ph-career-content"><h3>You already have</h3><div class="path-tags">${(a.youAlreadyHave||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+  <div class="jd-result ph-career-content"><h3>Worth strengthening</h3><div class="path-tags">${(a.shouldStrengthen||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
   `;
 }
 
