@@ -2355,6 +2355,7 @@ function renderPathCard(p){
   const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
   return `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
     <div class="path-title">${p.title}</div>
+    <div class="ph-career-content">
     ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
     <div class="path-why">${p.why}</div>
     ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
@@ -2372,6 +2373,7 @@ function renderPathCard(p){
       <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
       <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
     </div>`:''}
+    </div>
     ${renderPathNoveltyFeedback(p.title)}
   </div>`;
 }
