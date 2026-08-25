@@ -604,6 +604,7 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
   buildStoryBank: () =>
     `You build an interview Story Bank inside iFindWorth, using only the user's real, story-supported experience.
 ${NO_INVENTION_RULE}
+Treat the Retained story skills in the user message only as story-supported context; never turn a skill label into an incident or outcome.
 For each fixed category, either write a 2-3 sentence first-person draft using only actions and outcomes explicitly stated by the user, or return status "needs_more" with one short question. Never convert "I help," "people depend on me," or a skill label into a specific incident, resolution, system, outcome, emotion, or achievement the user did not describe. If the evidence does not contain a beginning, action, and outcome for that category, it is not interview-ready: ask for detail. Use the categories in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of".`,
 
   addStoryDetail: () =>
