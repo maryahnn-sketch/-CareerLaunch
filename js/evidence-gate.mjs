@@ -1009,3 +1009,74 @@ export function applyLinkedInGate(kitResult, gate, targetPathTitle = '') {
     linkedinAbout: fallback.linkedinAbout,
   };
 }
+
+const VAGUE_SEARCH_TERM =
+  /^(?:professional|meaningful work|great opportunity|entry level|job seeker|job|career|role|position|work|employment)$/i;
+
+const SKILL_SEARCH_TERM_HINTS = [
+  { pattern: /(?:organiz|coordin|admin|office|schedul|clerical)/i, terms: ['Office Coordinator', 'Administrative Assistant'] },
+  { pattern: /(?:listen|communication|customer|service|support|interpersonal|relationship)/i, terms: ['Customer Service Representative', 'Client Support Specialist'] },
+  { pattern: /(?:care|caregiv|personal support|companion)/i, terms: ['Caregiver', 'Personal Care Assistant'] },
+  { pattern: /(?:operations|logistics|inventory|supply)/i, terms: ['Operations Coordinator', 'Logistics Coordinator'] },
+  { pattern: /(?:problem.?solv|troubleshoot|fix)/i, terms: ['Help Desk Support', 'Operations Support Specialist'] },
+];
+
+function sanitizeSearchTerm(term) {
+  const cleaned = String(term || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!cleaned || cleaned.length > 30) return null;
+  if (VAGUE_SEARCH_TERM.test(cleaned)) return null;
+  if (/\b(?:and|or|the|a|an)\b/i.test(cleaned) && cleaned.split(/\s+/).length > 4) return null;
+  return cleaned;
+}
+
+function addSearchTerm(terms, seen, raw) {
+  const cleaned = sanitizeSearchTerm(raw);
+  if (!cleaned) return;
+  const key = cleaned.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
+  terms.push(cleaned);
+}
+
+function searchTermsFromSkills(retainedSkills = []) {
+  const derived = [];
+  for (const skill of retainedSkills) {
+    const name = String(skill?.name || '');
+    for (const hint of SKILL_SEARCH_TERM_HINTS) {
+      if (!hint.pattern.test(name)) continue;
+      for (const term of hint.terms) derived.push(term);
+    }
+  }
+  return derived;
+}
+
+/**
+ * Resolve defensible job-search terms for the application kit.
+ * Priority: roadmap direction → chosen path → grounded skills.
+ */
+export function deriveApplicationKitSearchTerms({
+  roadmapSearchTerms,
+  chosenPath,
+  retainedSkills = [],
+} = {}) {
+  const terms = [];
+  const seen = new Set();
+
+  for (const term of roadmapSearchTerms || []) addSearchTerm(terms, seen, term);
+  if (terms.length >= 3) return terms.slice(0, 5);
+
+  if (chosenPath) {
+    addSearchTerm(terms, seen, chosenPath.title);
+    if (chosenPath.entryPoint && chosenPath.entryPoint !== chosenPath.title) {
+      addSearchTerm(terms, seen, chosenPath.entryPoint);
+    }
+    addSearchTerm(terms, seen, chosenPath.progression);
+  }
+  if (terms.length >= 3) return terms.slice(0, 5);
+
+  for (const term of searchTermsFromSkills(retainedSkills)) addSearchTerm(terms, seen, term);
+
+  return terms.slice(0, 5);
+}

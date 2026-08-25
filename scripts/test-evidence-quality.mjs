@@ -32,7 +32,15 @@ import {
   buildLinkedInEvidenceCorpus,
   findResumeBulletIndirectnessViolation,
   validateResumeBulletDirectness,
+  deriveApplicationKitSearchTerms,
 } from './evidence-gate.mjs';
+import {
+  validatePathsResult,
+  hasEvidenceSupportedAlternativeDirections,
+  enforcePathDiscoveryBalance,
+  annotatePathsWithEvidenceNotes,
+  findPathClaimViolations,
+} from '../js/path-validation.mjs';
 import {
   getConfirmedSkills,
   getRetainedStorySkills,
@@ -934,9 +942,112 @@ function main() {
   );
 
   assert(
-    'path validation rejects unsupported salary claims deterministically',
-    INDEX_HTML.includes('findPathClaimViolations') &&
-      INDEX_HTML.includes('enforcePathDiscoveryBalance')
+    'path validation module is wired into discoverPaths flow',
+    INDEX_HTML.includes('loadPathValidation') &&
+      INDEX_HTML.includes('validatePathsResultWithStructure')
+  );
+
+  const adminNamedStory =
+    'I want to become an administrative coordinator. I organized church events and scheduled appointments for my manager.';
+  const adminNamedSkills = [
+    { name: 'Organization & Coordination', strength: 'Strong', evidence: 'You described organizing church events.' },
+    { name: 'Active Listening', strength: 'Moderate', evidence: 'You described listening carefully.' },
+    { name: 'Problem Solving', strength: 'Moderate', evidence: 'You described fixing things for people.' },
+  ];
+  const adminNamedCareers = ['administrative coordinator'];
+  const allAdminNamedPaths = {
+    paths: [
+      { title: 'Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Organizing evidence', transfers: ['Organization & Coordination'], gaps: ['tools'], transition: 'Strong', workEnvironment: 'Office pace' },
+      { title: 'Senior Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Scheduling evidence', transfers: ['Organization & Coordination'], gaps: ['software'], transition: 'Strong', workEnvironment: 'Team-based' },
+      { title: 'Entry Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Coordinator', category: 'Worth Exploring', why: 'Listening evidence', transfers: ['Active Listening'], gaps: ['experience'], transition: 'Moderate', workEnvironment: 'Desk-based' },
+    ],
+  };
+  const mixedNamedPaths = {
+    paths: [
+      ...allAdminNamedPaths.paths.slice(0, 2),
+      { title: 'Customer Service Representative', entryPoint: 'Customer Service Rep', progression: 'Support Lead', category: 'Worth Exploring', why: 'Listening and problem solving', transfers: ['Active Listening', 'Problem Solving'], gaps: ['metrics'], transition: 'Moderate', workEnvironment: 'People-facing' },
+    ],
+  };
+
+  assert(
+    'scenario A: named-career-only paths fail when evidence supports alternatives',
+    hasEvidenceSupportedAlternativeDirections(adminNamedStory, adminNamedSkills, adminNamedCareers) &&
+      !validatePathsResult(allAdminNamedPaths, adminNamedStory, adminNamedSkills).ok &&
+      validatePathsResult(mixedNamedPaths, adminNamedStory, adminNamedSkills).ok
+  );
+
+  const caregiverStory =
+    'I worked as a caregiver for my aunt and want to become a caregiver. I helped with meals, appointments, medication reminders, and daily routines.';
+  const caregiverSkills = [
+    { name: 'Caregiving & People Support', strength: 'Strong', evidence: 'You described providing personal care to your aunt.' },
+    { name: 'Organization', strength: 'Moderate', evidence: 'You described keeping routines on track.' },
+  ];
+  const caregiverNamedCareers = ['caregiver'];
+  const allCaregiverPaths = {
+    paths: [
+      { title: 'Caregiver', entryPoint: 'Caregiver', progression: 'Senior Caregiver', category: 'Strong Evidence', why: 'Direct caregiving experience', transfers: ['Caregiving & People Support'], gaps: ['cert'], transition: 'Strong', workEnvironment: 'Hands-on' },
+      { title: 'Family Caregiver', entryPoint: 'Family Caregiver', progression: 'Care Coordinator', category: 'Strong Evidence', why: 'Medication and routine support', transfers: ['Caregiving & People Support'], gaps: ['formal'], transition: 'Strong', workEnvironment: 'Home-based' },
+      { title: 'Senior Caregiver', entryPoint: 'Senior Caregiver', progression: 'Lead Caregiver', category: 'Worth Exploring', why: 'Daily routine support', transfers: ['Organization'], gaps: ['training'], transition: 'Moderate', workEnvironment: 'Client homes' },
+    ],
+  };
+
+  assert(
+    'scenario B: named-career-only paths pass when no responsible alternative is supported',
+    !hasEvidenceSupportedAlternativeDirections(caregiverStory, caregiverSkills, caregiverNamedCareers) &&
+      validatePathsResult(allCaregiverPaths, caregiverStory, caregiverSkills).ok
+  );
+
+  const downgraded = enforcePathDiscoveryBalance(allCaregiverPaths.paths, caregiverStory, caregiverSkills);
+  assert(
+    'enforcePathDiscoveryBalance does not downgrade paths to force artificial variety',
+    downgraded.every((path, idx) => path.transition === allCaregiverPaths.paths[idx].transition)
+  );
+
+  const annotated = annotatePathsWithEvidenceNotes(allCaregiverPaths.paths, caregiverStory, caregiverSkills);
+  assert(
+    'single-direction support adds evidence-based explanation note',
+    annotated.some((path) => /most clearly supports this direction right now/i.test(path.evidenceNote || ''))
+  );
+
+  assert(
+    'deriveApplicationKitSearchTerms prefers roadmap direction terms',
+    deriveApplicationKitSearchTerms({
+      roadmapSearchTerms: ['Office Coordinator', 'Administrative Assistant', 'Scheduling Coordinator'],
+      chosenPath: { title: 'Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager' },
+      retainedSkills: adminNamedSkills,
+    }).join('|') === 'Office Coordinator|Administrative Assistant|Scheduling Coordinator'
+  );
+
+  assert(
+    'deriveApplicationKitSearchTerms falls back to chosen path titles without roadmap direction',
+    deriveApplicationKitSearchTerms({
+      chosenPath: { title: 'Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager' },
+      retainedSkills: adminNamedSkills,
+    }).includes('Administrative Coordinator') &&
+      deriveApplicationKitSearchTerms({
+        chosenPath: { title: 'Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager' },
+        retainedSkills: adminNamedSkills,
+      }).includes('Office Manager')
+  );
+
+  assert(
+    'deriveApplicationKitSearchTerms adds skill-grounded titles when path alone is insufficient',
+    deriveApplicationKitSearchTerms({
+      chosenPath: { title: 'Support Path', entryPoint: 'Support Path', progression: 'Lead Support' },
+      retainedSkills: adminNamedSkills,
+    }).some((term) => /Customer Service Representative|Office Coordinator|Administrative Assistant|Help Desk Support/i.test(term))
+  );
+
+  assert(
+    'kit render and download use resilient search term resolver',
+    INDEX_HTML.includes('kitSearchTermsForDisplay') &&
+      INDEX_HTML.includes('refreshApplicationKitSearchTerms') &&
+      /downloadApplicationKit[\s\S]*kitSearchTermsForDisplay/.test(INDEX_HTML)
+  );
+
+  assert(
+    'findPathClaimViolations flags unsupported salary claims',
+    findPathClaimViolations({ title: 'Coordinator', why: 'Earns $60k salary range', entryPoint: 'Coordinator', progression: 'Lead', workEnvironment: 'Office' }).length > 0
   );
 
   assert(

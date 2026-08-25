@@ -732,6 +732,44 @@ function loadEvidenceGate(){
   if(!evidenceGateModulePromise) evidenceGateModulePromise = import('/js/evidence-gate.mjs');
   return evidenceGateModulePromise;
 }
+let pathValidationModulePromise = null;
+function loadPathValidation(){
+  if(!pathValidationModulePromise) pathValidationModulePromise = import('/js/path-validation.mjs');
+  return pathValidationModulePromise;
+}
+function syncKitSearchTermsFallback(){
+  const terms = [];
+  const seen = new Set();
+  const add = (raw) => {
+    const cleaned = String(raw || '').trim().replace(/\s+/g, ' ');
+    if(!cleaned || cleaned.length > 30) return;
+    const key = cleaned.toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    terms.push(cleaned);
+  };
+  for(const term of (state.roadmap && state.roadmap.searchTerms) || []) add(term);
+  if(terms.length >= 3) return terms.slice(0, 5);
+  if(state.chosenPath){
+    add(state.chosenPath.title);
+    if(state.chosenPath.entryPoint && state.chosenPath.entryPoint !== state.chosenPath.title) add(state.chosenPath.entryPoint);
+    add(state.chosenPath.progression);
+  }
+  return terms.slice(0, 5);
+}
+function kitSearchTermsForDisplay(){
+  if(Array.isArray(state.applicationKitSearchTerms) && state.applicationKitSearchTerms.length) return state.applicationKitSearchTerms;
+  return syncKitSearchTermsFallback();
+}
+async function refreshApplicationKitSearchTerms(evidenceGate){
+  const { deriveApplicationKitSearchTerms } = await loadEvidenceGate();
+  state.applicationKitSearchTerms = deriveApplicationKitSearchTerms({
+    roadmapSearchTerms: state.roadmap && state.roadmap.searchTerms,
+    chosenPath: state.chosenPath,
+    retainedSkills: getRetainedStorySkills(),
+  });
+  return state.applicationKitSearchTerms;
+}
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
 
@@ -1321,7 +1359,6 @@ function ensureArray(v){
 // the UI already, so it's deliberately NOT required here. Requiring fields
 // the product tolerates being absent only increases the chance one omission
 // sinks an otherwise-good path.
-const MIN_VALID_PATHS = 3;
 function isValidPathItem(p){
   return !!p && typeof p === 'object'
     && isNonEmptyStr(p.title)
@@ -1940,138 +1977,22 @@ const REFINE_PATHS_REPAIR_HINT = `${PATHS_REPAIR_HINT} ${RERANK_REPAIR_HINT} The
 const ACTION_PLAN_REPAIR_HINT = `The schema requires ALL FOUR time-period arrays — first7Days, days8to30, days31to60, days61to90 — plus nextBestStep. Never omit any of the four arrays, even if you need to shorten individual items (each item max ~80 characters) to fit. A short but complete response covering all four periods is required, not a longer response missing one.`;
 const DIRECTION_REPAIR_HINT = `The schema requires learningStrategy as an array (it may be empty if there's genuinely nothing to add, but the field itself must always be present) — never omit it. Also always required: careerSequence with now/next/later, searchTerms, and positioning. Keep every item short (learning items max ~70 characters, sequence descriptions max ~90) so the complete response fits.`;
 
-const PATH_STRENGTH_SCORE = { 'Strong': 4, 'Moderate': 3, 'Developing': 2, 'Needs More Information': 1 };
-function pathStrengthScore(val){ return PATH_STRENGTH_SCORE[val] || 1; }
-
-const PATH_CLAIM_VIOLATION_PATTERNS = [
-  /\b(?:salary|earn(?:s|ing)?|paid|pay range|compensation)\b.*\$\d/i,
-  /\$\d[\d,]*(?:k|\/yr|\/year| per year| annually)?/i,
-  /\b(?:high demand|in demand|rare|lucrative|six.?figure|top.?tier)\b/i,
-  /\b(?:certified|certification required|degree required)\b/i,
-];
-const EXAGGERATED_TITLE_PATTERNS = [
-  /\b(?:chief|director|vp|vice president|head of|senior vice|executive)\b/i,
-  /\b(?:master|expert|specialist)\s+(?:in|at)\b/i,
-];
-
-function findPathClaimViolations(path){
-  const fields = [path?.title, path?.why, path?.entryPoint, path?.progression, path?.workEnvironment].filter(Boolean).join(' ');
-  const violations = [];
-  for(const pattern of PATH_CLAIM_VIOLATION_PATTERNS){
-    if(pattern.test(fields)) violations.push(pattern.source);
-  }
-  if(EXAGGERATED_TITLE_PATTERNS.some(p => p.test(String(path?.title || '')))){
-    violations.push('exaggerated-title');
-  }
-  return violations;
-}
-
-function pathOccupationalFamily(title){
-  const t = String(title || '').toLowerCase();
-  if(/\b(admin|office|coordinator|assistant|clerk|reception)\b/.test(t)) return 'admin';
-  if(/\b(customer|support|service|help desk|concierge)\b/.test(t)) return 'customer';
-  if(/\b(care|caregiv|nurs|health|patient|medical)\b/.test(t)) return 'care';
-  if(/\b(sales|retail|merchant|vendor|business)\b/.test(t)) return 'sales';
-  if(/\b(tech|software|data|analyst|developer|it)\b/.test(t)) return 'tech';
-  if(/\b(teacher|education|tutor|school|instruction)\b/.test(t)) return 'education';
-  if(/\b(operations|logistics|supply|warehouse|inventory)\b/.test(t)) return 'operations';
-  if(/\b(creative|design|marketing|content|media|social)\b/.test(t)) return 'creative';
-  if(/\b(community|nonprofit|volunteer|outreach)\b/.test(t)) return 'community';
-  return 'general';
-}
-
-function extractUserNamedCareers(storyText){
-  const text = String(storyText || '').toLowerCase();
-  const careers = [];
-  const patterns = [
-    /\b(?:want to be(?:come)?|interested in|thinking about|considering|pursue|move into|transition into|my goal is)\s+(?:a|an)?\s*([a-z][a-z\s\/-]{2,40})/gi,
-    /\b(?:i am|i'm)\s+(?:a|an)\s+([a-z][a-z\s\/-]{2,40})/gi,
-  ];
-  for(const pattern of patterns){
-    let match;
-    while((match = pattern.exec(text))){
-      const phrase = match[1].replace(/\.$/, '').trim();
-      if(phrase.length >= 4 && phrase.length <= 40) careers.push(phrase);
-    }
-  }
-  return [...new Set(careers)];
-}
-
-function pathMatchesNamedCareer(path, namedCareers){
-  const title = String(path?.title || '').toLowerCase();
-  return namedCareers.some(career => title.includes(career) || career.includes(title));
-}
-
-function annotatePathsWithEvidenceNotes(paths, storyText){
-  const namedCareers = extractUserNamedCareers(storyText);
-  return (paths || []).map(path => {
-    const transfers = (path.transfers || []).slice(0, 2).join(' and ');
-    const note = transfers
-      ? `Supported by your ${transfers} experience.`
-      : '';
-    return { ...path, evidenceNote: note };
-  });
-}
-
-function enforcePathDiscoveryBalance(paths, storyText){
-  if(!Array.isArray(paths) || paths.length < 2) return paths || [];
-  let cleaned = paths.filter(p => findPathClaimViolations(p).length === 0);
-  if(cleaned.length < MIN_VALID_PATHS) cleaned = paths.slice();
-
-  const namedCareers = extractUserNamedCareers(storyText);
-  if(namedCareers.length){
-    const namedMatches = cleaned.filter(p => pathMatchesNamedCareer(p, namedCareers));
-    if(namedMatches.length === cleaned.length && cleaned.length >= 2){
-      const weakest = [...cleaned].sort((a, b) => pathStrengthScore(a.transition) - pathStrengthScore(b.transition))[0];
-      if(weakest){
-        cleaned = cleaned.map(p => p.title === weakest.title
-          ? { ...p, category: p.category === 'Strong Evidence' ? 'Worth Exploring' : p.category, transition: p.transition === 'Strong' ? 'Moderate' : p.transition }
-          : p);
-      }
-    }
-  }
-
-  const families = new Set(cleaned.map(p => pathOccupationalFamily(p.title)));
-  const hasAdjacent = cleaned.some(p => ['Moderate', 'Developing'].includes(p.transition));
-  const hasStretchCategory = cleaned.some(p => /worth exploring|growth path|independent path/i.test(String(p.category || '')));
-  if(!hasAdjacent && !hasStretchCategory && cleaned.length >= 3){
-    const candidate = [...cleaned].sort((a, b) => pathStrengthScore(a.transition) - pathStrengthScore(b.transition))[0];
-    if(candidate){
-      cleaned = cleaned.map(p => p.title === candidate.title
-        ? { ...p, transition: p.transition === 'Strong' ? 'Moderate' : p.transition, category: p.category === 'Strong Evidence' ? 'Worth Exploring' : p.category }
-        : p);
-    }
-  }
-  if(families.size < 2 && cleaned.length >= 4){
-    const byFamily = cleaned.reduce((acc, p) => {
-      const fam = pathOccupationalFamily(p.title);
-      acc[fam] = (acc[fam] || 0) + 1;
-      return acc;
-    }, {});
-    const dominant = Object.entries(byFamily).sort((a, b) => b[1] - a[1])[0]?.[0];
-    cleaned = cleaned.map((p, idx) => {
-      if(pathOccupationalFamily(p.title) !== dominant || idx > 0) return p;
-      return { ...p, category: p.category === 'Strong Evidence' ? 'Growth Path' : p.category };
-    });
-  }
-  return cleaned;
-}
-
-function validatePathsResult(result, storyText){
+function validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation){
   if(!result || !Array.isArray(result.paths)) return { ok:false, reason:'paths array is missing' };
   for(const p of result.paths){
     if(!isValidPathItem(p)) return { ok:false, reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
-    const claimViolations = findPathClaimViolations(p);
-    if(claimViolations.length){
-      return { ok:false, reason:`path "${p.title}" contains unsupported market or qualification claims` };
+  }
+  return pathValidation.validatePathsResult(result, storyText, retainedSkills);
+}
+
+function validateRefinePathsResultWithStructure(result, storyText, retainedSkills, pathValidation){
+  const pathCheck = validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation);
+  if(!pathCheck.ok) return pathCheck;
+  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
+  for(const p of result.paths){
+    if(!RERANK_CATEGORY_ENUM.includes(p.category)){
+      return { ok:false, reason:`refinement category invalid for path "${p.title}"` };
     }
-  }
-  if(result.paths.length < MIN_VALID_PATHS){
-    return { ok:false, reason:`only ${result.paths.length} valid path(s) found after filtering out malformed items — need at least ${MIN_VALID_PATHS} for a useful set of options` };
-  }
-  const namedCareers = extractUserNamedCareers(storyText || '');
-  if(namedCareers.length && result.paths.every(p => pathMatchesNamedCareer(p, namedCareers))){
-    return { ok:false, reason:'paths must include more than the career the user already named when other evidence-supported directions exist' };
   }
   return { ok:true };
 }
@@ -2104,18 +2025,6 @@ function normalizeRefinePathsResult(result){
     changeSummary: typeof result.changeSummary === 'string' ? result.changeSummary.trim() : '',
     paths,
   };
-}
-
-function validateRefinePathsResult(result){
-  const pathCheck = validatePathsResult(result);
-  if(!pathCheck.ok) return pathCheck;
-  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
-  for(const p of result.paths){
-    if(!RERANK_CATEGORY_ENUM.includes(p.category)){
-      return { ok:false, reason:`refinement category invalid for path "${p.title}"` };
-    }
-  }
-  return { ok:true };
 }
 
 // Merges the compact rerank delta back into the already-valid path objects.
@@ -2802,7 +2711,7 @@ function renderKit(){
   if(state.errorMsg) return renderError();
   const k = state.kit;
   if(!k) return renderAnalyzing();
-  const searchTerms = (state.roadmap && state.roadmap.searchTerms) || [];
+  const searchTerms = kitSearchTermsForDisplay();
   const selectedHeadline = (k.linkedinHeadlines || [])[state.selectedHeadline] || {};
   const bulletCount = (k.resumeBullets || []).length;
   const gapCount = (k.resumeBulletGaps || []).length;
@@ -2859,7 +2768,6 @@ function renderKit(){
       <p class="block-lede">Use these as separate job title searches on LinkedIn or job boards.</p>
       <div class="search-terms-row">${searchTerms.map(t=>`<span class="search-term-tag">${t}</span>`).join('')}</div>
     </div>` : ''}
-
     <div class="copy-status" id="copyStatus" aria-live="polite"></div>
     <div class="mt-40" style="display:flex;gap:12px;flex-wrap:wrap;">
       <button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button>
@@ -3236,7 +3144,7 @@ function downloadApplicationKit(){
   const allHeadlines = (state.kit.linkedinHeadlines||[]).map((h,i)=>`${i===state.selectedHeadline ? 'SELECTED: ' : ''}${h.style}\n${h.text}`).join('\n\n');
   const strengthen = (state.kit.resumeBullets||[]).filter(b=>b && typeof b==='object' && b.strengthen).map(b=>`• ${b.strengthen}`).join('\n');
   const gapQuestions = (state.kit.resumeBulletGaps||[]).map(g=>`• ${g.strengthen}`).join('\n');
-  const searchTerms = ((state.roadmap && state.roadmap.searchTerms) || []).map(t=>`• ${t}`).join('\n');
+  const searchTerms = kitSearchTermsForDisplay().map(t=>`• ${t}`).join('\n');
   const text = `iFindWorth Application Kit\n\nTARGET DIRECTION\n${state.chosenPath ? state.chosenPath.title : ''}\n\nRÉSUMÉ BULLETS\n${kitSectionText('resume') || '(None yet — add more concrete examples to your story)'}\n${strengthen ? `\n\nOPTIONAL DETAIL PROMPTS\n${strengthen}` : ''}${gapQuestions ? `\n\nADDITIONAL STRENGTHEN QUESTIONS\n${gapQuestions}` : ''}\n\nLINKEDIN HEADLINE OPTIONS\n${allHeadlines}\n\nSELECTED LINKEDIN HEADLINE\n${headline}\n\nLINKEDIN ABOUT\n${kitSectionText('about')}\n${searchTerms ? `\n\nSEARCH TERMS FOR THIS DIRECTION\n${searchTerms}` : ''}\n`;
   const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -3336,16 +3244,17 @@ Rules:
 5) transfers must ONLY use skill names copied exactly from the "Retained story skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
 7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.
-8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include at least one adjacent or less-obvious path when retained skills support it. Do not return only paths the user already named. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
+8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based paths for that direction without inventing unrelated alternatives. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
   const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
   try{
-    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResult(r, fullStoryText()), normalizePathsResult, PATHS_REPAIR_HINT);
+    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation), normalizePathsResult, PATHS_REPAIR_HINT);
     let paths = result.paths;
-    paths = enforcePathDiscoveryBalance(paths, fullStoryText());
-    paths = annotatePathsWithEvidenceNotes(paths, fullStoryText());
+    paths = pathValidation.enforcePathDiscoveryBalance(paths, fullStoryText(), retainedStorySkills);
+    paths = pathValidation.annotatePathsWithEvidenceNotes(paths, fullStoryText(), retainedStorySkills);
     // Defense-in-depth (runs on a repaired result exactly the same as a first-try
     // one — no shortcut around these checks either way): strip any rejected
     // skill from transfers and scrub rejected-skill mentions out of freeform
@@ -3499,11 +3408,12 @@ Critical rules for this regeneration:
 8) changeSummary (max 25 words): explain that less obvious, still evidence-supported directions were surfaced.${rejectedSkillsClause()}`;
   const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills:\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (DO NOT repeat these titles — generate different ones):\n${JSON.stringify(compactPrior)}\n\nPaths user already knew (too obvious): ${knownTitles.join(', ') || 'none'}\nPaths user is not interested in: ${notInterested.join(', ') || 'none'}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}`;
   try{
-    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
       ...p,
       transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
@@ -3562,11 +3472,12 @@ Refinement rules:
   const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const convoPrefs = state.convo.filter(c => c.who === 'user').map(c => c.text).join('\n');
   const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
   try{
-    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
       ...p,
       transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
@@ -3837,6 +3748,7 @@ Rules: 1) careerSequence: now is the chosen entry point, next is realistic progr
       searchTerms: clean.searchTerms,
       positioning: clean.positioning,
     });
+    await refreshApplicationKitSearchTerms(evidenceGate);
     state.roadmapSections.direction = 'ready';
     return true;
   }catch(err){
@@ -3921,6 +3833,7 @@ Rules:
     const resumeGated = applyResumeBulletGate(result, evidenceGate);
     const gated = applyLinkedInGate(resumeGated, evidenceGate, state.chosenPath.title);
     state.kit = purgeRejectedFromObject(gated, rejected);
+    await refreshApplicationKitSearchTerms(evidenceGate);
     state.evidenceLibrary = retainedStorySkills.map(s=>({theme:s.name, evidence:s.evidence}));
     state.screen = 'kit';
   }catch(err){
