@@ -425,6 +425,29 @@ export function validateResumeBulletSources(bullets, gate) {
   });
 }
 
+/** Flag resume bullets that soften direct evidence with "helped manage" style phrasing. */
+export function findResumeBulletIndirectnessViolation(bullet) {
+  if (!bullet || !isNonEmptyStr(bullet.text)) return null;
+  const text = String(bullet.text);
+  if (!/\bhelped manage\b/i.test(text)) return null;
+  const source = String(bullet.sourceQuote || '');
+  if (!source) return 'helped-manage-without-source';
+  if (/\b(?:manage|managed|managing|organiz(?:e|ed|es|ing)?|coordinat(?:e|ed|es|ing)?|schedul(?:e|ed|es|ing)?|lead(?:s|ing|er)?|train(?:s|ed|ing)?|creat(?:e|ed|es|ing)?|build(?:s|ing)?|develop(?:s|ed|ing)?|implement(?:s|ed|ing)?|process(?:es|ed|ing)?|maintain(?:s|ed|ing)?|facilitat(?:e|ed|es|ing)?|supervis(?:e|es|ed|ing)?|deliver(?:s|ed|ing)?|provid(?:e|es|ed|ing)?|assist(?:s|ed|ing)?|support(?:s|ed|ing)?)\b/i.test(source)) {
+    return 'helped-manage-over-direct-evidence';
+  }
+  return null;
+}
+
+/** Validate all resume bullets for indirect phrasing violations. */
+export function validateResumeBulletDirectness(bullets) {
+  const violations = [];
+  for (const bullet of bullets || []) {
+    const v = findResumeBulletIndirectnessViolation(bullet);
+    if (v) violations.push(v);
+  }
+  return { ok: violations.length === 0, violations };
+}
+
 function isNonEmptyStr(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }

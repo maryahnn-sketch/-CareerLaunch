@@ -30,6 +30,8 @@ import {
   buildFallbackLinkedIn,
   buildUltraConservativeLinkedIn,
   buildLinkedInEvidenceCorpus,
+  findResumeBulletIndirectnessViolation,
+  validateResumeBulletDirectness,
 } from './evidence-gate.mjs';
 import {
   getConfirmedSkills,
@@ -124,7 +126,9 @@ function main() {
     'return zero resume bullets',
     'provided personal care',
     'clearly distinguish existing qualities/experience',
-  ], 'buildKit prompt enforces past-evidence boundary');
+    'helped manage',
+    'meaningfully different',
+  ], 'buildKit prompt enforces past-evidence boundary and kit quality');
 
   promptIncludesAll(kitPrompt, [
     'CONCRETE PAST ACTION EVIDENCE',
@@ -165,7 +169,9 @@ function main() {
     'meaningfully different occupational/function families',
     'NOT evidence of healthcare or professional caregiving experience',
     'never be upgraded into experience fit',
-  ], 'discoverPaths prompt enforces career diversity');
+    'Discovery balance',
+    'Do not return only paths the user already named',
+  ], 'discoverPaths prompt enforces career diversity and discovery balance');
 
   promptIncludesAll(refinePrompt, [
     'meaningfully different occupational/function families',
@@ -903,6 +909,71 @@ function main() {
     /buildRoadmapFoundation[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
       /buildRoadmapActionPlan[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
       /buildRoadmapDirection[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML)
+  );
+
+  assert(
+    'intake screen shows type-or-microphone hint above textarea',
+    INDEX_HTML.includes('Type here or use the microphone') &&
+      INDEX_HTML.includes('intake-hint') &&
+      INDEX_HTML.includes('Start typing here')
+  );
+
+  assert(
+    'intake copy lists nontraditional experience types',
+    INDEX_HTML.includes('caregiving') &&
+      INDEX_HTML.includes('household responsibilities') &&
+      INDEX_HTML.includes('side hustles') &&
+      INDEX_HTML.includes('school projects')
+  );
+
+  assert(
+    'discovery tiers use direct-fit, adjacent, and longer-term labels',
+    INDEX_HTML.includes("'Direct-fit paths'") &&
+      INDEX_HTML.includes("'Adjacent opportunities'") &&
+      INDEX_HTML.includes("'Longer-term possibilities'")
+  );
+
+  assert(
+    'path validation rejects unsupported salary claims deterministically',
+    INDEX_HTML.includes('findPathClaimViolations') &&
+      INDEX_HTML.includes('enforcePathDiscoveryBalance')
+  );
+
+  assert(
+    'kit render includes summary block and search terms section',
+    INDEX_HTML.includes('kit-summary') &&
+      INDEX_HTML.includes('What you received') &&
+      INDEX_HTML.includes('search-terms-row')
+  );
+
+  assert(
+    'demo unlock language removed from paywall and roadmap errors',
+    !INDEX_HTML.includes('Demo Already Unlocked') &&
+      !INDEX_HTML.includes('demo unlock is complete') &&
+      INDEX_HTML.includes('Starter Already Unlocked')
+  );
+
+  assert(
+    'validateKitResult rejects helped manage over direct evidence',
+    /function validateKitResult[\s\S]*helped manage/.test(INDEX_HTML)
+  );
+
+  assert(
+    'resume bullet indirectness violation flags helped manage over direct source',
+    findResumeBulletIndirectnessViolation({
+      text: 'Helped manage scheduling and appointments for the team.',
+      sourceQuote: 'I scheduled appointments for my manager.',
+    }) === 'helped-manage-over-direct-evidence'
+  );
+
+  assert(
+    'resume bullet directness passes when phrasing matches evidence',
+    validateResumeBulletDirectness([
+      {
+        text: 'Scheduled appointments for my manager and coordinated follow-ups.',
+        sourceQuote: 'I scheduled appointments for my manager.',
+      },
+    ]).ok
   );
 
   assert(
