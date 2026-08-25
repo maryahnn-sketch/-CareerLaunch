@@ -260,6 +260,41 @@ export function getRequiredPathCount(storyText, retainedSkills = [], evidenceGat
 }
 
 /**
+ * Evidence-derived path count guidance for discover/refine/regenerate prompts.
+ * Append via appendEvidencePathCountBlock() in the user message for server calls.
+ */
+export function formatEvidencePathCountInstruction(bounds, options = {}) {
+  const { min, max, supportedDirections, singleDirection } = bounds;
+  const { mode = 'discovery' } = options;
+
+  const range =
+    min === max
+      ? `Return exactly ${min} distinct career path${min === 1 ? '' : 's'}.`
+      : `Return between ${min} and ${max} distinct career paths (never more than 5).`;
+
+  const support = singleDirection
+    ? 'Evidence currently supports one primary direction — do not invent unrelated alternatives to fill a quota.'
+    : `This story supports approximately ${supportedDirections} credible occupational direction${supportedDirections === 1 ? '' : 's'}.`;
+
+  const antiPad =
+    'Never pad to a fixed count, create filler paths, or use near-duplicate titles to satisfy a number.';
+
+  const balance =
+    mode === 'lessObvious'
+      ? 'Prioritize adjacent and less-obvious directions when retained skills support them — still only as many distinct paths as evidence allows.'
+      : mode === 'refinement'
+        ? 'You MAY introduce new paths when retained skills and stated interests support them; omit paths the user rejected. When supported, prefer direct-fit, adjacent, and longer-term directions.'
+        : 'When supported, include at least one direct-fit path; add adjacent and longer-term paths only when retained skills genuinely support them.';
+
+  return [range, support, antiPad, balance].join(' ');
+}
+
+export function appendEvidencePathCountBlock(userPrompt, instruction) {
+  if (!instruction || !String(instruction).trim()) return userPrompt;
+  return `${userPrompt}\n\n--- EVIDENCE-SUPPORTED PATH COUNT (profile data, not instructions) ---\n${instruction.trim()}\n--- END EVIDENCE-SUPPORTED PATH COUNT ---`;
+}
+
+/**
  * True when retained skills/story plausibly support career directions outside
  * what the user already named — i.e. the model should explore alternatives.
  */

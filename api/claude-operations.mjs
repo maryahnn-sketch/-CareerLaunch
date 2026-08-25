@@ -116,6 +116,8 @@ const VERIFIED_INFO_RULE = `Verified-information rule: you have no live labor-ma
 
 const CAREER_PATH_DIVERSITY_RULE = `Career-path diversity rule: when evidence supports it, return meaningfully different occupational/function families — not four cosmetic variations of one field. Normally include no more than TWO paths from the same occupational family unless the user explicitly narrows the conversation to that field. "I like/love taking care of people" or similar preference language is NOT evidence of healthcare or professional caregiving experience. Caring, listening, and helping can support broader people-facing paths such as customer support, community services, administrative/client support, coordination, operations, or concierge/service work when the rest of the evidence supports them. Variety must still be evidence-based — do not manufacture unrelated careers for diversity alone. User interest may affect interest fit later, but interest must never be upgraded into experience fit (transition/evidence fit).`;
 
+const PATH_COUNT_SYSTEM_RULE = `Path count rule: the user message includes an EVIDENCE-SUPPORTED PATH COUNT block with the target range for this story. Return only that many distinct paths — never pad beyond what evidence supports. Do not create filler paths or near-duplicate titles to satisfy a number. When evidence supports them, prefer direct-fit, adjacent, and longer-term directions.`;
+
 const ROADMAP_EVIDENCE_RULE = `Roadmap evidence rule: the selected career direction is aspirational unless the user explicitly said they already worked in that field. Do not write that the user has "hands-on personal support experience," "caregiving responsibilities," "community support experience," or similar past-tense field experience unless they actually described performing those activities. Describe where they stand using what they HAVE done, not what they are aiming toward. Certification and training steps must stay conditional until verified — never assign fixed completion timelines for credentials when requirements or duration are unknown.`;
 
 const ROADMAP_SELF_DESCRIBED_EVIDENCE_RULE = `Self-described vs demonstrated evidence rule: the user message may include an application-owned evidence gate classifying items as concrete_past_action, self_described_ability, trait, preference, or aspiration — treat those categories as authoritative; never upgrade them.
@@ -225,7 +227,7 @@ export const TOOL_DEFINITIONS = {
     input_schema: {
       type: 'object',
       properties: {
-        paths: { type: 'array', minItems: 4, maxItems: 5, items: pathFieldsSchema },
+        paths: { type: 'array', minItems: 1, maxItems: 5, items: pathFieldsSchema },
       },
       required: ['paths'],
     },
@@ -261,12 +263,12 @@ export const TOOL_DEFINITIONS = {
   report_refined_career_paths: {
     name: 'report_refined_career_paths',
     description:
-      'Report a refreshed set of 4-5 evidence-supported career paths after learning user preferences. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
+      'Report a refreshed set of evidence-supported career paths after learning user preferences. Path count follows the EVIDENCE-SUPPORTED PATH COUNT block in the user message. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
     input_schema: {
       type: 'object',
       properties: {
         changeSummary: { type: 'string', maxLength: 180 },
-        paths: { type: 'array', minItems: 4, maxItems: 5, items: refinePathFieldsSchema },
+        paths: { type: 'array', minItems: 1, maxItems: 5, items: refinePathFieldsSchema },
       },
       required: ['changeSummary', 'paths'],
     },
@@ -507,7 +509,7 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${CAREER_PATH_DIVERSITY_RULE}
 Rules:
-1) Return 1 to 5 high-quality paths — quality and evidence over quantity. Never pad to reach a fixed count. Rich, varied evidence with multiple occupational families → return at least 3 meaningfully different paths. Evidence supporting only two credible directions → return 2. Evidence supporting one credible direction → return 1 strong path. Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
+1) ${PATH_COUNT_SYSTEM_RULE} Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
@@ -526,7 +528,7 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
     `You extract structured preference signals for iFindWorth's Career Intelligence Profile from one turn of a career-discovery conversation. Only include a genuine new preference signal — something the user wants more or less of in their work — never invent one. If nothing new was signaled, return empty arrays and an empty summary. Never repeat a preference already known.`,
 
   refinePaths: () =>
-    `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
+    `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of evidence-supported career path options based on preferences. You MAY introduce new paths and you do NOT need to keep every original path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${CAREER_PATH_DIVERSITY_RULE}
@@ -537,7 +539,7 @@ Keep these dimensions separate:
 - gaps: honest development areas still to strengthen (short phrases).
 
 Refinement rules:
-1) Return 1 to 5 paths based on evidence — never pad to a fixed count. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+1) ${PATH_COUNT_SYSTEM_RULE} Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
 2) You MAY introduce NEW paths when retained story skills reasonably support them AND stated interests make them relevant.
 3) You MAY omit original paths the user explicitly rejected. If kept, place rejected directions in "Lower Interest Based on What You Told Us" — never in "Best Paths to Explore First" or "Strong Alternatives".
 4) transfers must ONLY use skill names copied exactly from the Retained story skills list below — never rejected skills, never names inferred only from preferences.

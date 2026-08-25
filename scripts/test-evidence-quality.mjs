@@ -42,6 +42,8 @@ import {
   findPathClaimViolations,
   getRequiredPathCount,
   getEvidencePathBounds,
+  formatEvidencePathCountInstruction,
+  appendEvidencePathCountBlock,
   pathTitlesAreNearDuplicate,
   findNearDuplicatePathPairs,
 } from '../js/path-validation.mjs';
@@ -183,13 +185,57 @@ function main() {
     'never be upgraded into experience fit',
     'Discovery balance',
     'Do not return only paths the user already named',
-    'Never pad to reach a fixed count',
+    'EVIDENCE-SUPPORTED PATH COUNT',
+    'never pad beyond what evidence supports',
   ], 'discoverPaths prompt enforces career diversity and discovery balance');
 
   promptIncludesAll(refinePrompt, [
     'meaningfully different occupational/function families',
     'NOT evidence of healthcare or professional caregiving experience',
-  ], 'refinePaths prompt enforces career diversity');
+    'EVIDENCE-SUPPORTED PATH COUNT',
+    'never pad beyond what evidence supports',
+  ], 'refinePaths prompt enforces career diversity and evidence-aware path counts');
+
+  const OBSOLETE_PATH_COUNT_PATTERNS = [
+    /4[-–]5\s+(?:evidence-supported\s+)?career\s+path/i,
+    /Return\s+4[-–]5\s+paths/i,
+    /fresh set of 4[-–]5/i,
+    /Regenerate a fresh set of 4[-–]5/i,
+    /return at least 3 meaningfully different paths/i,
+  ];
+
+  function assertNoObsoletePathCountInstructions(source, label) {
+    for (const pattern of OBSOLETE_PATH_COUNT_PATTERNS) {
+      assert(
+        `${label} has no obsolete fixed path count (${pattern})`,
+        !pattern.test(source)
+      );
+    }
+  }
+
+  assertNoObsoletePathCountInstructions(discoverPrompt, 'discoverPaths server prompt');
+  assertNoObsoletePathCountInstructions(refinePrompt, 'refinePaths server prompt');
+
+  const indexPathPromptSources = [
+    INDEX_HTML.match(/async function discoverPaths\(\)[\s\S]*?async function sendConvo/)?.[0] || '',
+    INDEX_HTML.match(/async function regenerateLessObviousPaths\(\)[\s\S]*?async function refinePaths/)?.[0] || '',
+    INDEX_HTML.match(/async function refinePaths\(\)[\s\S]*?async function rerankPaths/)?.[0] || '',
+  ].join('\n');
+
+  assertNoObsoletePathCountInstructions(indexPathPromptSources, 'index.html path generation prompts');
+
+  assert(
+    'path tool schemas allow evidence-aware counts (minItems 1, maxItems 5)',
+    TOOL_DEFINITIONS.report_career_paths.input_schema.properties.paths.minItems === 1 &&
+      TOOL_DEFINITIONS.report_career_paths.input_schema.properties.paths.maxItems === 5 &&
+      TOOL_DEFINITIONS.report_refined_career_paths.input_schema.properties.paths.minItems === 1 &&
+      TOOL_DEFINITIONS.report_refined_career_paths.input_schema.properties.paths.maxItems === 5
+  );
+
+  assert(
+    'index.html path tool schemas allow evidence-aware counts',
+    /paths:\s*\{\s*type:\s*'array',\s*minItems:\s*1,\s*maxItems:\s*5/.test(INDEX_HTML)
+  );
 
   promptIncludesAll(foundationPrompt, [
     'hands-on personal support experience',
@@ -1262,6 +1308,22 @@ function main() {
     'single-direction evidence allows one strong path',
     getRequiredPathCount(caregiverStory, caregiverSkills) === 1 &&
       validatePathsResult(allCaregiverPaths, caregiverStory, caregiverSkills).ok
+  );
+
+  assert(
+    'formatEvidencePathCountInstruction reflects bounds and anti-padding rules',
+    (() => {
+      const richBounds = getEvidencePathBounds(RICH_STORY, adminNamedSkills);
+      const richInstruction = formatEvidencePathCountInstruction(richBounds);
+      const singleBounds = getEvidencePathBounds(caregiverStory, caregiverSkills);
+      const singleInstruction = formatEvidencePathCountInstruction(singleBounds);
+      return (
+        richInstruction.includes('exactly 3 distinct') &&
+        richInstruction.includes('Never pad to a fixed count') &&
+        singleInstruction.includes('exactly 1 distinct') &&
+        appendEvidencePathCountBlock('base', richInstruction).includes('EVIDENCE-SUPPORTED PATH COUNT')
+      );
+    })()
   );
 
   assert(

@@ -1615,7 +1615,7 @@ const pathsTool = {
   input_schema: {
     type: 'object',
     properties: {
-      paths: { type: 'array', minItems: 4, maxItems: 5, items: pathFieldsSchema }
+      paths: { type: 'array', minItems: 1, maxItems: 5, items: pathFieldsSchema }
     },
     required: ['paths']
   }
@@ -1684,12 +1684,12 @@ const refinePathFieldsSchema = {
 
 const refinePathsTool = {
   name: 'report_refined_career_paths',
-  description: 'Report a refreshed set of 4-5 evidence-supported career paths after learning user preferences. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
+  description: 'Report a refreshed set of evidence-supported career paths after learning user preferences. Path count follows the EVIDENCE-SUPPORTED PATH COUNT block in the user message. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
   input_schema: {
     type: 'object',
     properties: {
       changeSummary: { type: 'string', maxLength: 180 },
-      paths: { type: 'array', minItems: 4, maxItems: 5, items: refinePathFieldsSchema },
+      paths: { type: 'array', minItems: 1, maxItems: 5, items: refinePathFieldsSchema },
     },
     required: ['changeSummary','paths']
   }
@@ -3223,11 +3223,17 @@ async function discoverPaths(){
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+  const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
-1) Return 1 to 5 high-quality paths — quality and evidence over quantity. Never pad to reach a fixed count. Rich, varied evidence with multiple occupational families → return at least 3 meaningfully different paths. Evidence supporting only two credible directions → return 2. Evidence supporting one credible direction → return 1 strong path. Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
+1) Path count rule: follow the EVIDENCE-SUPPORTED PATH COUNT block in the user message for the target range. Return only that many distinct paths — never pad beyond what evidence supports. Do not create filler paths or near-duplicate titles to satisfy a number. When evidence supports them, prefer direct-fit, adjacent, and longer-term directions. Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
@@ -3235,11 +3241,10 @@ Rules:
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
 7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.
 8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based path(s) for that direction without inventing unrelated alternatives. Reject near-duplicate job titles (e.g. "Administrative Coordinator" vs "Senior Administrative Coordinator") unless entry points and evidence differ meaningfully. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
-  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
-  const pathValidation = await loadPathValidation();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
+  const userPrompt = pathValidation.appendEvidencePathCountBlock(
+    `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
+    pathCountRule
+  );
   try{
     const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT);
     let paths = result.paths;
@@ -3384,24 +3389,30 @@ async function regenerateLessObviousPaths(){
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
-  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed career paths and marked some as "already knew" — meaning those directions felt too obvious. Regenerate a fresh set of 4-5 DIFFERENT evidence-supported career path options that are less obvious but still honestly supported by retained story skills.
-${NO_INVENTION_RULE}
-${VERIFIED_INFO_RULE}
-Critical rules for this regeneration:
-1) Introduce DIFFERENT path titles — do NOT return the same titles the user already saw unless absolutely unavoidable. This is NOT a reorder — it is new candidate generation.
-2) Prioritize paths with moderate/developing evidence fit that still have real story support — adjacent and unexpected directions over the most literal match.
-3) Evidence still governs: never inflate fit because the user wants surprise. Preference never overrides evidence.
-4) Omit paths the user marked as not interested: ${notInterested.join(', ') || 'none'}.
-5) Avoid paths the user already knew (too obvious): ${knownTitles.join(', ') || 'none'} — replace with genuinely different directions.
-6) Return 4-5 paths. Categories: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
-7) transfers must ONLY use skill names from Retained story skills. transition required on every path. fitInterest and fitLifestyle required.
-8) changeSummary (max 25 words): explain that less obvious, still evidence-supported directions were surfaced.${rejectedSkillsClause()}`;
-  const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
   const pathValidation = await loadPathValidation();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+  const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds, { mode: 'lessObvious' });
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills:\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (DO NOT repeat these titles — generate different ones):\n${JSON.stringify(compactPrior)}\n\nPaths user already knew (too obvious): ${knownTitles.join(', ') || 'none'}\nPaths user is not interested in: ${notInterested.join(', ') || 'none'}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}`;
+  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed career paths and marked some as "already knew" — meaning those directions felt too obvious. Regenerate DIFFERENT evidence-supported career path options that are less obvious but still honestly supported by retained story skills.
+${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
+Critical rules for this regeneration:
+1) Path count rule: follow the EVIDENCE-SUPPORTED PATH COUNT block in the user message for the target range. Return only that many distinct paths — never pad beyond what evidence supports.
+2) Introduce DIFFERENT path titles — do NOT return the same titles the user already saw unless absolutely unavoidable. This is NOT a reorder — it is new candidate generation.
+3) Prioritize paths with moderate/developing evidence fit that still have real story support — adjacent and unexpected directions over the most literal match.
+4) Evidence still governs: never inflate fit because the user wants surprise. Preference never overrides evidence.
+5) Omit paths the user marked as not interested: ${notInterested.join(', ') || 'none'}.
+6) Avoid paths the user already knew (too obvious): ${knownTitles.join(', ') || 'none'} — replace with genuinely different directions.
+7) Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+8) transfers must ONLY use skill names from Retained story skills. transition required on every path. fitInterest and fitLifestyle required.
+9) changeSummary (max 25 words): explain that less obvious, still evidence-supported directions were surfaced.${rejectedSkillsClause()}`;
+  const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
+  const userPrompt = pathValidation.appendEvidencePathCountBlock(
+    `User's story:\n${filteredStoryContext}\n\nRetained story skills:\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (DO NOT repeat these titles — generate different ones):\n${JSON.stringify(compactPrior)}\n\nPaths user already knew (too obvious): ${knownTitles.join(', ') || 'none'}\nPaths user is not interested in: ${notInterested.join(', ') || 'none'}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}`,
+    pathCountRule
+  );
   try{
     const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
@@ -3441,7 +3452,13 @@ async function refinePaths(){
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
-  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+  const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds, { mode: 'refinement' });
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of evidence-supported career path options based on preferences. You MAY introduce new paths and you do NOT need to keep every original path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Keep these dimensions separate:
@@ -3451,7 +3468,7 @@ Keep these dimensions separate:
 - gaps: honest development areas still to strengthen (short phrases).
 
 Refinement rules:
-1) Return 4-5 paths. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+1) Path count rule: follow the EVIDENCE-SUPPORTED PATH COUNT block in the user message for the target range. Return only that many distinct paths — never pad beyond what evidence supports. Do not create filler paths or near-duplicate titles to satisfy a number. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
 2) You MAY introduce NEW paths when retained story skills reasonably support them AND stated interests make them relevant.
 3) You MAY omit original paths the user explicitly rejected. If kept, place rejected directions in "Lower Interest Based on What You Told Us" — never in "Best Paths to Explore First" or "Strong Alternatives".
 4) transfers must ONLY use skill names copied exactly from the Retained story skills list below — never rejected skills, never names inferred only from preferences.
@@ -3461,11 +3478,10 @@ Refinement rules:
 8) User interest is NOT evidence. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
   const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const convoPrefs = state.convo.filter(c => c.who === 'user').map(c => c.text).join('\n');
-  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
-  const pathValidation = await loadPathValidation();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
+  const userPrompt = pathValidation.appendEvidencePathCountBlock(
+    `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`,
+    pathCountRule
+  );
   try{
     const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
