@@ -16,6 +16,10 @@ import {
   gateRetainedEvidence,
   applyResumeBulletGate,
   validateResumeBulletSources,
+  getRequiredResumeBulletCount,
+  validateResumeBulletCount,
+  getUncoveredConcreteSources,
+  strengthenQuestionForUncoveredSource,
   buildPathPromptStoryContext,
   formatEvidenceGateForRoadmapPrompt,
   formatEvidenceGateForPrompt,
@@ -38,6 +42,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INDEX_HTML = readFileSync(join(__dirname, '../index.html'), 'utf8');
+const XRAY_HTML = readFileSync(join(__dirname, '../xray.html'), 'utf8');
 
 const FIXTURE_SKILLS = [
   { name: 'Active listening', strength: 'Strong', evidence: 'You described listening carefully.' },
@@ -898,6 +903,115 @@ function main() {
     /buildRoadmapFoundation[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
       /buildRoadmapActionPlan[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML) &&
       /buildRoadmapDirection[\s\S]*formatEvidenceGateForRoadmapPrompt/.test(INDEX_HTML)
+  );
+
+  assert(
+    'landing pricing removes planned one-time price copy',
+    !INDEX_HTML.includes('Planned one-time price')
+  );
+
+  assert(
+    'landing pricing uses premium outcome-focused unlock list',
+    INDEX_HTML.includes('unlock-list premium') &&
+      INDEX_HTML.includes('Know which roles to pursue') &&
+      INDEX_HTML.includes('Follow a focused 90 day plan')
+  );
+
+  assert(
+    'validateKitResult enforces minimum resume bullets for rich evidence',
+    /function validateKitResult[\s\S]*concreteCount >= 3/.test(INDEX_HTML)
+  );
+
+  assert(
+    'user-facing index copy has no em or en dashes in landing pricing block',
+    (() => {
+      const block = INDEX_HTML.match(/price-card featured[\s\S]*?<\/ul>/);
+      return block && !/[—–]/.test(block[0]);
+    })()
+  );
+
+  assert(
+    'xray user-facing copy has no em or en dashes',
+    !/<title>[^<]*—[^<]*<\/title>/.test(XRAY_HTML) &&
+      !XRAY_HTML.includes('Ready to go deeper —') &&
+      !XRAY_HTML.includes('bit more detail —')
+  );
+
+  const RICH_STORY =
+    'I organized church events. I scheduled appointments for my manager. I trained new staff at my sister\'s shop.';
+  const richGate = gateRetainedEvidence(RICH_STORY, []);
+  assert(
+    'rich evidence gate finds at least three concrete past actions',
+    richGate.concretePastActions.length >= 3
+  );
+  assert(
+    'required resume bullet count is three when three or more sources exist',
+    getRequiredResumeBulletCount(richGate) === 3
+  );
+  assert(
+    'validateResumeBulletCount rejects fewer than three bullets for rich evidence',
+    !validateResumeBulletCount(
+      {
+        resumeBullets: richGate.concretePastActions.slice(0, 2).map((item) => ({
+          text: 'Supported action.',
+          sourceQuote: item.source,
+        })),
+      },
+      richGate
+    ).ok
+  );
+  assert(
+    'validateResumeBulletCount accepts three distinct grounded bullets',
+    validateResumeBulletCount(
+      {
+        resumeBullets: richGate.concretePastActions.slice(0, 3).map((item) => ({
+          text: 'Supported action.',
+          sourceQuote: item.source,
+        })),
+      },
+      richGate
+    ).ok
+  );
+
+  const richOrganizeSource = richGate.concretePastActions.find((i) =>
+    /organized church events/i.test(i.source)
+  )?.source;
+  const gatedRich = applyResumeBulletGate(
+    {
+      resumeBullets: richOrganizeSource
+        ? [{ text: 'Organized church events.', sourceQuote: richOrganizeSource }]
+        : [],
+      linkedinHeadlines: [{ style: 'x', text: 'y' }, { style: 'x', text: 'y' }, { style: 'x', text: 'y' }],
+      linkedinAbout: 'About',
+    },
+    richGate
+  );
+  assert(
+    'applyResumeBulletGate adds strengthen gaps instead of fabricating missing bullets',
+    gatedRich.resumeBullets.length === 1 &&
+      Array.isArray(gatedRich.resumeBulletGaps) &&
+      gatedRich.resumeBulletGaps.length >= 2 &&
+      gatedRich.resumeBulletGaps.every((g) => typeof g.strengthen === 'string' && g.strengthen.length > 0)
+  );
+
+  assert(
+    'uncovered concrete sources exclude quotes already used by bullets',
+    getUncoveredConcreteSources(
+      [{ sourceQuote: richGate.concretePastActions[0].source }],
+      richGate
+    ).every((item) => item.source !== richGate.concretePastActions[0].source)
+  );
+
+  assert(
+    'strengthen question for uncovered source stays deterministic and non-fabricating',
+    /What measurable detail can you add about:/.test(
+      strengthenQuestionForUncoveredSource('I organized church events.')
+    )
+  );
+
+  assert(
+    'evidence prompt adds resume bullet minimum when three or more concrete sources exist',
+    formatEvidenceGateForPrompt(richGate).includes('RESUME BULLET MINIMUM')
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

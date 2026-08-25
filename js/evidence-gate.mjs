@@ -435,22 +435,87 @@ function stripInternalBulletFields(bullet) {
   return out;
 }
 
+export const RICH_EVIDENCE_SOURCE_THRESHOLD = 3;
+export const MIN_RESUME_BULLETS_WHEN_RICH = 3;
+
+/** Minimum grounded bullets required when enough distinct concrete sources exist. */
+export function getRequiredResumeBulletCount(gate) {
+  const count = gate?.concretePastActions?.length || 0;
+  if (count >= RICH_EVIDENCE_SOURCE_THRESHOLD) {
+    return Math.min(MIN_RESUME_BULLETS_WHEN_RICH, count);
+  }
+  return 0;
+}
+
+/** Concrete past-action sources not yet covered by a bullet sourceQuote. */
+export function getUncoveredConcreteSources(bullets, gate) {
+  const used = new Set(
+    (bullets || []).map((b) => normalizeSourceQuote(b?.sourceQuote)).filter(Boolean)
+  );
+  return (gate?.concretePastActions || []).filter(
+    (item) => !used.has(normalizeSourceQuote(item.source))
+  );
+}
+
+/** Deterministic strengthen prompt for an uncovered source (no fabricated bullet text). */
+export function strengthenQuestionForUncoveredSource(source) {
+  const text = String(source || '').trim();
+  if (!text) return 'What is one concrete task or outcome from this experience?';
+  const excerpt = text.length > 55 ? `${text.slice(0, 52)}...` : text;
+  return `What measurable detail can you add about: ${excerpt}?`;
+}
+
+/** Validate minimum bullet count and distinct source coverage before post-gate stripping. */
+export function validateResumeBulletCount(result, gate) {
+  const required = getRequiredResumeBulletCount(gate);
+  if (!required) return { ok: true };
+
+  const bullets = result?.resumeBullets || [];
+  if (bullets.length < required) {
+    return {
+      ok: false,
+      reason: `need at least ${required} resume bullets when ${gate.concretePastActions.length} concrete past-action sources exist`,
+    };
+  }
+
+  const distinct = new Set(
+    bullets.map((b) => normalizeSourceQuote(b?.sourceQuote)).filter(Boolean)
+  );
+  if (distinct.size < required) {
+    return {
+      ok: false,
+      reason: `need at least ${required} resume bullets grounded in different concrete past-action sources`,
+    };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Enforce resume bullet evidence per bullet. Zero concrete actions → [].
  * Surviving bullets have internal sourceQuote stripped before UI use.
+ * When rich evidence still yields too few bullets after filtering, surface
+ * strengthen questions for uncovered sources instead of fabricating bullets.
  */
 export function applyResumeBulletGate(kitResult, gate) {
   if (!kitResult || typeof kitResult !== 'object') return kitResult;
 
   if (!gate?.allowResumeBullets) {
-    return { ...kitResult, resumeBullets: [] };
+    return { ...kitResult, resumeBullets: [], resumeBulletGaps: [] };
   }
 
-  const validated = validateResumeBulletSources(kitResult.resumeBullets || [], gate).map(
-    stripInternalBulletFields
-  );
+  const validated = validateResumeBulletSources(kitResult.resumeBullets || [], gate);
+  const stripped = validated.map(stripInternalBulletFields);
+  const required = getRequiredResumeBulletCount(gate);
+  let resumeBulletGaps = [];
 
-  return { ...kitResult, resumeBullets: validated };
+  if (required > 0 && validated.length < required) {
+    resumeBulletGaps = getUncoveredConcreteSources(validated, gate).map((item) => ({
+      strengthen: strengthenQuestionForUncoveredSource(item.source),
+    }));
+  }
+
+  return { ...kitResult, resumeBullets: stripped, resumeBulletGaps };
 }
 
 function formatAllowedCategoryBlock(gate, category) {
@@ -479,6 +544,11 @@ export function formatEvidenceGateForPrompt(gate) {
     lines.push(
       'Each resume bullet MUST include sourceQuote set to the EXACT concrete_past_action quote it is grounded in (copy verbatim from the list above). Bullets with missing or invalid sourceQuote are removed after generation.'
     );
+    if (gate.concretePastActions.length >= RICH_EVIDENCE_SOURCE_THRESHOLD) {
+      lines.push(
+        `RESUME BULLET MINIMUM: ${gate.concretePastActions.length} concrete past actions identified. Return at least ${MIN_RESUME_BULLETS_WHEN_RICH} resume bullets, each with sourceQuote from a DIFFERENT concrete_past_action source above.`
+      );
+    }
   }
 
   return lines.join('\n\n');

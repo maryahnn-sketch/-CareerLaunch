@@ -2049,7 +2049,7 @@ function validateRoadmapDirectionResult(result){
   return { ok:true };
 }
 
-function validateKitResult(result, sourceEvidenceText){
+function validateKitResult(result, sourceEvidenceText, gate){
   if(!result || !Array.isArray(result.resumeBullets)) return { ok:false, reason:'resumeBullets missing' };
   if(result.resumeBullets.length > 4) return { ok:false, reason:'resumeBullets exceeds maximum of 4' };
   if(!Array.isArray(result.linkedinHeadlines) || result.linkedinHeadlines.length !== 3) return { ok:false, reason:'linkedinHeadlines must have exactly 3 entries' };
@@ -2059,10 +2059,21 @@ function validateKitResult(result, sourceEvidenceText){
   for(const b of result.resumeBullets){
     if(!isNonEmptyStr(b.sourceQuote)) return { ok:false, reason:'each resume bullet must include sourceQuote (exact concrete_past_action quote)' };
     const bad = findUnsupportedNumerals(b.text, sourceEvidenceText);
-    if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}") — remove it, don't invent metrics` };
+    if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}"): remove it, don't invent metrics` };
   }
   const badAbout = findUnsupportedNumerals(result.linkedinAbout, sourceEvidenceText);
   if(badAbout.length) return { ok:false, reason:`linkedinAbout contains a number not present in the user's evidence ("${badAbout.join(', ')}")` };
+  const concreteCount = gate?.concretePastActions?.length || 0;
+  if(concreteCount >= 3){
+    const required = Math.min(3, concreteCount);
+    if(result.resumeBullets.length < required){
+      return { ok:false, reason:`need at least ${required} resume bullets when ${concreteCount} concrete past-action sources exist` };
+    }
+    const distinct = new Set(result.resumeBullets.map(b => String(b.sourceQuote || '').trim().toLowerCase()).filter(Boolean));
+    if(distinct.size < required){
+      return { ok:false, reason:`need at least ${required} resume bullets grounded in different concrete past-action sources` };
+    }
+  }
   return { ok:true };
 }
 
@@ -2169,7 +2180,7 @@ function renderLanding(){
         <button class="btn btn-text" data-scroll="how">See how it works</button>
       </div>
       <div class="translate-demo">
-        <div class="before">"I helped run my sister's clothing business — <span>answered WhatsApp messages</span>, <span>ordered products</span>, <span>dealt with angry customers</span>, and <span>trained new girls</span>."</div>
+        <div class="before">"I helped run my sister's clothing business: <span>answered WhatsApp messages</span>, <span>ordered products</span>, <span>dealt with angry customers</span>, and <span>trained new girls</span>."</div>
         <div class="translate-tags">
           <span class="tag">Customer Service</span><span class="tag">Vendor Coordination</span><span class="tag">Issue Resolution</span><span class="tag">Staff Training</span><span class="tag">Operations Support</span>
         </div>
@@ -2182,14 +2193,14 @@ function renderLanding(){
     <section class="section" id="how">
       <div class="eyebrow"><span class="dot"></span>The process</div>
       <h2>How it works</h2>
-      <p class="lede">A conversation, not a form — and it keeps learning as you go.</p>
+      <p class="lede">A conversation, not a form, and it keeps learning as you go.</p>
       <div class="how-steps">
-        <div class="how-step"><div class="num">01</div><h3>Tell us your story</h3><p>Type or talk. Jobs, businesses, family responsibilities, side hustles — whatever feels relevant.</p></div>
+        <div class="how-step"><div class="num">01</div><h3>Tell us your story</h3><p>Type or talk. Jobs, businesses, family responsibilities, side hustles, whatever feels relevant.</p></div>
         <div class="how-step"><div class="num">02</div><h3>Discover your skills</h3><p>We identify transferable capabilities, with the evidence for each one shown from your own words.</p></div>
-        <div class="how-step"><div class="num">03</div><h3>Explore possible paths</h3><p>Career directions your skills could transfer to — with why, and what's still uncertain.</p></div>
-        <div class="how-step"><div class="num">04</div><h3>Tell us what matters</h3><p>As you talk, we update what we recommend — and always explain why it changed.</p></div>
+        <div class="how-step"><div class="num">03</div><h3>Explore possible paths</h3><p>Career directions your skills could transfer to, with why and what's still uncertain.</p></div>
+        <div class="how-step"><div class="num">04</div><h3>Tell us what matters</h3><p>As you talk, we update what we recommend and always explain why it changed.</p></div>
         <div class="how-step"><div class="num">05</div><h3>Build your roadmap</h3><p>A Now → Next → Later sequence and a 7/30/60/90-day action plan, not just a category list.</p></div>
-        <div class="how-step"><div class="num">06</div><h3>Prepare to move</h3><p>Resume language, LinkedIn positioning, and interview stories — built from the experience you shared, nothing invented.</p></div>
+        <div class="how-step"><div class="num">06</div><h3>Prepare to move</h3><p>Resume language, LinkedIn positioning, and interview stories built from the experience you shared, nothing invented.</p></div>
       </div>
     </section>
     <section class="section">
@@ -2216,15 +2227,22 @@ function renderLanding(){
         <div class="price-card">
           <div class="eyebrow"><span class="dot"></span>Free</div>
           <div class="amt">$0</div>
-          <p style="font-size:14px;">Full career discovery — skills, evidence, career paths, and a results conversation.</p>
+          <p style="font-size:14px;">Full career discovery: skills, evidence, career paths, and a results conversation.</p>
           <ul><li>Story intake, type or voice</li><li>Transferable skills with evidence</li><li>Career path preview by category</li><li>Recommendations that update as you talk</li></ul>
         </div>
         <div class="price-card featured">
           <div class="eyebrow"><span class="dot"></span>iFindWorth Starter</div>
           <div class="amt">$19.99</div>
-          <p style="font-size:14px;">Planned one-time price.</p>
+          <p style="font-size:14px;">One purchase gives you a personalized direction, credible positioning, and practical materials built from what you have actually done.</p>
           <p style="font-size:13px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
-          <ul><li>Career sequence + 7/30/60/90-day plan</li><li>Full gap analysis & learning ladder</li><li>Resume, LinkedIn & interview story bank</li><li>Command-center dashboard</li></ul>
+          <ul class="unlock-list premium">
+            <li><span><strong>Know which roles to pursue</strong>See where your experience fits and why those roles deserve your attention.</span></li>
+            <li><span><strong>Follow a focused 90 day plan</strong>Get clear priorities for your first 7, 30, 60, and 90 days.</span></li>
+            <li><span><strong>Use stronger résumé language</strong>Turn real responsibilities and outcomes into credible, ready to use bullets.</span></li>
+            <li><span><strong>Position yourself on LinkedIn</strong>Communicate your value with a tailored headline and About section.</span></li>
+            <li><span><strong>Prepare memorable interview stories</strong>Build clear examples from situations you have genuinely handled.</span></li>
+            <li><span><strong>Search with greater precision</strong>Use relevant titles, keywords, and adjacent opportunities you may have missed.</span></li>
+          </ul>
         </div>
       </div>
     </section>
@@ -2257,7 +2275,7 @@ function renderIntake(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Step one</div>
     <h1 style="font-size:36px;">Tell me your story.</h1>
-    <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Tell me what you've actually done — jobs, businesses, volunteering, family responsibilities, side hustles, school projects, community work. Whatever feels relevant.</p>
+    <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Tell me what you've actually done: jobs, businesses, volunteering, family responsibilities, side hustles, school projects, community work. Whatever feels relevant.</p>
     <div class="intake-card mt-32">
       <textarea id="storyInput" class="ph-no-capture" placeholder="Type your story here, or tap the microphone to speak.">${state.story}</textarea>
       <div class="intake-toolbar">
@@ -2275,7 +2293,7 @@ function renderIntake(){
       ${['Have you ever sold anything?','Managed money or a budget?','Trained or onboarded someone?','Handled an angry customer?','Organized an event?','Managed household logistics?','Built a social media page?','Solved a problem without being told how?']
         .map(p=>`<span class="prompt-chip">${p}</span>`).join('')}
     </div>
-    <p class="privacy-note">We only analyze what you write here to identify skills and possible directions. You can edit or delete your story at any time, and every recommendation is guidance — not a guarantee.</p>
+    <p class="privacy-note">We only analyze what you write here to identify skills and possible directions. You can edit or delete your story at any time, and every recommendation is guidance, not a guarantee.</p>
   </div></div>`;
 }
 
@@ -2291,7 +2309,7 @@ function renderSkills(){
   return `
   <div class="wrap"><div class="screen">
     <div class="big-stat">You have <mark>${n}</mark> transferable<br/>professional skills.</div>
-    <p style="max-width:520px;">Based on what you've shared, you may be more career-ready than you realized. Here's what we found — and why.</p>
+    <p style="max-width:520px;">Based on what you've shared, you may be more career-ready than you realized. Here's what we found and why.</p>
     <div class="mt-40">
       ${state.skills.map(s=>{
         const v = state.skillValidation[s.name];
@@ -2316,7 +2334,7 @@ const DISCOVERY_TIERS = ['Strongest matches','Adjacent opportunities','Unexpecte
 const TIER_DESCRIPTIONS = {
   'Strongest matches': 'Paths where your validated experience and transferable skills align most directly.',
   'Adjacent opportunities': 'Realistic directions that build on what you bring, with a step or two of stretch.',
-  'Unexpected possibilities': 'Evidence-supported options that may not match your first guess — worth exploring with honest gaps noted.',
+  'Unexpected possibilities': 'Evidence-supported options that may not match your first guess, worth exploring with honest gaps noted.',
 };
 const PATH_STRENGTH_SCORE = { 'Strong': 4, 'Moderate': 3, 'Developing': 2, 'Needs More Information': 1 };
 function pathStrengthScore(val){ return PATH_STRENGTH_SCORE[val] || 1; }
@@ -2398,9 +2416,9 @@ function renderPathCard(p){
       <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
     </div>
     ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
-      <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'—'}</div>
-      <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
-      <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
+      <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'Not rated'}</div>
+      <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'Not rated'}</div>
+      <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'Not rated'}</div>
     </div>`:''}
     </div>
     ${renderPathNoveltyFeedback(p.title)}
@@ -2412,7 +2430,7 @@ function renderPaths(){
   let html = `<div class="wrap-wide"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Career path discovery</div>
     <h1 style="font-size:34px;">We found ${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length} career paths you may not have considered.</h1>
-    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Each tier reflects evidence strength and how close it sits to what you've already done — tap one that resonates, or one that doesn't feel like you.</p>`;
+    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Each tier reflects evidence strength and how close it sits to what you've already done. Tap one that resonates, or one that doesn't feel like you.</p>`;
   if(state.reranked && state.changeSummary){
     html += `<div class="change-summary ph-career-content mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
   }
@@ -2433,7 +2451,7 @@ function renderConversation(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Before you choose</div>
     <h1 style="font-size:32px;">Let's talk about your results.</h1>
-    <p>Anything here surprise you? Anything missing, or not feel like you? Tell me more and I'll refine what I'm seeing — and update your recommendations.</p>
+    <p>Anything here surprise you? Anything missing, or not feel like you? Tell me more and I'll refine what I'm seeing and update your recommendations.</p>
     <div class="convo-log ph-career-content">
       ${state.convo.map(c=>{
         if(c.who==='learned') return renderLearnedCard(c);
@@ -2479,7 +2497,7 @@ function renderChoose(){
       }).join('')}
     </div>
     <div class="eyebrow mt-40" style="margin-bottom:6px;"><span class="dot"></span>What matters most to you?</div>
-    <p style="font-size:13.5px;">Pick as many as apply — this shapes your roadmap and sequence, not which path is "correct."</p>
+    <p style="font-size:13.5px;">Pick as many as apply. This shapes your roadmap and sequence, not which path is "correct."</p>
     <div class="priority-grid">
       ${PRIORITIES.map(p=>`<button class="priority-chip ${state.priorities.includes(p)?'active':''}" data-priority="${encodeURIComponent(p)}">${p}</button>`).join('')}
     </div>
@@ -2531,7 +2549,7 @@ function renderPaywall(){
     <div class="paywall-card">
       ${alreadyPaid ? `
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Demo Already Unlocked</div>
-        <p style="font-size:14px;">You've already unlocked iFindWorth Starter in this demo — no card required, and you can explore another path without any real payment.</p>
+        <p style="font-size:14px;">You've already unlocked iFindWorth Starter in this demo. No card required, and you can explore another path without any real payment.</p>
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
       ` : `
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Your career intelligence package</div>
@@ -2579,9 +2597,9 @@ function renderRoadmap(){
   const actionPlanBlock = sections.actionPlan === 'ready' ? `<div class="roadmap-section ph-career-content">
       <h3>Your action plan</h3>
       <div class="ladder-level"><div class="lvl-name">First 7 days</div><ul>${(r.plan.first7||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 8–30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 31–60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 61–90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 8 to 30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 31 to 60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 61 to 90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
     </div>
     <div class="roadmap-section ph-career-content"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>`
     : renderRoadmapSectionRetry('Your action plan', 'actionPlan', sections.actionPlan, sectionErrors.actionPlan);
@@ -2606,7 +2624,7 @@ function renderRoadmap(){
     <h1 style="font-size:32px;">Your Roadmap to ${state.chosenPath.title}</h1>
     <div class="not-zero">You're not starting from zero.</div>
 
-    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your demo unlock is complete — no real payment was collected. Most of your roadmap is ready below — one section needs a retry.</div>` : ''}
+    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your demo unlock is complete. No real payment was collected. Most of your roadmap is ready below, and one section needs a retry.</div>` : ''}
 
     ${directionBlock}
 
@@ -2649,10 +2667,11 @@ function renderKit(){
             <span class="strengthen-link" data-strengthen-open="${i}">Strengthen this bullet: ${b.strengthen}</span>
             <div class="strengthen-box" id="strengthenBox${i}" style="display:none;">
               <input type="text" class="ph-no-capture" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" ${state.kitBusyIndex===i?'disabled':''} />
-              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
+              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'Update with detail'}</button>
               <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
             </div>` : ''}
         </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you've actually done before we can write evidence-based resume bullets.</p>`}
+      ${(k.resumeBulletGaps||[]).map(g=>`<p style="font-size:14px;color:var(--ink-soft);margin-top:10px;">To strengthen your kit: ${g.strengthen}</p>`).join('')}
       <div class="kit-actions"><button class="btn btn-ghost btn-sm" data-copy-kit="resume">Copy résumé bullets</button></div>
     </div>
 
@@ -2694,7 +2713,7 @@ function renderDashboard(){
 
     <div class="dash-grid two-col mt-32">
       <div class="dash-card ph-career-content"><h3>Where you're going</h3>
-        <p style="font-family:var(--serif);font-size:19px;margin:0 0 10px;">${state.chosenPath ? state.chosenPath.title : '—'}</p>
+        <p style="font-family:var(--serif);font-size:19px;margin:0 0 10px;">${state.chosenPath ? state.chosenPath.title : 'Not selected'}</p>
         ${r && r.sequence ? `<div style="font-size:13px;color:var(--ink-soft);">${r.sequence.now.title} &rarr; ${r.sequence.next.title} &rarr; ${r.sequence.later.title}</div>`:''}
       </div>
       <div class="dash-card next-step-card ph-career-content"><h3>What should I do next</h3><p class="big">${r ? r.nextStep : 'Unlock your roadmap to see your next step.'}</p></div>
@@ -2709,16 +2728,16 @@ function renderDashboard(){
     </div>
 
     <div class="dash-grid two-col">
-      <div class="dash-card ph-career-content"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet — mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
-      <div class="dash-card ph-career-content"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
+      <div class="dash-card ph-career-content"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet. Mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
+      <div class="dash-card ph-career-content"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None yet</span>'}</div></div>
     </div>
 
     <div class="dash-card mt-16 ph-career-content"><h3>Evidence library</h3>
-      ${state.evidenceLibrary.map(e=>`<div class="evidence-lib-card"><span class="theme">${e.theme}</span> — ${e.evidence}</div>`).join('') || '<p style="font-size:13px;">Build your kit to populate your evidence library.</p>'}
+      ${state.evidenceLibrary.map(e=>`<div class="evidence-lib-card"><span class="theme">${e.theme}</span>: ${e.evidence}</div>`).join('') || '<p style="font-size:13px;">Build your kit to populate your evidence library.</p>'}
     </div>
 
     <div class="dash-card mt-16"><h3>Your application kit</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from the experience you shared — nothing invented.</p>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from the experience you shared, nothing invented.</p>
       <div class="tool-row">
         <button class="btn btn-ghost btn-sm" id="backToKit">View Resume & LinkedIn</button>
         <button class="btn btn-ghost btn-sm" id="openStoryBank">Interview Story Bank</button>
@@ -2746,7 +2765,7 @@ function renderAddExperience(){
   return `${subHeader('Add another experience')}
   <div class="wrap"><div class="screen">
     <h1 style="font-size:30px;">What else have you done?</h1>
-    <p style="max-width:500px;">Another job, a side hustle, a volunteer role, a school project, freelance work — anything you didn't mention before.</p>
+    <p style="max-width:500px;">Another job, a side hustle, a volunteer role, a school project, freelance work, anything you didn't mention before.</p>
     <div class="intake-card mt-32"><textarea class="plain-textarea ph-no-capture" id="addExpInput" placeholder="Tell me about it...">${state.addExpText}</textarea></div>
     <div class="mt-32" style="display:flex;gap:14px;">
       <button class="btn btn-primary" id="submitAddExp">Update My Profile</button>
@@ -2763,13 +2782,13 @@ function renderStoryBank(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Interview prep</div>
     <h1 style="font-size:30px;">My Story Bank</h1>
-    <p>Interview-ready stories, built from the experience you shared — nothing invented.</p>
+    <p>Interview-ready stories, built from the experience you shared, nothing invented.</p>
     <div class="mt-32 ph-career-content">
       ${state.storyBank.stories.map((s,i)=>`
         <div class="story-card">
           <h4>${s.category}</h4>
           ${s.status==='ready' ? `<p style="font-size:14.5px;">${s.story}</p>` : `
-            <div class="status-need">Not enough evidence yet — ${s.prompt || 'tell me more?'}</div>
+            <div class="status-need">Not enough evidence yet: ${s.prompt || 'tell me more?'}</div>
             <div class="story-add-row">
               <input type="text" class="ph-no-capture" id="storyDetail${i}" placeholder="Add a detail..." ${state.storyBankBusyIndex===i?'disabled':''} />
               <button class="btn btn-primary btn-sm" data-story-add="${i}" ${state.storyBankBusyIndex!==null?'disabled':''}>${state.storyBankBusyIndex===i?'Adding…':'Add'}</button>
@@ -2787,7 +2806,7 @@ function renderJdAnalyzer(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Job match analysis</div>
     <h1 style="font-size:30px;">Analyze a job description.</h1>
-    <p style="max-width:520px;">Paste a real job posting. We'll compare it against skills from your story — based only on the text you paste, not live market data.</p>
+    <p style="max-width:520px;">Paste a real job posting. We'll compare it against skills from your story, based only on the text you paste, not live market data.</p>
     <div class="intake-card mt-32"><textarea class="plain-textarea ph-no-capture" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
     <div class="mt-32"><button class="btn btn-primary" id="submitJd">Analyze Against My Profile</button></div>
 
@@ -2887,7 +2906,7 @@ function attachHandlers(){
   const toConvo = document.getElementById('toConvo');
   if(toConvo) toConvo.addEventListener('click', ()=>{
     if(!state.convo.length){
-      state.convo.push({who:'ai', text: "I've laid out the paths I found strongest evidence for first, then a few worth exploring. What's your first reaction — does anything surprise you, or feel off?"});
+      state.convo.push({who:'ai', text: "I've laid out the paths I found strongest evidence for first, then a few worth exploring. What's your first reaction? Does anything surprise you, or feel off?"});
     }
     state.screen = 'conversation'; render();
   });
@@ -3120,7 +3139,7 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     state.screen = 'skills';
   }catch(err){
     logDiag('analyzeSkills', 'final_failure', err.message || String(err));
-    state.errorMsg = "We couldn't analyze your story just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't analyze your story just now. Nothing was lost. You can try again.";
     state.errorRetry = analyzeSkills; state.screen = 'skills';
   }finally{
     state.busy = false; render();
@@ -3177,7 +3196,7 @@ Rules:
     state.screen = 'paths';
   }catch(err){
     logDiag('discoverPaths', 'final_failure', err.message || String(err));
-    state.errorMsg = "We couldn't map career paths just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
     state.errorRetry = discoverPaths; state.screen = 'paths';
   }finally{
     state.busy = false; render();
@@ -3214,7 +3233,7 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
     // after one retry) shows the "couldn't process" message — a usable reply
     // never reaches this branch.
     logDiag('sendConvo', 'final_failure', err.message || String(err));
-    state.convo.push({who:'ai', text: "I couldn't process that just now — want to try rephrasing, or continue to choosing a direction?"});
+    state.convo.push({who:'ai', text: "I couldn't process that just now. Want to try rephrasing, or continue to choosing a direction?"});
     state.convoBusy = false; render();
     const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
     return;
@@ -3332,7 +3351,7 @@ Critical rules for this regeneration:
     logDiag('regenerateLessObviousPaths', 'final_failure', err.message || String(err));
     state.paths = priorPaths;
     state.pathRegenerationCount = Math.max(0, state.pathRegenerationCount - 1);
-    state.errorMsg = "We couldn't surface less obvious directions just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't surface less obvious directions just now. Nothing was lost. You can try again.";
     state.errorRetry = regenerateLessObviousPaths; state.screen = 'paths';
   }finally{
     state.busy = false; render();
@@ -3388,7 +3407,7 @@ Refinement rules:
   }catch(err){
     logDiag('refinePaths', 'final_failure', err.message || String(err));
     state.paths = priorPaths;
-    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost. You can try again.";
     state.errorRetry = refinePaths; state.screen = 'paths';
   }finally{
     state.busy = false; render();
@@ -3434,7 +3453,7 @@ Rules:
     state.screen = 'paths';
   }catch(err){
     logDiag('rerankPaths', 'final_failure', err.message || String(err));
-    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost. You can try again.";
     state.errorRetry = rerankPaths; state.screen = 'paths';
   }finally{
     state.busy = false; render();
@@ -3554,7 +3573,7 @@ Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only. 
     if(myGen !== state.roadmapSectionGeneration.foundation) return false; // stale failure — ignore
     logDiag('buildRoadmapFoundation', 'final_failure', err.message || String(err));
     state.roadmapSections.foundation = 'failed';
-    state.roadmapSectionError.foundation = "Good news first: your demo unlock is complete — no card was required and no real payment is collected during this private beta. We just couldn't build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
+    state.roadmapSectionError.foundation = "Good news first: your demo unlock is complete. No card was required and no real payment is collected during this private beta. We just couldn't build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.foundation) state.busy = false;
@@ -3600,7 +3619,7 @@ Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days6
     if(myGen !== state.roadmapSectionGeneration.actionPlan) return false;
     logDiag('buildRoadmapActionPlan', 'final_failure', err.message || String(err));
     state.roadmapSections.actionPlan = 'failed';
-    state.roadmapSectionError.actionPlan = "We couldn't build your action plan this time — your demo unlock and everything else already generated are safe. Retry just this section below.";
+    state.roadmapSectionError.actionPlan = "We couldn't build your action plan this time. Your demo unlock and everything else already generated are safe. Retry just this section below.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.actionPlan) state.busy = false;
@@ -3649,7 +3668,7 @@ Rules: 1) careerSequence: now is the chosen entry point, next is realistic progr
     if(myGen !== state.roadmapSectionGeneration.direction) return false;
     logDiag('buildRoadmapDirection', 'final_failure', err.message || String(err));
     state.roadmapSections.direction = 'failed';
-    state.roadmapSectionError.direction = "We couldn't map your next steps this time — your demo unlock and everything else already generated are safe. Retry just this section below.";
+    state.roadmapSectionError.direction = "We couldn't map your next steps this time. Your demo unlock and everything else already generated are safe. Retry just this section below.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.direction) state.busy = false;
@@ -3723,7 +3742,7 @@ Rules:
 4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
   const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\n${formatLinkedInRulesForPrompt(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
   try{
-    const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
+    const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText, evidenceGate));
     const resumeGated = applyResumeBulletGate(result, evidenceGate);
     const gated = applyLinkedInGate(resumeGated, evidenceGate, state.chosenPath.title);
     state.kit = purgeRejectedFromObject(gated, rejected);
@@ -3789,7 +3808,7 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     addedNames.forEach(name => {
       delete state.skillValidation[name];
     });
-    state.changeSummary = addedNames.length ? `New experience added — we found: ${addedNames.join(', ')}.` : 'New experience added — it reinforced skills you already had.';
+    state.changeSummary = addedNames.length ? `New experience added. We found: ${addedNames.join(', ')}.` : 'New experience added. It reinforced skills you already had.';
     state.reranked = false;
     state.screen = 'skills';
   }catch(err){
