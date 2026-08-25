@@ -350,6 +350,14 @@ function main() {
     '"I scheduled appointments for my manager" classifies as concrete_past_action',
     classifyEvidenceText('I scheduled appointments for my manager.') === 'concrete_past_action'
   );
+  assert(
+    'present-tense real action classifies as concrete_past_action',
+    classifyEvidenceText('I manage household schedules and appointments.') === 'concrete_past_action'
+  );
+  assert(
+    'present-perfect real action classifies as concrete_past_action',
+    classifyEvidenceText('I have helped organize school events and family travel.') === 'concrete_past_action'
+  );
 
   assertMixedClauseStory(
     'mixed clause: preference + concrete organizing',

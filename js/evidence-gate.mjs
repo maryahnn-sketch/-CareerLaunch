@@ -26,8 +26,17 @@ const TRAIT =
 const LISTEN_AS_ABILITY =
   /\b(listen to people|listening to people|active listening|i listen)\b/i;
 
-const PAST_ACTION_VERB =
-  /\bi\s+(?:organized|scheduled|managed|coordinated|led|trained|helped|answered|fixed|completed|handled|volunteered|worked|served|created|built|developed|implemented|processed|prepared|maintained|facilitated|supervised|resolved|delivered|provided|assisted|supported|taught|planned|executed|ran|designed|wrote|cooked|drove|stocked|cleaned|filed|updated|tracked|monitored|reviewed|edited|researched|presented|mentored|sold|packaged|shipped|assembled|installed|repaired|tested|drafted|published|hosted|greeted|booked|registered|enrolled|studied|performed|directed|produced|collaborated|moved|started|began|initiated|established|founded|constructed|manufactured|inventoried|restocked|reordered|balanced|counted|entered|transcribed|translated|interpreted|mediated|examined|diagnosed|treated|administered|measured|mixed|baked|grilled|fried|graduated|practiced|auditioned|toured|relocated|voted|campaigned|canvassed|petitioned|lobbied|testified|declared|communicated|partnered|contracted|automated|converted|transformed|transferred|switched|changed|modified|adjusted|adapted|customized|standardized|operationalized|launched|opened|closed|commenced|instituted|formed|forged|cast|molded|shaped|sculpted|carved|welded|soldered|riveted|bolted|screwed|nailed|glued|attached|fastened|secured|anchored|parked|stored|warehoused|replenished|refilled|resupplied|reordered|acquired|obtained|procured|sourced|supplied|mailed|posted|sent|transmitted|broadcast|released|debuted|premiered)\b/i;
+const ACTION_VERB_STEM =
+  '(?:organiz(?:e|es|ed|ing)|schedul(?:e|es|ed|ing)|manag(?:e|es|ed|ing)|coordinat(?:e|es|ed|ing)|lead|leads|led|train(?:s|ed|ing)?|help(?:s|ed|ing)?|answer(?:s|ed|ing)?|fix(?:es|ed|ing)?|complet(?:e|es|ed|ing)|handl(?:e|es|ed|ing)|volunteer(?:s|ed|ing)?|work(?:s|ed|ing)?|serv(?:e|es|ed|ing)|creat(?:e|es|ed|ing)|build|builds|built|develop(?:s|ed|ing)?|implement(?:s|ed|ing)?|process(?:es|ed|ing)?|prepar(?:e|es|ed|ing)|maintain(?:s|ed|ing)?|facilitat(?:e|es|ed|ing)|supervis(?:e|es|ed|ing)|resolv(?:e|es|ed|ing)|deliver(?:s|ed|ing)?|provid(?:e|es|ed|ing)|assist(?:s|ed|ing)?|support(?:s|ed|ing)?|teach|teaches|taught|teaching|plan|plans|planned|planning|execut(?:e|es|ed|ing)|run|runs|ran|running|design(?:s|ed|ing)?|write|writes|wrote|writing|file|files|filed|filing|update|updates|updated|updating|track|tracks|tracked|tracking|monitor|monitors|monitored|monitoring|review|reviews|reviewed|reviewing|research|researches|researched|researching|communicat(?:e|es|ed|ing)|book|books|booked|booking|register|registers|registered|registering|send|sends|sent|sending|source|sources|sourced|sourcing|order|orders|ordered|ordering|pay|pays|paid|paying|compare|compares|compared|comparing)';
+
+// Real experience is often told in the present tense ("I manage appointments")
+// or present perfect ("I have helped with events"). Both are concrete action
+// evidence, not merely traits. The old past-tense-only matcher incorrectly
+// discarded these common story forms and produced empty paid application kits.
+const PAST_ACTION_VERB = new RegExp(
+  `\\bi\\s+(?:(?:have|have been|ve|ve been)\\s+)?${ACTION_VERB_STEM}\\b`,
+  'i'
+);
 
 const WORK_CONTEXT =
   /\b(worked as a|served as a|volunteered at|interned at|employed as|for my (?:manager|team|boss|aunt|church|school)|helped (?:my|with)|helped my)\b/i;

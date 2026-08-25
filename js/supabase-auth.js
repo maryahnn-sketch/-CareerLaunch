@@ -259,13 +259,13 @@ function injectBetaGateStyles() {
     }
     .ifw-beta-logo{display:block;width:170px;max-width:60%;height:auto;margin:0 0 24px;}
     .ifw-beta-kicker{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#4F46E5;margin-bottom:8px;}
-    .ifw-beta-card h2{font-family:'Playfair Display',Georgia,serif;font-size:30px;line-height:1.1;margin:0 0 10px;color:#20292C;}
-    .ifw-beta-card p{font-size:15px;line-height:1.55;color:#5B6669;margin:0 0 20px;}
-    .ifw-beta-label{display:block;font-size:13px;font-weight:700;color:#20292C;margin-bottom:8px;}
+    .ifw-beta-card h2{font-family:'Playfair Display',Georgia,serif;font-size:30px;line-height:1.1;margin:0 0 10px;color:#171C1E;}
+    .ifw-beta-card p{font-size:15px;line-height:1.55;color:#30383A;margin:0 0 20px;}
+    .ifw-beta-label{display:block;font-size:13px;font-weight:700;color:#171C1E;margin-bottom:8px;}
     .ifw-beta-input{
       width:100%;height:50px;border:1.5px solid #D8D4CB;border-radius:12px;padding:0 14px;
       font:600 15px/1 Inter,-apple-system,BlinkMacSystemFont,sans-serif;text-transform:uppercase;
-      letter-spacing:.04em;color:#20292C;background:#fff;outline:none;
+      letter-spacing:.04em;color:#171C1E;background:#fff;outline:none;
     }
     .ifw-beta-input:focus{border-color:#4F46E5;box-shadow:0 0 0 3px rgba(79,70,229,.11);}
     .ifw-beta-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
@@ -274,9 +274,9 @@ function injectBetaGateStyles() {
       font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;
     }
     .ifw-beta-primary{background:#4F46E5;color:#fff;flex:1;}
-    .ifw-beta-secondary{background:#F0EEE8;color:#20292C;}
+    .ifw-beta-secondary{background:#F0EEE8;color:#171C1E;}
     .ifw-beta-error{min-height:20px;margin-top:10px;font-size:13px;color:#B42318;}
-    .ifw-beta-note{font-size:12px!important;color:#747D80!important;margin:14px 0 0!important;}
+    .ifw-beta-note{font-size:12px!important;color:#424B4E!important;margin:14px 0 0!important;}
     .ifw-beta-spinner{opacity:.65;pointer-events:none;}
     @media (max-width:520px){.ifw-beta-card{padding:24px 20px}.ifw-beta-card h2{font-size:27px}.ifw-beta-logo{width:150px}}
   `;

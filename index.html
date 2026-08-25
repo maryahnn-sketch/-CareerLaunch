@@ -50,9 +50,9 @@
     --paper:#FAF9F6;
     --paper-dim:#F0EEE8;
     --card:#FFFFFF;
-    --ink:#20292C;
-    --ink-soft:#5B6669;
-    --ink-faint:#6B7477;
+    --ink:#171C1E;
+    --ink-soft:#30383A;
+    --ink-faint:#424B4E;
     --highlight:#4F46E5;
     --highlight-soft:rgba(79,70,229,0.12);
     --highlight-line:rgba(79,70,229,0.32);
@@ -78,6 +78,7 @@
   .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
   .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--highlight);}
   p{color:var(--ink-soft);}
+  strong{color:var(--ink);font-weight:700;}
   a{color:inherit;}
 
   button{font-family:var(--sans);cursor:pointer;border:none;background:none;}
@@ -170,7 +171,7 @@
 
   .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);}
   textarea#storyInput, textarea.plain-textarea{width:100%;min-height:260px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
-  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:var(--ink-soft);opacity:0.72;font-style:normal;font-size:17px;}
+  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:#465154;opacity:1;font-style:normal;font-size:17px;font-weight:500;}
   .intake-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid var(--line);}
   .mic-btn{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:var(--sage-soft);color:var(--sage);font-weight:600;font-size:13.5px;border:1px solid rgba(79,117,97,0.3);}
   .mic-icon{width:15px;height:15px;flex-shrink:0;}
@@ -254,7 +255,7 @@
   .path-meta{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;margin-top:10px;}
   .path-meta .k{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:3px;}
   .path-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-  .mini-tag{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--paper-dim);color:var(--ink-soft);}
+  .mini-tag{font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--paper-dim);color:var(--ink);font-weight:600;}
   .transition-Strong{color:var(--sage);}
   .transition-Moderate{color:#8a6417;}
   .transition-Developing, .transition-NeedsMoreInformation{color:var(--clay);}
@@ -288,15 +289,15 @@
   .unlock-list li{list-style:none;display:flex;gap:10px;align-items:flex-start;}
   .unlock-list li::before{content:'✓';color:var(--sage);font-weight:700;}
   .bring-card{background:var(--paper-dim);border-radius:12px;padding:20px;margin:20px 0;text-align:left;}
-  .bring-card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;}
+  .bring-card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink);font-weight:700;margin-bottom:10px;}
   .gap-preview{background:var(--clay-soft);border-radius:12px;padding:16px 18px;text-align:left;margin-bottom:20px;font-size:14px;color:var(--clay);}
 
   .roadmap-section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;}
-  .roadmap-section h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:12px;}
-  .roadmap-section ul{margin:0;padding-left:20px;font-size:14.5px;color:var(--ink-soft);}
+  .roadmap-section h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink);font-weight:700;margin-bottom:12px;}
+  .roadmap-section ul{margin:0;padding-left:20px;font-size:14.5px;color:var(--ink);}
   .roadmap-section li{margin-bottom:6px;}
   .ladder-level{margin-bottom:12px;}
-  .ladder-level .lvl-name{font-weight:600;font-size:13.5px;margin-bottom:4px;}
+  .ladder-level .lvl-name{font-weight:700;font-size:13.5px;color:var(--ink);margin-bottom:4px;}
   .not-zero{font-family:var(--serif);font-style:italic;font-size:19px;text-align:center;padding:26px 0;color:var(--ink);}
 
   .sequence-track{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 32px;}
@@ -311,7 +312,7 @@
   .phase-tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
 
   .kit-block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:16px;}
-  .kit-block h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:12px;}
+  .kit-block h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink);font-weight:700;margin-bottom:12px;}
   .kit-block p, .kit-block li{font-family:var(--serif);font-size:16.5px;color:var(--ink);line-height:1.6;}
   .kit-block ul{padding-left:20px;margin:0;}
   .kit-block li{margin-bottom:6px;}
@@ -322,23 +323,25 @@
   .strengthen-box input{flex:1;min-width:180px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-family:var(--sans);font-size:13.5px;}
   .headline-option{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;}
   .headline-option.selected{border-color:var(--ink);background:var(--paper-dim);}
-  .headline-option .style-lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+  .headline-option .style-lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--ink);font-weight:700;margin-bottom:6px;}
   .headline-option .text{font-family:var(--serif);font-style:italic;font-size:15.5px;color:var(--ink);}
 
   .dash-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:24px;}
   @media (min-width:720px){.dash-grid.two-col{grid-template-columns:1fr 1fr;}}
   .dash-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;}
-  .dash-card h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:10px;}
+  .dash-card h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink);font-weight:700;margin-bottom:10px;}
+  .dash-card p,.dash-card li{color:var(--ink);}
   .next-step-card{border-color:var(--ink);}
   .next-step-card p.big{font-family:var(--serif);font-size:19px;color:var(--ink);margin:0;}
-  .evidence-lib-card{background:var(--paper-dim);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;}
-  .evidence-lib-card .theme{font-weight:700;font-size:12.5px;}
+  .evidence-lib-card{background:var(--paper-dim);border-radius:8px;padding:12px 14px;margin-bottom:9px;font-size:13px;color:var(--ink);line-height:1.55;}
+  .evidence-lib-card .theme{font-weight:800;font-size:12.5px;color:var(--ink);}
   .progress-track{height:8px;background:var(--paper-dim);border-radius:4px;overflow:hidden;margin-top:10px;}
   .progress-track .fill{height:100%;background:var(--sage);}
   .tool-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
 
   .story-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;}
   .story-card h4{font-family:var(--serif);font-size:17px;margin-bottom:8px;}
+  .story-card p{color:var(--ink);}
   .story-card .status-need{font-size:12.5px;color:var(--clay);font-weight:600;margin-bottom:8px;}
   .story-add-row{display:flex;gap:8px;margin-top:10px;}
   .story-add-row input{flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13.5px;}
@@ -353,6 +356,12 @@
   .center{text-align:center;}
   .mt-16{margin-top:16px;} .mt-32{margin-top:32px;} .mt-40{margin-top:40px;}
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  .evidence-prompt{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:22px 0;box-shadow:var(--shadow);}
+  .evidence-prompt h3{font-family:var(--sans);font-size:16px;font-weight:700;margin-bottom:8px;color:var(--ink);}
+  .evidence-prompt ul{color:var(--ink);padding-left:20px;margin:10px 0 18px;}
+  .evidence-prompt li{margin:7px 0;}
+  .kit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .copy-status{font-size:12px;font-weight:700;color:var(--sage);min-height:18px;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -664,7 +673,7 @@ function applyHydratedState(hydrated){
 }
 
 
-const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
+const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','evidenceCheck','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
 function hasMeaningfulStoryContent(text){
   const t = (text || '').trim();
@@ -2089,6 +2098,7 @@ function render(){
     case 'paths': html += renderPaths(); break;
     case 'conversation': html += renderConversation(); break;
     case 'choose': html += renderChoose(); break;
+    case 'evidenceCheck': html += renderEvidenceCheck(); break;
     case 'paywall': html += renderPaywall(); break;
     case 'roadmap': html += renderRoadmap(); break;
     case 'kit': html += renderKit(); break;
@@ -2105,7 +2115,7 @@ function render(){
 
 function renderProgress(){
   const idx = stepIndex();
-  const labels = { intake:'Your story', analyzing:'Analyzing', skills:'Skills', paths:'Career paths', conversation:'Discuss results', choose:'Choose direction', paywall:'Unlock roadmap', roadmap:'Your roadmap', kit:'Positioning', dashboard:'Dashboard' };
+  const labels = { intake:'Your story', analyzing:'Analyzing', skills:'Skills', paths:'Career paths', conversation:'Discuss results', choose:'Choose direction', evidenceCheck:'Strengthen evidence', paywall:'Unlock roadmap', roadmap:'Roadmap', kit:'Positioning', dashboard:'Dashboard' };
   let steps = '';
   STEP_ORDER.forEach((s,i)=>{ steps += `<span class="${i<idx?'done':(i===idx?'current':'')}"></span>`; });
   return `<div class="progress-bar"><div class="progress-inner">
@@ -2458,6 +2468,30 @@ function renderChoose(){
   </div></div>`;
 }
 
+/* ============================= EVIDENCE READINESS CHECK ============================= */
+function renderEvidenceCheck(){
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Before we build your package</div>
+    <h1 style="font-size:32px;">Give us one concrete example.</h1>
+    <p style="font-size:16px;max-width:620px;">Your paid package should contain usable language, not guesses. Add one real example so iFindWorth can show what you did, how you did it, and what it proves.</p>
+    <div class="evidence-prompt">
+      <h3>You can describe work, business, volunteering, school, caregiving, church, community, or household responsibilities.</h3>
+      <ul>
+        <li>What did you organize, solve, create, manage, or coordinate?</li>
+        <li>Who depended on you, and which tools did you use?</li>
+        <li>What changed, improved, or got completed because of your action?</li>
+      </ul>
+      <textarea class="plain-textarea ph-no-capture" id="evidenceDetailInput" placeholder="Example: I coordinated a school event by tracking dates, contacting vendors, and making sure materials arrived before the event."></textarea>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-primary" id="saveEvidenceDetail">Add This Evidence</button>
+      <button class="btn btn-text" id="skipEvidenceDetail">I already shared enough detail</button>
+    </div>
+    <p id="evidenceDetailError" class="error-box" style="display:none;"></p>
+  </div></div>`;
+}
+
 /* ============================= PAYWALL ============================= */
 function renderPaywall(){
   const strengths = getRetainedStorySkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
@@ -2536,12 +2570,12 @@ function renderRoadmap(){
       ${(r.learn||[]).map(l=>`<div class="ladder-level"><div class="lvl-name">${l.level}</div><ul>${(l.items||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}
     </div>
     <div class="roadmap-section ph-career-content"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
-    <div class="roadmap-section ph-career-content"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>`
+    <div class="roadmap-section ph-career-content"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join(' ')}</div></div>`
     : renderRoadmapSectionRetry('Your career sequence & learning strategy', 'direction', sections.direction, sectionErrors.direction);
 
   return `
   <div class="wrap"><div class="screen">
-    <div class="eyebrow"><span class="dot"></span>Your roadmap</div>
+    <div class="eyebrow"><span class="dot"></span>Personal career plan</div>
     <h1 style="font-size:32px;">Your Roadmap to ${state.chosenPath.title}</h1>
     <div class="not-zero">You're not starting from zero.</div>
 
@@ -2592,6 +2626,7 @@ function renderKit(){
               <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
             </div>` : ''}
         </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you've actually done before we can write evidence-based resume bullets.</p>`}
+      <div class="kit-actions"><button class="btn btn-ghost btn-sm" data-copy-kit="resume">Copy résumé bullets</button></div>
     </div>
 
     <div class="kit-block ph-career-content">
@@ -2601,11 +2636,22 @@ function renderKit(){
           <div class="style-lbl">${h.style}</div>
           <div class="text">${h.text}</div>
         </div>`).join('')}
+      <div class="kit-actions"><button class="btn btn-ghost btn-sm" data-copy-kit="headline">Copy selected headline</button></div>
     </div>
 
-    <div class="kit-block ph-career-content"><h3>LinkedIn about</h3><p>${k.linkedinAbout||''}</p></div>
+    <div class="kit-block ph-career-content"><h3>LinkedIn about</h3><p id="linkedinAboutText">${k.linkedinAbout||''}</p>
+      <div class="kit-actions">
+        <button class="btn btn-ghost btn-sm" data-copy-kit="about">Copy About section</button>
+        <button class="btn btn-ghost btn-sm" id="editLinkedinAbout">Edit</button>
+      </div>
+    </div>
 
-    <div class="mt-40"><button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button></div>
+    <div class="copy-status" id="copyStatus" aria-live="polite"></div>
+    <div class="mt-40" style="display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button>
+      <button class="btn btn-ghost" id="downloadKit">Download My Kit</button>
+      <button class="btn btn-text" id="regenerateKit">Regenerate</button>
+    </div>
   </div></div>`;
 }
 
@@ -2848,7 +2894,13 @@ function attachHandlers(){
       render();
     });
   });
-  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', ()=>{ state.screen='paywall'; render(); });
+  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', ()=>{ state.screen='evidenceCheck'; render(); });
+
+  // evidence readiness check
+  const saveEvidenceDetail = document.getElementById('saveEvidenceDetail');
+  if(saveEvidenceDetail) saveEvidenceDetail.addEventListener('click', ()=>continueEvidenceCheck(true));
+  const skipEvidenceDetail = document.getElementById('skipEvidenceDetail');
+  if(skipEvidenceDetail) skipEvidenceDetail.addEventListener('click', ()=>continueEvidenceCheck(false));
 
   // paywall
   const doCheckout = document.getElementById('doCheckout');
@@ -2886,6 +2938,13 @@ function attachHandlers(){
       if(box) box.style.display = 'none';
     });
   });
+  document.querySelectorAll('[data-copy-kit]').forEach(el=>{
+    el.addEventListener('click', ()=>copyKitSection(el.getAttribute('data-copy-kit')));
+  });
+  const editLinkedinAbout = document.getElementById('editLinkedinAbout');
+  if(editLinkedinAbout) editLinkedinAbout.addEventListener('click', editAboutSection);
+  const downloadKit = document.getElementById('downloadKit'); if(downloadKit) downloadKit.addEventListener('click', downloadApplicationKit);
+  const regenerateKit = document.getElementById('regenerateKit'); if(regenerateKit) regenerateKit.addEventListener('click', buildKit);
 
   // dashboard
   const backToKit = document.getElementById('backToKit'); if(backToKit) backToKit.addEventListener('click', ()=>{ state.screen='kit'; render(); });
@@ -2916,6 +2975,58 @@ function attachHandlers(){
   // error retry
   const retryBtn = document.getElementById('retryBtn');
   if(retryBtn) retryBtn.addEventListener('click', ()=>{ const retry = state.errorRetry; state.errorMsg=''; state.errorRetry=null; state.errorRetryLabel=null; if(retry) retry(); });
+}
+
+function kitSectionText(section){
+  if(!state.kit) return '';
+  if(section === 'resume') return (state.kit.resumeBullets||[]).map(b=>`• ${typeof b === 'string' ? b : b.text}`).join('\n');
+  if(section === 'headline') return ((state.kit.linkedinHeadlines||[])[state.selectedHeadline]||{}).text || '';
+  if(section === 'about') return state.kit.linkedinAbout || '';
+  return '';
+}
+
+async function copyKitSection(section){
+  const text = kitSectionText(section);
+  const status = document.getElementById('copyStatus');
+  if(!text){ if(status) status.textContent = 'Nothing to copy yet.'; return; }
+  try{
+    await navigator.clipboard.writeText(text);
+    if(status) status.textContent = 'Copied to clipboard.';
+  }catch(e){
+    if(status) status.textContent = 'Copy was blocked by the browser. Select the text and copy manually.';
+  }
+}
+
+function editAboutSection(){
+  const about = document.getElementById('linkedinAboutText');
+  const button = document.getElementById('editLinkedinAbout');
+  if(!about || !button) return;
+  const editing = about.getAttribute('contenteditable') === 'true';
+  if(editing){
+    state.kit.linkedinAbout = about.textContent.trim();
+    about.setAttribute('contenteditable','false');
+    button.textContent = 'Edit';
+    saveProfileToStorage(state);
+  }else{
+    about.setAttribute('contenteditable','true');
+    about.focus();
+    button.textContent = 'Save edit';
+  }
+}
+
+function downloadApplicationKit(){
+  if(!state.kit) return;
+  const headline = kitSectionText('headline');
+  const text = `iFindWorth Application Kit\nTarget direction: ${state.chosenPath ? state.chosenPath.title : ''}\n\nRÉSUMÉ BULLETS\n${kitSectionText('resume')}\n\nLINKEDIN HEADLINE\n${headline}\n\nLINKEDIN ABOUT\n${kitSectionText('about')}\n`;
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'iFindWorth-Application-Kit.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /* ============================= VOICE INPUT ============================= */
@@ -3296,6 +3407,35 @@ Rules:
 // "checkout" or touch paymentStatus a second time; it just makes sure
 // roadmap generation is (re)started, which is exactly what a legitimate
 // retry should do anyway.
+async function continueEvidenceCheck(addNewDetail){
+  const input = document.getElementById('evidenceDetailInput');
+  const detail = input ? input.value.trim() : '';
+  const error = document.getElementById('evidenceDetailError');
+  if(addNewDetail){
+    if(detail.length < 25){
+      if(error){
+        error.style.display = 'block';
+        error.textContent = 'Please add one specific action you took. A short sentence is enough.';
+      }
+      return;
+    }
+    state.additionalExperiences.push(detail);
+  }
+
+  const { gateRetainedEvidence } = await loadEvidenceGate();
+  const gate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
+  if(!gate.allowResumeBullets){
+    if(error){
+      error.style.display = 'block';
+      error.textContent = 'We still need one real action before offering résumé language. Tell us something you organized, managed, created, solved, or helped complete.';
+    }
+    return;
+  }
+  saveProfileToStorage(state);
+  state.screen = 'paywall';
+  render();
+}
+
 function handleCheckout(){
   if(state.paymentStatus !== 'paid'){
     state.paymentStatus = 'paid';
@@ -3394,7 +3534,7 @@ async function buildRoadmapActionPlan(){
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists — use conditional steps such as "Review past responsibilities for real organizing examples; if none, treat as an area to build."`;
+Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the evidence, gaps, and priorities below, never generic filler. Every time band must advance to a new observable outcome; do not repeat "practice," "research," or "continue" across multiple bands. Include a target-role job-description review, one portfolio/evidence artifact, an application-ready milestone, and a measurable search/application milestone when appropriate. Each action item must be a short phrase (max ~14 words). nextBestStep: one concrete action that can be completed today. Do not recommend a certificate until the user verifies target postings actually require or value it. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists.`;
   const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
   const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
@@ -3440,7 +3580,7 @@ async function buildRoadmapDirection(){
   const system = `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally — never call self-described abilities or traits "demonstrated strengths" and never imply performed organizing/coordinating/listening tasks unless concrete_past_action evidence exists; if only self_described_ability exists, say the user identifies those strengths in themselves while building concrete examples. Every item must be a short phrase, not a paragraph — this response must stay compact.${rejectedSkillsClause()}`;
+Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a meaningfully broader responsibility level, not merely the same title with "senior" added (each: short title, one-sentence desc, max 18 words). 2) learningStrategy: prioritize the smallest evidence-backed skill gaps. Never default to education or certificates; first tell the user to verify requirements in real target postings. 3) searchTerms: 3-5 distinct, correctly spaced job-title terms, including at least one adjacent title. 4) positioning: 2 specific sentences connecting actual actions to target requirements without pretending the target role was already held. Every item must be compact.${rejectedSkillsClause()}`;
   const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
@@ -3529,7 +3669,7 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
 1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
-2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path — signal transition/building when evidence is thin), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment. Preserve evidence category semantics: self_described_ability and trait language must not upgrade into performed duties, strong coordinator language, scheduling, prioritizing, reliability, thriving, team-performance claims, or universal every-task scope unless explicitly evidenced.
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused", "Career Transition-Focused", and "Professional Brand-Focused". Never use "aspiring." Prefer credible truthful language such as "Administrative Support Candidate" or "Building Toward Administrative Support," followed by evidence-supported keywords. Transition headlines may name the target direction as a future direction, never as past employment. Preserve evidence category semantics.
 3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence categories. Clearly separate existing self-described qualities from the role the user is moving toward. Do not write thrive, work well across teams, reliable presence, every interaction/task, or keep things running smoothly unless explicitly in allowed evidence.
 4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
   const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\n${formatLinkedInRulesForPrompt(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
@@ -3628,7 +3768,7 @@ async function buildStoryBank(){
   const rejected = getRejectedSkillNames();
   const system = `You build an interview Story Bank inside iFindWorth, using only the user's real, story-supported experience.
 ${NO_INVENTION_RULE}
-For each of these fixed categories, in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) with status "ready", or if there isn't enough evidence, set status "needs_more" with a short prompt (max 14 words) asking for the missing detail. Only draw on the "Retained story skills" list below — the story text is provided for tone/context, but any skill or activity the user has rejected must not be used as evidence for a story.${rejectedSkillsClause()}`;
+For each fixed category, either write a 2-3 sentence first-person draft using only actions and outcomes explicitly stated by the user, or return status "needs_more" with one short question. Never convert "I help," "people depend on me," or a skill label into a specific incident, resolution, system, outcome, emotion, or achievement the user did not describe. If the evidence does not contain a beginning, action, and outcome for that category, it is not interview-ready: ask for detail. Use the categories in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of".${rejectedSkillsClause()}`;
   const userPrompt = `Story: ${fullStoryText()}\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
     const result = await callStructured('buildStoryBank', system, userPrompt, storyBankTool, TOKEN_BUDGETS.storyBank, validateStoryBankResult);
