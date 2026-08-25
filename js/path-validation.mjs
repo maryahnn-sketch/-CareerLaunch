@@ -3,7 +3,10 @@
  * Keep in sync with regression tests in scripts/test-evidence-quality.mjs.
  */
 
-export const MIN_VALID_PATHS = 3;
+import { gateRetainedEvidence } from './evidence-gate.mjs';
+
+/** @deprecated Use getRequiredPathCount — kept for callers expecting a constant ceiling. */
+export const MIN_VALID_PATHS = 1;
 
 const PATH_STRENGTH_SCORE = {
   Strong: 4,
@@ -35,6 +38,25 @@ const SKILL_FAMILY_PATTERNS = [
   { family: 'creative', pattern: /(?:creative|design|marketing|content|media|social|writing|graphic)/i },
   { family: 'community', pattern: /(?:community|nonprofit|volunteer|outreach|social work)/i },
 ];
+
+const TITLE_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'the',
+  'and',
+  'or',
+  'of',
+  'for',
+  'in',
+  'at',
+  'to',
+  'entry',
+  'level',
+  'senior',
+  'junior',
+  'assistant',
+  'associate',
+]);
 
 export function findPathClaimViolations(path) {
   const fields = [path?.title, path?.why, path?.entryPoint, path?.progression, path?.workEnvironment]
@@ -95,8 +117,146 @@ function inferFamilyFromSkillName(name) {
   return 'general';
 }
 
-function pathStrengthScore(val) {
-  return PATH_STRENGTH_SCORE[val] || 1;
+function normalizePathTitle(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function pathTitleTokens(title) {
+  return normalizePathTitle(title)
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !TITLE_STOP_WORDS.has(token));
+}
+
+export function pathTitlesAreNearDuplicate(titleA, titleB) {
+  const a = normalizePathTitle(titleA);
+  const b = normalizePathTitle(titleB);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) return true;
+
+  const tokensA = new Set(pathTitleTokens(titleA));
+  const tokensB = new Set(pathTitleTokens(titleB));
+  if (!tokensA.size || !tokensB.size) return a === b;
+
+  const intersection = [...tokensA].filter((token) => tokensB.has(token));
+  const union = new Set([...tokensA, ...tokensB]);
+  return intersection.length / union.size >= 0.75;
+}
+
+export function pathsHaveMeaningfulDifference(pathA, pathB) {
+  if (!pathA || !pathB) return false;
+
+  const familyA = pathOccupationalFamily(pathA.title);
+  const familyB = pathOccupationalFamily(pathB.title);
+  if (familyA !== familyB && familyA !== 'general' && familyB !== 'general') return true;
+
+  const entryA = normalizePathTitle(pathA.entryPoint || pathA.title);
+  const entryB = normalizePathTitle(pathB.entryPoint || pathB.title);
+  if (entryA && entryB && entryA !== entryB && !pathTitlesAreNearDuplicate(entryA, entryB)) return true;
+
+  const transfersA = new Set((pathA.transfers || []).map(String));
+  const transfersB = new Set((pathB.transfers || []).map(String));
+  const union = new Set([...transfersA, ...transfersB]);
+  if (!union.size) return false;
+  const overlap = [...transfersA].filter((transfer) => transfersB.has(transfer)).length;
+  return overlap / union.size < 0.67;
+}
+
+export function findNearDuplicatePathPairs(paths) {
+  const pairs = [];
+  for (let i = 0; i < (paths || []).length; i++) {
+    for (let j = i + 1; j < paths.length; j++) {
+      if (pathTitlesAreNearDuplicate(paths[i]?.title, paths[j]?.title)) {
+        pairs.push([paths[i]?.title, paths[j]?.title]);
+      }
+    }
+  }
+  return pairs;
+}
+
+function countEvidenceBackedFamilies(storyText, retainedSkills = [], evidenceGate = null) {
+  const gate = evidenceGate || gateRetainedEvidence(storyText, retainedSkills, []);
+  const families = new Set(
+    (retainedSkills || [])
+      .map((skill) => inferFamilyFromSkillName(skill?.name))
+      .filter((family) => family !== 'general')
+  );
+
+  for (const action of gate.concretePastActions || []) {
+    const source = action.source || '';
+    for (const { family, pattern } of SKILL_FAMILY_PATTERNS) {
+      if (pattern.test(source)) families.add(family);
+    }
+  }
+
+  return { families, gate };
+}
+
+/**
+ * Evidence-aware minimum and supported path counts.
+ * min — floor validation must meet; never pad beyond supportedDirections.
+ */
+export function getEvidencePathBounds(storyText, retainedSkills = [], evidenceGate = null) {
+  const { families, gate } = countEvidenceBackedFamilies(storyText, retainedSkills, evidenceGate);
+  const concreteCount = gate.concretePastActions?.length || 0;
+  const familyCount = families.size;
+  const namedCareers = extractUserNamedCareers(storyText);
+  const hasAlternatives = hasEvidenceSupportedAlternativeDirections(
+    storyText,
+    retainedSkills,
+    namedCareers
+  );
+  const singleDirection = namedCareers.length > 0 && !hasAlternatives;
+
+  const richEvidence =
+    !singleDirection &&
+    (concreteCount >= 3 ||
+      (concreteCount >= 2 && familyCount >= 2 && hasAlternatives));
+
+  const moderateEvidence =
+    !singleDirection &&
+    !richEvidence &&
+    (concreteCount >= 2 || (familyCount >= 2 && concreteCount >= 1) || (hasAlternatives && familyCount >= 2));
+
+  let min = 1;
+  let supportedDirections = 1;
+
+  if (singleDirection) {
+    min = 1;
+    supportedDirections = 1;
+  } else if (richEvidence) {
+    min = 3;
+    supportedDirections = Math.max(3, familyCount);
+  } else if (moderateEvidence) {
+    min = hasAlternatives ? 2 : Math.min(2, Math.max(1, familyCount || concreteCount));
+    supportedDirections = Math.max(2, familyCount || 2);
+  } else if (familyCount >= 2 && concreteCount >= 1) {
+    min = 2;
+    supportedDirections = familyCount;
+  } else if (concreteCount >= 1 || familyCount >= 1) {
+    min = 1;
+    supportedDirections = Math.max(1, familyCount);
+  } else {
+    min = 1;
+    supportedDirections = 1;
+  }
+
+  if (concreteCount === 0 && !hasAlternatives) {
+    min = 1;
+    supportedDirections = Math.min(2, Math.max(1, familyCount));
+  }
+
+  const max = Math.min(5, Math.max(min, supportedDirections));
+
+  return { min, max, supportedDirections, richEvidence, singleDirection, concreteCount, familyCount };
+}
+
+export function getRequiredPathCount(storyText, retainedSkills = [], evidenceGate = null) {
+  return getEvidencePathBounds(storyText, retainedSkills, evidenceGate).min;
 }
 
 /**
@@ -140,19 +300,42 @@ export function annotatePathsWithEvidenceNotes(paths, storyText, retainedSkills 
   });
 }
 
-/**
- * Filter unsupported claims only. Never invent variety by downgrading paths.
- */
-export function enforcePathDiscoveryBalance(paths, storyText, retainedSkills = []) {
-  if (!Array.isArray(paths) || paths.length < 2) return paths || [];
-
-  let cleaned = paths.filter((path) => findPathClaimViolations(path).length === 0);
-  if (cleaned.length < MIN_VALID_PATHS) cleaned = paths.slice();
-
-  return cleaned;
+function rejectNearDuplicateWithoutDifference(paths) {
+  for (const [titleA, titleB] of findNearDuplicatePathPairs(paths)) {
+    const pathA = paths.find((path) => path.title === titleA);
+    const pathB = paths.find((path) => path.title === titleB);
+    if (!pathsHaveMeaningfulDifference(pathA, pathB)) {
+      return {
+        ok: false,
+        reason: `near-duplicate paths "${titleA}" and "${titleB}" are not meaningfully different discoveries`,
+      };
+    }
+  }
+  return { ok: true };
 }
 
-export function validatePathsResult(result, storyText, retainedSkills = []) {
+/**
+ * Filter unsupported claims and near-duplicates. Never invent variety by downgrading paths.
+ */
+export function enforcePathDiscoveryBalance(paths, storyText, retainedSkills = [], evidenceGate = null) {
+  if (!Array.isArray(paths)) return [];
+
+  let cleaned = paths.filter((path) => findPathClaimViolations(path).length === 0);
+
+  const kept = [];
+  for (const path of cleaned) {
+    const dupe = kept.some(
+      (existing) =>
+        pathTitlesAreNearDuplicate(existing.title, path.title) &&
+        !pathsHaveMeaningfulDifference(existing, path)
+    );
+    if (!dupe) kept.push(path);
+  }
+
+  return kept;
+}
+
+export function validatePathsResult(result, storyText, retainedSkills = [], evidenceGate = null) {
   if (!result || !Array.isArray(result.paths)) {
     return { ok: false, reason: 'paths array is missing' };
   }
@@ -167,10 +350,30 @@ export function validatePathsResult(result, storyText, retainedSkills = []) {
     }
   }
 
-  if (result.paths.length < MIN_VALID_PATHS) {
+  const bounds = getEvidencePathBounds(storyText, retainedSkills, evidenceGate);
+  const required = bounds.min;
+
+  if (result.paths.length < required) {
     return {
       ok: false,
-      reason: `only ${result.paths.length} valid path(s) found after filtering out malformed items — need at least ${MIN_VALID_PATHS} for a useful set of options`,
+      reason: `only ${result.paths.length} valid path(s) found — need at least ${required} based on evidence-supported directions (never pad with weak or duplicate paths)`,
+    };
+  }
+
+  const nearDupeCheck = rejectNearDuplicateWithoutDifference(result.paths);
+  if (!nearDupeCheck.ok) return nearDupeCheck;
+
+  const distinctFamilies = new Set(result.paths.map((path) => pathOccupationalFamily(path.title)));
+  if (
+    bounds.richEvidence &&
+    bounds.supportedDirections >= 3 &&
+    distinctFamilies.size < 2 &&
+    result.paths.length >= 3
+  ) {
+    return {
+      ok: false,
+      reason:
+        'rich evidence supports multiple occupational families — paths look like padded variations of one field',
     };
   }
 
@@ -178,22 +381,30 @@ export function validatePathsResult(result, storyText, retainedSkills = []) {
   const allMatchNamed =
     namedCareers.length > 0 && result.paths.every((path) => pathMatchesNamedCareer(path, namedCareers));
 
-  if (
-    allMatchNamed &&
-    hasEvidenceSupportedAlternativeDirections(storyText, retainedSkills, namedCareers)
-  ) {
-    return {
-      ok: false,
-      reason:
-        'paths must include evidence-supported alternatives beyond the career the user already named when retained skills support other occupational families',
-    };
+  if (hasEvidenceSupportedAlternativeDirections(storyText, retainedSkills, namedCareers)) {
+    const distinctFamilies = new Set(result.paths.map((path) => pathOccupationalFamily(path.title)));
+    const lacksAlternativeFamily =
+      distinctFamilies.size < 2 ||
+      (namedCareers.length > 0 &&
+        distinctFamilies.size <= 1 &&
+        [...distinctFamilies].every((family) =>
+          namedCareers.some((career) => pathOccupationalFamily(career) === family)
+        ));
+
+    if (allMatchNamed || lacksAlternativeFamily) {
+      return {
+        ok: false,
+        reason:
+          'paths must include evidence-supported alternatives beyond the career the user already named when retained skills support other occupational families',
+      };
+    }
   }
 
   return { ok: true };
 }
 
-export function validateRefinePathsResult(result, storyText, retainedSkills = []) {
-  const pathCheck = validatePathsResult(result, storyText, retainedSkills);
+export function validateRefinePathsResult(result, storyText, retainedSkills = [], evidenceGate = null) {
+  const pathCheck = validatePathsResult(result, storyText, retainedSkills, evidenceGate);
   if (!pathCheck.ok) return pathCheck;
   if (!result.changeSummary || !String(result.changeSummary).trim()) {
     return { ok: false, reason: 'changeSummary is missing' };

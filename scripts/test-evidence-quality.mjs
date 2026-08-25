@@ -40,6 +40,10 @@ import {
   enforcePathDiscoveryBalance,
   annotatePathsWithEvidenceNotes,
   findPathClaimViolations,
+  getRequiredPathCount,
+  getEvidencePathBounds,
+  pathTitlesAreNearDuplicate,
+  findNearDuplicatePathPairs,
 } from '../js/path-validation.mjs';
 import {
   getConfirmedSkills,
@@ -179,6 +183,7 @@ function main() {
     'never be upgraded into experience fit',
     'Discovery balance',
     'Do not return only paths the user already named',
+    'Never pad to reach a fixed count',
   ], 'discoverPaths prompt enforces career diversity and discovery balance');
 
   promptIncludesAll(refinePrompt, [
@@ -958,14 +963,15 @@ function main() {
   const allAdminNamedPaths = {
     paths: [
       { title: 'Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Organizing evidence', transfers: ['Organization & Coordination'], gaps: ['tools'], transition: 'Strong', workEnvironment: 'Office pace' },
-      { title: 'Senior Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Scheduling evidence', transfers: ['Organization & Coordination'], gaps: ['software'], transition: 'Strong', workEnvironment: 'Team-based' },
-      { title: 'Entry Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Coordinator', category: 'Worth Exploring', why: 'Listening evidence', transfers: ['Active Listening'], gaps: ['experience'], transition: 'Moderate', workEnvironment: 'Desk-based' },
+      { title: 'Office Coordinator', entryPoint: 'Office Coordinator', progression: 'Operations Lead', category: 'Strong Evidence', why: 'Scheduling evidence', transfers: ['Organization & Coordination'], gaps: ['software'], transition: 'Strong', workEnvironment: 'Team-based' },
+      { title: 'Scheduling Assistant', entryPoint: 'Scheduling Assistant', progression: 'Coordinator', category: 'Worth Exploring', why: 'Listening evidence', transfers: ['Active Listening'], gaps: ['experience'], transition: 'Moderate', workEnvironment: 'Desk-based' },
     ],
   };
   const mixedNamedPaths = {
     paths: [
-      ...allAdminNamedPaths.paths.slice(0, 2),
+      allAdminNamedPaths.paths[0],
       { title: 'Customer Service Representative', entryPoint: 'Customer Service Rep', progression: 'Support Lead', category: 'Worth Exploring', why: 'Listening and problem solving', transfers: ['Active Listening', 'Problem Solving'], gaps: ['metrics'], transition: 'Moderate', workEnvironment: 'People-facing' },
+      { title: 'Operations Coordinator', entryPoint: 'Operations Coordinator', progression: 'Operations Lead', category: 'Growth Path', why: 'Organizing and problem solving combined', transfers: ['Organization & Coordination', 'Problem Solving'], gaps: ['systems'], transition: 'Moderate', workEnvironment: 'Process-driven' },
     ],
   };
 
@@ -986,21 +992,47 @@ function main() {
   const allCaregiverPaths = {
     paths: [
       { title: 'Caregiver', entryPoint: 'Caregiver', progression: 'Senior Caregiver', category: 'Strong Evidence', why: 'Direct caregiving experience', transfers: ['Caregiving & People Support'], gaps: ['cert'], transition: 'Strong', workEnvironment: 'Hands-on' },
-      { title: 'Family Caregiver', entryPoint: 'Family Caregiver', progression: 'Care Coordinator', category: 'Strong Evidence', why: 'Medication and routine support', transfers: ['Caregiving & People Support'], gaps: ['formal'], transition: 'Strong', workEnvironment: 'Home-based' },
-      { title: 'Senior Caregiver', entryPoint: 'Senior Caregiver', progression: 'Lead Caregiver', category: 'Worth Exploring', why: 'Daily routine support', transfers: ['Organization'], gaps: ['training'], transition: 'Moderate', workEnvironment: 'Client homes' },
+    ],
+  };
+  const paddedAdminPaths = {
+    paths: [
+      { title: 'Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Organizing evidence', transfers: ['Organization & Coordination'], gaps: ['tools'], transition: 'Strong', workEnvironment: 'Office pace' },
+      { title: 'Senior Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Scheduling evidence', transfers: ['Organization & Coordination'], gaps: ['software'], transition: 'Strong', workEnvironment: 'Team-based' },
+      { title: 'Entry Administrative Coordinator', entryPoint: 'Admin Coordinator', progression: 'Coordinator', category: 'Worth Exploring', why: 'Listening evidence', transfers: ['Active Listening'], gaps: ['experience'], transition: 'Moderate', workEnvironment: 'Desk-based' },
     ],
   };
 
   assert(
-    'scenario B: named-career-only paths pass when no responsible alternative is supported',
+    'scenario B: single named-direction path passes when no responsible alternative is supported',
     !hasEvidenceSupportedAlternativeDirections(caregiverStory, caregiverSkills, caregiverNamedCareers) &&
       validatePathsResult(allCaregiverPaths, caregiverStory, caregiverSkills).ok
   );
 
-  const downgraded = enforcePathDiscoveryBalance(allCaregiverPaths.paths, caregiverStory, caregiverSkills);
+  assert(
+    'scenario B: near-duplicate caregiver title variants are rejected as separate discoveries',
+    !validatePathsResult(
+      {
+        paths: [
+          { title: 'Caregiver', entryPoint: 'Caregiver', progression: 'Senior Caregiver', category: 'Strong Evidence', why: 'Direct caregiving experience', transfers: ['Caregiving & People Support'], gaps: ['cert'], transition: 'Strong', workEnvironment: 'Hands-on' },
+          { title: 'Family Caregiver', entryPoint: 'Family Caregiver', progression: 'Care Coordinator', category: 'Strong Evidence', why: 'Medication and routine support', transfers: ['Caregiving & People Support'], gaps: ['formal'], transition: 'Strong', workEnvironment: 'Home-based' },
+          { title: 'Senior Caregiver', entryPoint: 'Senior Caregiver', progression: 'Lead Caregiver', category: 'Worth Exploring', why: 'Daily routine support', transfers: ['Organization'], gaps: ['training'], transition: 'Moderate', workEnvironment: 'Client homes' },
+        ],
+      },
+      caregiverStory,
+      caregiverSkills
+    ).ok
+  );
+
+  assert(
+    'padded near-duplicate admin coordinator paths are rejected',
+    !validatePathsResult(paddedAdminPaths, adminNamedStory, adminNamedSkills).ok
+  );
+
+  const downgraded = enforcePathDiscoveryBalance(mixedNamedPaths.paths, adminNamedStory, adminNamedSkills);
   assert(
     'enforcePathDiscoveryBalance does not downgrade paths to force artificial variety',
-    downgraded.every((path, idx) => path.transition === allCaregiverPaths.paths[idx].transition)
+    downgraded.length === mixedNamedPaths.paths.length &&
+      downgraded.every((path, idx) => path.transition === mixedNamedPaths.paths[idx].transition)
   );
 
   const annotated = annotatePathsWithEvidenceNotes(allCaregiverPaths.paths, caregiverStory, caregiverSkills);
@@ -1194,6 +1226,65 @@ function main() {
   assert(
     'evidence prompt adds resume bullet minimum when three or more concrete sources exist',
     formatEvidenceGateForPrompt(richGate).includes('RESUME BULLET MINIMUM')
+  );
+
+  const richPathGate = gateRetainedEvidence(RICH_STORY, adminNamedSkills);
+  const richAdminStory =
+    `${RICH_STORY} I want to become an administrative coordinator.`;
+  assert(
+    'rich evidence requires at least three credible paths',
+    getRequiredPathCount(richAdminStory, adminNamedSkills, richPathGate) === 3 &&
+      !validatePathsResult({ paths: mixedNamedPaths.paths.slice(0, 2) }, richAdminStory, adminNamedSkills, richPathGate).ok &&
+      validatePathsResult(mixedNamedPaths, richAdminStory, adminNamedSkills, richPathGate).ok
+  );
+
+  const twoPathStory =
+    'I organized church events. People reach out to me to fix things.';
+  const twoPathSkills = [
+    { name: 'Organization & Coordination', strength: 'Strong', evidence: 'You described organizing church events.' },
+    { name: 'Active Listening', strength: 'Moderate', evidence: 'You described listening carefully when helping people.' },
+  ];
+  const twoPathGate = gateRetainedEvidence(twoPathStory, twoPathSkills);
+  const twoDistinctPaths = {
+    paths: [
+      { title: 'Office Coordinator', entryPoint: 'Office Coordinator', progression: 'Office Manager', category: 'Strong Evidence', why: 'Organizing church events', transfers: ['Organization & Coordination'], gaps: ['tools'], transition: 'Strong', workEnvironment: 'Office pace' },
+      { title: 'Customer Service Representative', entryPoint: 'Customer Service Rep', progression: 'Support Lead', category: 'Worth Exploring', why: 'Listening when helping people', transfers: ['Active Listening'], gaps: ['metrics'], transition: 'Moderate', workEnvironment: 'People-facing' },
+    ],
+  };
+  assert(
+    'moderate evidence allows exactly two credible paths',
+    getRequiredPathCount(twoPathStory, twoPathSkills, twoPathGate) === 2 &&
+      validatePathsResult(twoDistinctPaths, twoPathStory, twoPathSkills, twoPathGate).ok &&
+      !validatePathsResult({ paths: [twoDistinctPaths.paths[0]] }, twoPathStory, twoPathSkills, twoPathGate).ok
+  );
+
+  assert(
+    'single-direction evidence allows one strong path',
+    getRequiredPathCount(caregiverStory, caregiverSkills) === 1 &&
+      validatePathsResult(allCaregiverPaths, caregiverStory, caregiverSkills).ok
+  );
+
+  assert(
+    'near-duplicate administrative coordinator titles are detected',
+    pathTitlesAreNearDuplicate('Administrative Coordinator', 'Senior Administrative Coordinator') &&
+      pathTitlesAreNearDuplicate('Administrative Coordinator', 'Entry Administrative Coordinator')
+  );
+
+  assert(
+    'application kit search terms work with a single chosen path',
+    (() => {
+      const terms = deriveApplicationKitSearchTerms({
+        chosenPath: allCaregiverPaths.paths[0],
+        retainedSkills: caregiverSkills,
+      });
+      return terms.length >= 1 && terms.includes('Caregiver');
+    })()
+  );
+
+  assert(
+    'index.html hides empty discovery tier sections',
+    INDEX_HTML.includes('if(!paths || !paths.length) return') &&
+      !/donorTier/.test(INDEX_HTML)
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

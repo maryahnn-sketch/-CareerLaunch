@@ -507,14 +507,14 @@ ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 ${CAREER_PATH_DIVERSITY_RULE}
 Rules:
-1) Return 4 to 5 high-quality paths (quality over quantity) across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Aim to cover: the strongest employment path, one strong alternative, one growth direction, and one independent/freelance/entrepreneurship path when plausible. A 5th path is fine only if it adds real variety.
+1) Return 1 to 5 high-quality paths — quality and evidence over quantity. Never pad to reach a fixed count. Rich, varied evidence with multiple occupational families → return at least 3 meaningfully different paths. Evidence supporting only two credible directions → return 2. Evidence supporting one credible direction → return 1 strong path. Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
 5) transfers must ONLY use skill names copied exactly from the "Retained story skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
 7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise.
-8) Discovery balance: include at least one Strong or Moderate direct-fit path even when it feels familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based paths for that direction without inventing unrelated alternatives. Do not force random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.`,
+8) Discovery balance: include at least one Strong or Moderate direct-fit path even when it feels familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based path(s) for that direction without inventing unrelated alternatives. Reject near-duplicate job titles unless entry points and evidence differ meaningfully. Do not force random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.`,
 
   sendConvo: () =>
     `You are iFindWorth, discussing career discovery results with a user before they choose a direction. Be warm, specific, and evidence-based — never generic encouragement.
@@ -537,7 +537,7 @@ Keep these dimensions separate:
 - gaps: honest development areas still to strengthen (short phrases).
 
 Refinement rules:
-1) Return 4-5 paths. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+1) Return 1 to 5 paths based on evidence — never pad to a fixed count. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
 2) You MAY introduce NEW paths when retained story skills reasonably support them AND stated interests make them relevant.
 3) You MAY omit original paths the user explicitly rejected. If kept, place rejected directions in "Lower Interest Based on What You Told Us" — never in "Best Paths to Explore First" or "Strong Alternatives".
 4) transfers must ONLY use skill names copied exactly from the Retained story skills list below — never rejected skills, never names inferred only from preferences.

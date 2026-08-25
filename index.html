@@ -1977,16 +1977,16 @@ const REFINE_PATHS_REPAIR_HINT = `${PATHS_REPAIR_HINT} ${RERANK_REPAIR_HINT} The
 const ACTION_PLAN_REPAIR_HINT = `The schema requires ALL FOUR time-period arrays — first7Days, days8to30, days31to60, days61to90 — plus nextBestStep. Never omit any of the four arrays, even if you need to shorten individual items (each item max ~80 characters) to fit. A short but complete response covering all four periods is required, not a longer response missing one.`;
 const DIRECTION_REPAIR_HINT = `The schema requires learningStrategy as an array (it may be empty if there's genuinely nothing to add, but the field itself must always be present) — never omit it. Also always required: careerSequence with now/next/later, searchTerms, and positioning. Keep every item short (learning items max ~70 characters, sequence descriptions max ~90) so the complete response fits.`;
 
-function validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation){
+function validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
   if(!result || !Array.isArray(result.paths)) return { ok:false, reason:'paths array is missing' };
   for(const p of result.paths){
     if(!isValidPathItem(p)) return { ok:false, reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
   }
-  return pathValidation.validatePathsResult(result, storyText, retainedSkills);
+  return pathValidation.validatePathsResult(result, storyText, retainedSkills, evidenceGate);
 }
 
-function validateRefinePathsResultWithStructure(result, storyText, retainedSkills, pathValidation){
-  const pathCheck = validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation);
+function validateRefinePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
+  const pathCheck = validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate);
   if(!pathCheck.ok) return pathCheck;
   if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
   for(const p of result.paths){
@@ -2431,16 +2431,6 @@ function classifyPathsIntoTiers(paths){
       buckets['Adjacent opportunities'].push(item.path);
     }
   }
-  for(const tier of DISCOVERY_TIERS){
-    if(!buckets[tier].length){
-      const donorTier = DISCOVERY_TIERS.find(t => buckets[t].length > 1);
-      if(donorTier){
-        buckets[tier].push(buckets[donorTier].pop());
-      } else if(visible.length){
-        buckets[tier].push(visible.find(p => !DISCOVERY_TIERS.some(t => buckets[t].some(x => x.title === p.title))) || visible[0]);
-      }
-    }
-  }
   return buckets;
 }
 function renderPathNoveltyFeedback(title){
@@ -2488,8 +2478,8 @@ function renderPaths(){
   const tierBuckets = classifyPathsIntoTiers(state.paths);
   let html = `<div class="wrap-wide"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Career path discovery</div>
-    <h1 style="font-size:34px;">We found ${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length} career paths grounded in your story.</h1>
-    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Each tier reflects how directly your experience supports the path. Tap one that resonates, or one that does not feel like you.</p>`;
+    <h1 style="font-size:34px;">We found ${(() => { const n = state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length; return `${n} career path${n === 1 ? '' : 's'}`; })()} grounded in your story.</h1>
+    <p style="max-width:560px;">These are possibilities to explore, not verdicts.${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length > 1 ? ' Each tier reflects how directly your experience supports the path.' : ' This direction reflects what your story supports most clearly right now.'} Tap one that resonates, or one that does not feel like you.</p>`;
   if(state.reranked && state.changeSummary){
     html += `<div class="change-summary ph-career-content mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
   }
@@ -3237,23 +3227,23 @@ async function discoverPaths(){
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
-1) Return 4 to 5 high-quality paths (quality over quantity) across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Aim to cover: the strongest employment path, one strong alternative, one growth direction, and one independent/freelance/entrepreneurship path when plausible. A 5th path is fine only if it adds real variety.
+1) Return 1 to 5 high-quality paths — quality and evidence over quantity. Never pad to reach a fixed count. Rich, varied evidence with multiple occupational families → return at least 3 meaningfully different paths. Evidence supporting only two credible directions → return 2. Evidence supporting one credible direction → return 1 strong path. Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
 5) transfers must ONLY use skill names copied exactly from the "Retained story skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
 7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.
-8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based paths for that direction without inventing unrelated alternatives. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
+8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based path(s) for that direction without inventing unrelated alternatives. Reject near-duplicate job titles (e.g. "Administrative Coordinator" vs "Senior Administrative Coordinator") unless entry points and evidence differ meaningfully. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
   const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
   const pathValidation = await loadPathValidation();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
   try{
-    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation), normalizePathsResult, PATHS_REPAIR_HINT);
+    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT);
     let paths = result.paths;
-    paths = pathValidation.enforcePathDiscoveryBalance(paths, fullStoryText(), retainedStorySkills);
+    paths = pathValidation.enforcePathDiscoveryBalance(paths, fullStoryText(), retainedStorySkills, evidenceGate);
     paths = pathValidation.annotatePathsWithEvidenceNotes(paths, fullStoryText(), retainedStorySkills);
     // Defense-in-depth (runs on a repaired result exactly the same as a first-try
     // one — no shortcut around these checks either way): strip any rejected
@@ -3413,7 +3403,7 @@ Critical rules for this regeneration:
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills:\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (DO NOT repeat these titles — generate different ones):\n${JSON.stringify(compactPrior)}\n\nPaths user already knew (too obvious): ${knownTitles.join(', ') || 'none'}\nPaths user is not interested in: ${notInterested.join(', ') || 'none'}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}`;
   try{
-    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
       ...p,
       transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
@@ -3477,7 +3467,7 @@ Refinement rules:
   const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
   const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
   try{
-    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
       ...p,
       transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
