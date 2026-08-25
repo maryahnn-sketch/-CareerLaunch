@@ -288,6 +288,14 @@
   .unlock-list{text-align:left;max-width:420px;margin:22px auto;display:flex;flex-direction:column;gap:10px;font-size:14.5px;color:var(--ink-soft);}
   .unlock-list li{list-style:none;display:flex;gap:10px;align-items:flex-start;}
   .unlock-list li::before{content:'✓';color:var(--sage);font-weight:700;}
+  .paywall-card{padding:44px 48px;}
+  .paywall-card .amt{margin:8px 0 2px;}
+  .paywall-promise{font-family:var(--serif);font-size:25px;line-height:1.25;color:var(--ink);margin:8px auto 12px;max-width:560px;}
+  .paywall-subcopy{font-size:15px;color:var(--ink-soft);max-width:580px;margin:0 auto 28px;line-height:1.65;}
+  .unlock-list.premium{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px;text-align:left;margin:30px 0;}
+  .unlock-list.premium li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:15px 16px;line-height:1.45;color:var(--ink);}
+  .unlock-list.premium strong{display:block;margin-bottom:3px;}
+  @media(max-width:700px){.paywall-card{padding:30px 22px}.unlock-list.premium{grid-template-columns:1fr}}
   .bring-card{background:var(--paper-dim);border-radius:12px;padding:20px;margin:20px 0;text-align:left;}
   .bring-card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink);font-weight:700;margin-bottom:10px;}
   .gap-preview{background:var(--clay-soft);border-radius:12px;padding:16px 18px;text-align:left;margin-bottom:20px;font-size:14px;color:var(--clay);}
@@ -2108,9 +2116,20 @@ function render(){
     case 'jdAnalyzer': html += renderJdAnalyzer(); break;
   }
   app.innerHTML = html;
+  removeVisibleDashes(app);
   attachHandlers();
   window.scrollTo({top:0, behavior: state.screen==='landing' ? 'auto':'smooth'});
   saveProfileToStorage(state);
+}
+
+function removeVisibleDashes(root){
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node;
+  while((node = walker.nextNode())){
+    node.nodeValue = node.nodeValue
+      .replace(/(\d)\s*[–—]\s*(\d)/g, '$1 to $2')
+      .replace(/\s*[–—]\s*/g, '. ');
+  }
 }
 
 function renderProgress(){
@@ -2495,13 +2514,13 @@ function renderEvidenceCheck(){
 /* ============================= PAYWALL ============================= */
 function renderPaywall(){
   const strengths = getRetainedStorySkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
-  const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps[0];
+  const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps.find(isRespectfulGap);
   const alreadyPaid = state.paymentStatus === 'paid';
   return `
   <div class="wrap"><div class="screen center">
-    <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now let's build the path.</div>
+    <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now build your strategy.</div>
     <h1 style="font-size:30px;">${state.chosenPath ? state.chosenPath.title : 'Your next role'}</h1>
-    <p class="paywall-intro">We've taken what you've shared — your story, validated skills, and the direction you chose — and shaped it into a personalized career intelligence package. Evidence-based, guided, and built around your actual experience.</p>
+    <p class="paywall-intro">Your experience has value. This package turns it into clear positioning, practical career materials, and a focused plan you can begin using immediately.</p>
 
     <div class="bring-card ph-career-content">
       <h4>What you already bring</h4>
@@ -2516,23 +2535,31 @@ function renderPaywall(){
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
       ` : `
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Your career intelligence package</div>
+        <div class="paywall-promise">Your experience deserves a real career strategy.</div>
         <div class="amt">$19.99</div>
-        <p style="font-size:14px;color:var(--ink-soft);max-width:420px;margin:0 auto 6px;line-height:1.5;">A one-time unlock that turns your evidence and chosen direction into a practical execution plan — not a generic résumé template.</p>
-        <ul class="unlock-list">
-          <li>Deep-dive analysis of your evidence and positioning for this direction</li>
-          <li>Career sequence: Now → Next → Later with honest gap notes</li>
-          <li>7 / 30 / 60 / 90-day action roadmap with next best step</li>
-          <li>Job-targeted résumé language drawn from your story — never fabricated</li>
-          <li>LinkedIn positioning strategies tailored to your direction</li>
-          <li>Interview story starters and evidence-strengthening prompts</li>
-          <li>Search terms and your personal Command Center dashboard</li>
+        <p class="paywall-subcopy">One purchase gives you a personalized direction, credible positioning, and practical materials built from what you have actually done.</p>
+        <ul class="unlock-list premium">
+          <li><span><strong>Know which roles to pursue</strong>See where your experience fits and why those roles deserve your attention.</span></li>
+          <li><span><strong>Follow a focused 90 day plan</strong>Get clear priorities for your first 7, 30, 60, and 90 days.</span></li>
+          <li><span><strong>Use stronger résumé language</strong>Turn real responsibilities and outcomes into credible, ready to use bullets.</span></li>
+          <li><span><strong>Position yourself on LinkedIn</strong>Communicate your value with a tailored headline and About section.</span></li>
+          <li><span><strong>Prepare memorable interview stories</strong>Build clear examples from situations you have genuinely handled.</span></li>
+          <li><span><strong>Search with greater precision</strong>Use relevant titles, keywords, and adjacent opportunities you may have missed.</span></li>
         </ul>
-        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Demo Unlock My Career Plan</button>
-        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">Planned one-time price.</p>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
+        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Preview My Career Strategy</button>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:12px;">Private beta preview. No card or payment required.</p>
       `}
     </div>
   </div></div>`;
+}
+
+function isRespectfulGap(value){
+  const text = String(value || '').toLowerCase();
+  return text && !/(formal employer|formal title|formal operations|professional setting|traditional employer|independent setting|professional track record)/i.test(text);
+}
+
+function respectfulGaps(){
+  return ((state.chosenPath && state.chosenPath.gaps) || []).filter(isRespectfulGap);
 }
 
 /* ============================= ROADMAP ============================= */
@@ -2611,7 +2638,7 @@ function renderKit(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Application kit</div>
     <h1 style="font-size:32px;">Positioning your experience.</h1>
-    <p>Built from the experience you shared — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
+    <p>Built from the experience you shared. Every statement stays grounded in what you actually did, with no invented numbers or claims.</p>
 
     <div class="kit-block mt-32 ph-career-content">
       <h3>Resume bullets</h3>
@@ -2619,7 +2646,7 @@ function renderKit(){
         <div class="bullet-row">
           <p id="bulletText${i}">${typeof b === 'string' ? b : b.text}</p>
           ${b.strengthen ? `
-            <span class="strengthen-link" data-strengthen-open="${i}">Help me strengthen this — ${b.strengthen}</span>
+            <span class="strengthen-link" data-strengthen-open="${i}">Strengthen this bullet: ${b.strengthen}</span>
             <div class="strengthen-box" id="strengthenBox${i}" style="display:none;">
               <input type="text" class="ph-no-capture" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" ${state.kitBusyIndex===i?'disabled':''} />
               <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
@@ -2630,7 +2657,7 @@ function renderKit(){
     </div>
 
     <div class="kit-block ph-career-content">
-      <h3>LinkedIn headline — choose a strategy</h3>
+      <h3>LinkedIn headline options</h3>
       ${(k.linkedinHeadlines||[]).map((h,i)=>`
         <div class="headline-option ${state.selectedHeadline===i?'selected':''}" data-headline="${i}">
           <div class="style-lbl">${h.style}</div>
@@ -2894,7 +2921,7 @@ function attachHandlers(){
       render();
     });
   });
-  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', ()=>{ state.screen='evidenceCheck'; render(); });
+  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', routeToEvidenceStep);
 
   // evidence readiness check
   const saveEvidenceDetail = document.getElementById('saveEvidenceDetail');
@@ -3017,7 +3044,9 @@ function editAboutSection(){
 function downloadApplicationKit(){
   if(!state.kit) return;
   const headline = kitSectionText('headline');
-  const text = `iFindWorth Application Kit\nTarget direction: ${state.chosenPath ? state.chosenPath.title : ''}\n\nRÉSUMÉ BULLETS\n${kitSectionText('resume')}\n\nLINKEDIN HEADLINE\n${headline}\n\nLINKEDIN ABOUT\n${kitSectionText('about')}\n`;
+  const allHeadlines = (state.kit.linkedinHeadlines||[]).map((h,i)=>`${i===state.selectedHeadline ? 'SELECTED: ' : ''}${h.style}\n${h.text}`).join('\n\n');
+  const strengthen = (state.kit.resumeBullets||[]).filter(b=>b && typeof b==='object' && b.strengthen).map(b=>`• ${b.strengthen}`).join('\n');
+  const text = `iFindWorth Application Kit\n\nTARGET DIRECTION\n${state.chosenPath ? state.chosenPath.title : ''}\n\nRÉSUMÉ BULLETS\n${kitSectionText('resume')}\n${strengthen ? `\n\nDETAILS THAT COULD STRENGTHEN YOUR BULLETS\n${strengthen}` : ''}\n\nLINKEDIN HEADLINE OPTIONS\n${allHeadlines}\n\nSELECTED LINKEDIN HEADLINE\n${headline}\n\nLINKEDIN ABOUT\n${kitSectionText('about')}\n`;
   const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3027,6 +3056,18 @@ function downloadApplicationKit(){
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+async function routeToEvidenceStep(){
+  try{
+    const { gateRetainedEvidence } = await loadEvidenceGate();
+    const gate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
+    const concreteCount = (gate && gate.concretePastActions ? gate.concretePastActions.length : 0);
+    state.screen = concreteCount >= 3 ? 'paywall' : 'evidenceCheck';
+  }catch(e){
+    state.screen = 'evidenceCheck';
+  }
+  render();
 }
 
 /* ============================= VOICE INPUT ============================= */
@@ -3489,8 +3530,10 @@ async function buildRoadmapFoundation(){
   const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only — never call self-described abilities or traits "demonstrated strengths." 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Use conditional language when only self-described abilities exist (e.g. organizing/coordinating) — do not imply the user already performs those tasks.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, office, or corporate setting as a weakness, gap, validation problem, or reason the experience is less professional. Name only practical gaps such as a tool, task, domain concept, evidence example, or verified requirement.
+Do not use em dashes or en dashes. Use natural sentences and punctuation.
+Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only. Never call self-described abilities or traits demonstrated strengths. 2) transfers: 2 to 3 skill names from the list below. 3) needsMoreInfo: 1 to 3 short phrases naming what is still unclear about fit. 4) gaps: 1 to 3 practical skills or knowledge areas that may need strengthening. Use conditional language when only self-described abilities exist.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point): ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nPractical gaps already noted: ${respectfulGaps().join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapFoundation', system, userPrompt, roadmapFoundationTool, TOKEN_BUDGETS.roadmapFoundation, validateRoadmapFoundationResult, undefined, undefined, signal),
@@ -3534,6 +3577,8 @@ async function buildRoadmapActionPlan(){
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, or corporate setting as a weakness, gap, or validation problem.
+Do not use em dashes or en dashes. Use natural sentences and punctuation.
 Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the evidence, gaps, and priorities below, never generic filler. Every time band must advance to a new observable outcome; do not repeat "practice," "research," or "continue" across multiple bands. Include a target-role job-description review, one portfolio/evidence artifact, an application-ready milestone, and a measurable search/application milestone when appropriate. Each action item must be a short phrase (max ~14 words). nextBestStep: one concrete action that can be completed today. Do not recommend a certificate until the user verifies target postings actually require or value it. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists.`;
   const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
   const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
@@ -3577,11 +3622,13 @@ async function buildRoadmapDirection(){
   const retainedStorySkills = getRetainedStorySkills();
   const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const system = `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
+  const system = `You are the roadmap engine inside iFindWorth, building a career sequence, learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a meaningfully broader responsibility level, not merely the same title with "senior" added (each: short title, one-sentence desc, max 18 words). 2) learningStrategy: prioritize the smallest evidence-backed skill gaps. Never default to education or certificates; first tell the user to verify requirements in real target postings. 3) searchTerms: 3-5 distinct, correctly spaced job-title terms, including at least one adjacent title. 4) positioning: 2 specific sentences connecting actual actions to target requirements without pretending the target role was already held. Every item must be compact.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, office, or corporate setting as a weakness, gap, or validation problem. Never use "formal employer context," "formal operations role," "professional setting," or "outside a traditional employer context." Name only practical gaps such as a tool, task, domain concept, evidence example, or verified requirement.
+Do not use em dashes or en dashes. Use natural sentences and punctuation.
+Rules: 1) careerSequence: now is the chosen entry point, next is realistic progression, and later is a broader responsibility level or adjacent leadership direction. Do not merely add a seniority word. Each description is one sentence with at most 18 words. 2) learningStrategy: give each level a distinct outcome. Do not repeat job posting review, software research, credential research, or practice across levels. Never default to education or certificates. 3) searchTerms: 3 to 5 separate, correctly spaced job titles, including one adjacent title. 4) positioning: 2 confident sentences connecting actual actions to target requirements without pretending the target role was already held.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point): ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nPractical gaps: ${((state.roadmap && state.roadmap.strengthen) || respectfulGaps()).filter(isRespectfulGap).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapDirection', system, userPrompt, roadmapDirectionTool, TOKEN_BUDGETS.roadmapDirection, validateRoadmapDirectionResult, undefined, DIRECTION_REPAIR_HINT, signal),
@@ -3667,10 +3714,12 @@ async function buildKit(){
   const system = `You are the Application Kit builder inside iFindWorth. Translate a user's real past experience into professional resume and LinkedIn language for a specific target path they are moving toward.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, office, or corporate setting as a weakness or validation problem. Never use "formal employer context," "formal operations role," "professional setting," or similar language.
+Do not use em dashes or en dashes. Write concise, confident human language.
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
+1) Resume bullets: zero to four bullets, one line each, action verb led, using ONLY the concrete past action sources listed in the user message. Never write "helped manage" when the evidence states the actions directly. When three or more distinct concrete sources exist, produce 3 or 4 useful bullets. Each bullet MUST include sourceQuote copied exactly from one listed source. If the evidence gate says NONE, return an empty array. Use a strengthen question only when a material detail is genuinely missing.
 2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused", "Career Transition-Focused", and "Professional Brand-Focused". Never use "aspiring." Prefer credible truthful language such as "Administrative Support Candidate" or "Building Toward Administrative Support," followed by evidence-supported keywords. Transition headlines may name the target direction as a future direction, never as past employment. Preserve evidence category semantics.
-3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence categories. Clearly separate existing self-described qualities from the role the user is moving toward. Do not write thrive, work well across teams, reliable presence, every interaction/task, or keep things running smoothly unless explicitly in allowed evidence.
+3) One linkedinAbout: 3 to 4 sentences, first person, warm, confident, and grounded only in given evidence categories. End by connecting existing experience to the target direction. Do not imply that independent experience becomes valid only inside a company. Do not write thrive, work well across teams, reliable presence, every interaction or task, or keep things running smoothly unless explicitly supported.
 4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
   const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\n${formatLinkedInRulesForPrompt(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
   try{
