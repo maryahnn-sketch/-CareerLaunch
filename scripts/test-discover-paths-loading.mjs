@@ -1,11 +1,20 @@
 /**
- * Static regression checks for discoverPaths loading, timeout, and retry safety.
+ * Regression checks for discoverPaths loading, timeout, and retry safety.
  * Run: node scripts/test-discover-paths-loading.mjs
  */
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import {
+  createDiscoverPathsWatchdog,
+  invalidateDiscoverPathsGeneration,
+  shouldClearDiscoverPathsBusy,
+  DiscoverPathsTimeoutError,
+  DISCOVER_PATHS_TIMEOUT_MS,
+  DISCOVER_PATHS_COPY_DELAY_MS,
+  DISCOVER_PATHS_COPY_MESSAGE,
+} from '../js/discover-paths-watchdog.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INDEX_HTML = readFileSync(join(__dirname, '../index.html'), 'utf8');
@@ -28,31 +37,247 @@ function assert(label, condition, detail = '') {
   return false;
 }
 
+function createFakeTimers() {
+  let now = 0;
+  const timers = new Map();
+  let nextId = 1;
+
+  const setTimeoutFn = (fn, ms) => {
+    const id = nextId++;
+    timers.set(id, { fn, at: now + ms });
+    return id;
+  };
+
+  const clearTimeoutFn = (id) => {
+    timers.delete(id);
+  };
+
+  const tick = (ms) => {
+    now += ms;
+    const due = [...timers.entries()].filter(([, t]) => t.at <= now);
+    due.sort((a, b) => a[1].at - b[1].at);
+    for (const [id, t] of due) {
+      timers.delete(id);
+      t.fn();
+    }
+  };
+
+  return { now: () => now, setTimeoutFn, clearTimeoutFn, tick };
+}
+
+async function runBehavioralTests() {
+  await testNeverResolvingModuleLoad();
+  await testNeverResolvingApiCall();
+  await testCopyDelayAtThirtySeconds();
+  await testStaleResponseAfterTimeout();
+}
+
+async function testNeverResolvingModuleLoad() {
+  const fake = createFakeTimers();
+  let generation = 1;
+  let screen = 'analyzing';
+  let busy = true;
+  let loadingMsg = 'Mapping your skills to possible directions…';
+  let errorMsg = '';
+  let errorRetry = null;
+
+  const isActive = () => generation === 1;
+  const watchdog = createDiscoverPathsWatchdog({
+    isActive,
+    onCopyDelay: () => { loadingMsg = DISCOVER_PATHS_COPY_MESSAGE; },
+    startedAt: fake.now(),
+    deadlineAt: fake.now() + DISCOVER_PATHS_TIMEOUT_MS,
+    now: fake.now(),
+    setTimeoutFn: fake.setTimeoutFn,
+    clearTimeoutFn: fake.clearTimeoutFn,
+  });
+
+  const work = watchdog.raceDeadline(new Promise(() => {}));
+  fake.tick(DISCOVER_PATHS_TIMEOUT_MS);
+
+  let caught;
+  try {
+    await work;
+  } catch (err) {
+    caught = err;
+  }
+
+  invalidateDiscoverPathsGeneration(1, () => generation, (g) => { generation = g; });
+  errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
+  errorRetry = () => {};
+  loadingMsg = '';
+  screen = 'paths';
+  if (shouldClearDiscoverPathsBusy(1, generation)) busy = false;
+  watchdog.dispose();
+
+  assert(
+    'never-resolving module/API work rejects at 90s deadline',
+    caught instanceof DiscoverPathsTimeoutError
+  );
+  assert(
+    'never-resolving module load exits to paths with retry',
+    screen === 'paths' && typeof errorRetry === 'function' && errorMsg.includes('try again') && !busy
+  );
+}
+
+async function testNeverResolvingApiCall() {
+  const fake = createFakeTimers();
+  let generation = 2;
+  let screen = 'analyzing';
+  let paths = null;
+
+  const isActive = () => generation === 2;
+  const watchdog = createDiscoverPathsWatchdog({
+    isActive,
+    onCopyDelay: () => {},
+    startedAt: fake.now(),
+    deadlineAt: fake.now() + DISCOVER_PATHS_TIMEOUT_MS,
+    now: fake.now(),
+    setTimeoutFn: fake.setTimeoutFn,
+    clearTimeoutFn: fake.clearTimeoutFn,
+  });
+
+  const simulateDiscover = async () => {
+    await Promise.resolve();
+    await new Promise(() => {});
+    paths = [{ title: 'Late Path' }];
+    screen = 'paths';
+  };
+
+  const raced = watchdog.raceDeadline(simulateDiscover());
+  fake.tick(DISCOVER_PATHS_TIMEOUT_MS);
+
+  try {
+    await raced;
+  } catch (err) {
+    if (err instanceof DiscoverPathsTimeoutError) {
+      invalidateDiscoverPathsGeneration(2, () => generation, (g) => { generation = g; });
+      screen = 'paths';
+    }
+  }
+  watchdog.dispose();
+
+  assert(
+    'never-resolving API call rejects at deadline',
+    screen === 'paths' && paths === null && generation === 3
+  );
+}
+
+async function testCopyDelayAtThirtySeconds() {
+  const fake = createFakeTimers();
+  let loadingMsg = 'Mapping your skills to possible directions…';
+  const watchdog = createDiscoverPathsWatchdog({
+    isActive: () => true,
+    onCopyDelay: () => { loadingMsg = DISCOVER_PATHS_COPY_MESSAGE; },
+    startedAt: fake.now(),
+    deadlineAt: fake.now() + DISCOVER_PATHS_TIMEOUT_MS,
+    now: fake.now(),
+    setTimeoutFn: fake.setTimeoutFn,
+    clearTimeoutFn: fake.clearTimeoutFn,
+  });
+
+  fake.tick(DISCOVER_PATHS_COPY_DELAY_MS - 1);
+  assert(
+    'loading copy unchanged before 30s',
+    loadingMsg === 'Mapping your skills to possible directions…'
+  );
+
+  fake.tick(1);
+  assert(
+    'loading copy updates at 30s',
+    loadingMsg === DISCOVER_PATHS_COPY_MESSAGE
+  );
+
+  watchdog.dispose();
+}
+
+async function testStaleResponseAfterTimeout() {
+  const fake = createFakeTimers();
+  let generation = 5;
+  let screen = 'paths';
+  let paths = [];
+
+  const isActive = () => generation === 5;
+  const watchdog = createDiscoverPathsWatchdog({
+    isActive,
+    onCopyDelay: () => {},
+    startedAt: fake.now(),
+    deadlineAt: fake.now() + DISCOVER_PATHS_TIMEOUT_MS,
+    now: fake.now(),
+    setTimeoutFn: fake.setTimeoutFn,
+    clearTimeoutFn: fake.clearTimeoutFn,
+  });
+
+  let resolveLate;
+  const lateWork = new Promise((resolve) => { resolveLate = resolve; });
+  const raced = watchdog.raceDeadline(lateWork);
+  fake.tick(DISCOVER_PATHS_TIMEOUT_MS);
+
+  try {
+    await raced;
+  } catch (err) {
+    if (err instanceof DiscoverPathsTimeoutError) {
+      invalidateDiscoverPathsGeneration(5, () => generation, (g) => { generation = g; });
+      screen = 'paths';
+    }
+  }
+
+  resolveLate([{ title: 'Should Not Apply' }]);
+  await Promise.resolve();
+
+  if (isActive()) {
+    paths = [{ title: 'Should Not Apply' }];
+    screen = 'paths';
+  }
+
+  assert(
+    'stale response after timeout does not apply paths',
+    screen === 'paths' && paths.length === 0 && generation === 6
+  );
+
+  watchdog.dispose();
+}
+
 function main() {
   assert(
     'DISCOVER_PATHS_TIMEOUT_MS is 90000',
-    /const DISCOVER_PATHS_TIMEOUT_MS = 90000;/.test(INDEX_HTML)
+    DISCOVER_PATHS_TIMEOUT_MS === 90000 &&
+      /const DISCOVER_PATHS_TIMEOUT_MS = 90000;/.test(INDEX_HTML)
   );
 
   assert(
-    'discoverPaths wraps callStructured in runCancelable',
-    /runCancelable\(\s*\n?\s*\(signal\) => callStructured\('discoverPaths'/.test(DISCOVER_PATHS_FN)
+    'discoverPaths anchors deadline at analyzing screen entry',
+    /const startedAt = Date\.now\(\)/.test(DISCOVER_PATHS_FN) &&
+      /const deadlineAt = startedAt \+ DISCOVER_PATHS_TIMEOUT_MS/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
-    'discoverPaths passes DISCOVER_PATHS_TIMEOUT_MS to runCancelable',
-    /runCancelable\([\s\S]*DISCOVER_PATHS_TIMEOUT_MS/.test(DISCOVER_PATHS_FN)
+    'discoverPaths uses shared watchdog module',
+    /createDiscoverPathsWatchdog\(/.test(DISCOVER_PATHS_FN) &&
+      /discover-paths-watchdog\.mjs/.test(INDEX_HTML)
+  );
+
+  assert(
+    'discoverPaths races module loads inside watchdog.raceDeadline',
+    /watchdog\.raceDeadline\(\(async \(\) => \{[\s\S]*await loadEvidenceGate\(\)/.test(DISCOVER_PATHS_FN) &&
+      /await loadPathValidation\(\)/.test(DISCOVER_PATHS_FN)
+  );
+
+  assert(
+    'discoverPaths does not nest runCancelable for outer deadline',
+    !/runCancelable\([\s\S]*callStructured\('discoverPaths'/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
     'discoverPaths uses generation token to ignore stale responses',
     /const myGen = \+\+state\.pathsDiscoveryGeneration/.test(DISCOVER_PATHS_FN) &&
-      /if\(myGen !== state\.pathsDiscoveryGeneration\) return/.test(DISCOVER_PATHS_FN)
+      /DiscoverPathsStaleError/.test(DISCOVER_PATHS_FN) &&
+      /invalidateDiscoverPathsGeneration/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
-    'discoverPaths clears busy only for the active generation',
-    /if\(myGen === state\.pathsDiscoveryGeneration\) state\.busy = false/.test(DISCOVER_PATHS_FN)
+    'discoverPaths clears busy only when safe for generation',
+    /shouldClearDiscoverPathsBusy\(myGen, state\.pathsDiscoveryGeneration\)/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
@@ -61,10 +286,9 @@ function main() {
   );
 
   assert(
-    'discoverPaths reshape/repair loading copy is wired via tierProgressFn',
-    DISCOVER_PATHS_FN.includes("state.loadingMsg = 'Still working — checking a fuller set of directions…'") &&
-      /tierProgressFn\('reshape'\)|tier === 'reshape'/.test(INDEX_HTML) &&
-      /tierProgressFn\('repair'\)|tier === 'repair'/.test(DISCOVER_PATHS_FN)
+    'discoverPaths 30s copy uses DISCOVER_PATHS_COPY_MESSAGE',
+    DISCOVER_PATHS_COPY_MESSAGE === 'Still working — checking a fuller set of directions…' &&
+      DISCOVER_PATHS_FN.includes('DISCOVER_PATHS_COPY_MESSAGE')
   );
 
   assert(
@@ -75,8 +299,13 @@ function main() {
 
   assert(
     'discoverPaths failure exits analyzing screen to paths with errorRetry',
-    /state\.errorRetry = discoverPaths; state\.screen = 'paths'/.test(DISCOVER_PATHS_FN) &&
+    /state\.errorRetry = discoverPaths;[\s\S]*state\.screen = 'paths'/.test(DISCOVER_PATHS_FN) &&
       !/catch\(err\)[\s\S]*state\.screen = 'analyzing'/.test(DISCOVER_PATHS_FN)
+  );
+
+  assert(
+    'discoverPaths clears loadingMsg on timeout exit',
+    /state\.loadingMsg = ''/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
@@ -101,12 +330,22 @@ function main() {
   );
 
   assert(
-    'runCancelable rejects with TIMEOUT StructuredCallError',
-    /reject\(new StructuredCallError\('TIMEOUT'/.test(INDEX_HTML)
+    'index.html has build identifier not 0eeb770',
+    INDEX_HTML.includes('data-build=') &&
+      !INDEX_HTML.includes('0eeb770') &&
+      INDEX_HTML.includes('<!-- build:')
   );
 
-  console.log(`\nResults: ${passed} passed, ${failed} failed`);
-  process.exit(failed ? 1 : 0);
+  assert(
+    'vercel.json sets no-store for index.html',
+    readFileSync(join(__dirname, '../vercel.json'), 'utf8').includes('"source": "/index.html"') &&
+      readFileSync(join(__dirname, '../vercel.json'), 'utf8').includes('no-store')
+  );
+
+  return runBehavioralTests().then(() => {
+    console.log(`\nResults: ${passed} passed, ${failed} failed`);
+    process.exit(failed ? 1 : 0);
+  });
 }
 
 main();

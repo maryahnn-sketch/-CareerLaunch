@@ -7,6 +7,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
 <title>iFindWorth</title>
+<!-- build: 42c8043 -->
 <script src="/js/analytics-consent.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -375,8 +376,13 @@
   .copy-status{font-size:12px;font-weight:700;color:var(--sage);min-height:18px;margin-top:6px;}
 </style>
 </head>
-<body>
+<body data-build="42c8043">
 <div id="app"></div>
+
+<script type="module">
+import * as discoverPathsWatchdog from '/js/discover-paths-watchdog.mjs';
+window.__discoverPathsWatchdog = discoverPathsWatchdog;
+</script>
 
 <script type="module" src="/js/supabase-auth.js"></script>
 <script>
@@ -3202,19 +3208,39 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
 
 async function discoverPaths(){
   if(state.busy) return;
+
   const myGen = ++state.pathsDiscoveryGeneration;
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; state.errorRetry=null; render();
+
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + DISCOVER_PATHS_TIMEOUT_MS;
+  if(!window.__discoverPathsWatchdog){
+    window.__discoverPathsWatchdog = await import('/js/discover-paths-watchdog.mjs');
+  }
+  const watchdogApi = window.__discoverPathsWatchdog;
+  const isActive = () => myGen === state.pathsDiscoveryGeneration;
+  const watchdog = watchdogApi.createDiscoverPathsWatchdog({
+    isActive,
+    onCopyDelay: () => { state.loadingMsg = watchdogApi.DISCOVER_PATHS_COPY_MESSAGE; render(); },
+    startedAt,
+    deadlineAt,
+  });
+
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
-  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
-  const pathValidation = await loadPathValidation();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
-  const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);
-  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-  const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
+
+  try{
+    const paths = await watchdog.raceDeadline((async () => {
+      const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+      const pathValidation = await loadPathValidation();
+      if(!isActive()) throw new watchdogApi.DiscoverPathsStaleError();
+      const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+      const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+      const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);
+      const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+      const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
@@ -3226,56 +3252,50 @@ Rules:
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
 7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.
 8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based path(s) for that direction without inventing unrelated alternatives. Reject near-duplicate job titles (e.g. "Administrative Coordinator" vs "Senior Administrative Coordinator") unless entry points and evidence differ meaningfully. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
-  const userPrompt = pathValidation.appendEvidencePathCountBlock(
-    `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
-    pathCountRule
-  );
-  const tierProgressFn = (tier) => {
-    if(myGen !== state.pathsDiscoveryGeneration) return;
-    if(tier === 'reshape' || tier === 'repair'){
-      state.loadingMsg = 'Still working — checking a fuller set of directions…';
-      render();
-    }
-  };
-  try{
-    const result = await runCancelable(
-      (signal) => callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, signal, tierProgressFn),
-      DISCOVER_PATHS_TIMEOUT_MS
-    );
-    if(myGen !== state.pathsDiscoveryGeneration) return;
-    let paths = result.paths;
-    paths = pathValidation.enforcePathDiscoveryBalance(paths, fullStoryText(), retainedStorySkills, evidenceGate);
-    paths = pathValidation.annotatePathsWithEvidenceNotes(paths, fullStoryText(), retainedStorySkills);
-    // Defense-in-depth (runs on a repaired result exactly the same as a first-try
-    // one — no shortcut around these checks either way): strip any rejected
-    // skill from transfers and scrub rejected-skill mentions out of freeform
-    // reasoning text before this ever reaches the UI.
-    paths = paths.map(p => ({
-      ...p,
-      transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
-      // Filled in client-side, not generated: no preference data exists yet
-      // at this point in the flow, so there's nothing real to compute here —
-      // rerankPaths() replaces these with real values once the user has told
-      // us something. Setting them now (rather than asking the model to) is
-      // both more honest and saves the exact output budget that was causing
-      // the truncation this fix addresses.
-      fitInterest: 'Needs More Information',
-      fitLifestyle: 'Needs More Information',
-    }));
-    paths = purgeRejectedFromObject(paths, rejected);
+      const userPrompt = pathValidation.appendEvidencePathCountBlock(
+        `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
+        pathCountRule
+      );
+      const tierProgressFn = (tier) => {
+        if(!isActive()) return;
+        if(tier === 'reshape' || tier === 'repair'){
+          state.loadingMsg = watchdogApi.DISCOVER_PATHS_COPY_MESSAGE;
+          render();
+        }
+      };
+      const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, undefined, tierProgressFn);
+      if(!isActive()) throw new watchdogApi.DiscoverPathsStaleError();
+      let nextPaths = result.paths;
+      nextPaths = pathValidation.enforcePathDiscoveryBalance(nextPaths, fullStoryText(), retainedStorySkills, evidenceGate);
+      nextPaths = pathValidation.annotatePathsWithEvidenceNotes(nextPaths, fullStoryText(), retainedStorySkills);
+      nextPaths = nextPaths.map(p => ({
+        ...p,
+        transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
+        fitInterest: 'Needs More Information',
+        fitLifestyle: 'Needs More Information',
+      }));
+      return purgeRejectedFromObject(nextPaths, rejected);
+    })());
+    if(!isActive()) return;
     state.paths = paths;
     state.pathFeedback = {};
     state.pathRegenerationCount = 0;
     regenCapHintTitle = null;
     state.reranked = false; state.changeSummary='';
+    state.loadingMsg = '';
     state.screen = 'paths';
   }catch(err){
-    if(myGen !== state.pathsDiscoveryGeneration) return;
+    if(err instanceof watchdogApi.DiscoverPathsStaleError) return;
+    if(!isActive()) return;
+    watchdogApi.invalidateDiscoverPathsGeneration(myGen, () => state.pathsDiscoveryGeneration, (g) => { state.pathsDiscoveryGeneration = g; });
     logDiag('discoverPaths', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
-    state.errorRetry = discoverPaths; state.screen = 'paths';
+    state.errorRetry = discoverPaths;
+    state.loadingMsg = '';
+    state.screen = 'paths';
   }finally{
-    if(myGen === state.pathsDiscoveryGeneration) state.busy = false;
+    watchdog.dispose();
+    if(watchdogApi.shouldClearDiscoverPathsBusy(myGen, state.pathsDiscoveryGeneration)) state.busy = false;
     render();
   }
 }
