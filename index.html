@@ -437,6 +437,7 @@ function createDefaultState(){
     // Per-path novelty feedback — separate from skillValidation (name -> 'known' | 'new' | 'not_interested')
     pathFeedback: {},
     pathRegenerationCount: 0,
+    pathsDiscoveryGeneration: 0, // incremented on each discoverPaths() start — stale responses cannot mutate state after timeout/retry
   };
 }
 
@@ -1188,7 +1189,7 @@ function runCancelable(buildPromise, ms){
   return Promise.race([buildPromise(undefined), timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
-async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal){
+async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal, tierProgressFn){
   function runValidation(rawResult){
     let result = rawResult;
     if(normalizeFn) result = normalizeFn(result);
@@ -1219,6 +1220,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
   // failure has nothing usable to send here, so it skips straight to tier 3.
   if(tier1Err.category === 'schema' && tier1Err.partial){
     try{
+      if(tierProgressFn) tierProgressFn('reshape');
       let reshapeSystem = `You are a strict data formatter for iFindWorth. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
       const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
@@ -1238,6 +1240,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
   // size-related, with the invalid/partial content included so the model is
   // fixing its own last answer rather than starting blind.
   try{
+    if(tierProgressFn) tierProgressFn('repair');
     let repairNote = `Your previous response was invalid (${tier1Err.code || 'ERROR'}): ${tier1Err.detail || tier1Err.message}. Call the SAME tool again with a corrected, COMPLETE result that matches the schema and instructions exactly — every required field must be present, and every enum field must match one of its allowed values EXACTLY (same wording and capitalization).`;
     if(extraRepairHint) repairNote += ` ${extraRepairHint}`;
     const sizeRelated = tier1Err.code === 'TRUNCATED_OUTPUT' || tier1Err.code === 'RESPONSE_PARSE_ERROR' || tier1Err.code === 'NO_STRUCTURED_OUTPUT';
@@ -2366,7 +2369,7 @@ function renderSkills(){
     </div>
     <p style="font-size:13px;color:var(--ink-muted);">Skills marked "Not Quite" will not influence your career paths, roadmap, or résumé.</p>
     <p style="font-size:12.5px;color:var(--ink-muted);margin-top:10px;">Anything you leave unmarked will be included when you continue. Mark "Not quite" to exclude a skill.</p>
-    <div class="mt-32"><button class="btn btn-primary" id="toPaths">Show Me My Career Paths</button></div>
+    <div class="mt-32"><button class="btn btn-primary" id="toPaths" ${state.busy ? 'disabled' : ''}>Show Me My Career Paths</button></div>
   </div></div>`;
 }
 
@@ -3199,8 +3202,9 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
 
 async function discoverPaths(){
   if(state.busy) return;
+  const myGen = ++state.pathsDiscoveryGeneration;
   state.busy = true;
-  state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; render();
+  state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; state.errorRetry=null; render();
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
@@ -3226,8 +3230,19 @@ Rules:
     `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
     pathCountRule
   );
+  const tierProgressFn = (tier) => {
+    if(myGen !== state.pathsDiscoveryGeneration) return;
+    if(tier === 'reshape' || tier === 'repair'){
+      state.loadingMsg = 'Still working — checking a fuller set of directions…';
+      render();
+    }
+  };
   try{
-    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT);
+    const result = await runCancelable(
+      (signal) => callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, signal, tierProgressFn),
+      DISCOVER_PATHS_TIMEOUT_MS
+    );
+    if(myGen !== state.pathsDiscoveryGeneration) return;
     let paths = result.paths;
     paths = pathValidation.enforcePathDiscoveryBalance(paths, fullStoryText(), retainedStorySkills, evidenceGate);
     paths = pathValidation.annotatePathsWithEvidenceNotes(paths, fullStoryText(), retainedStorySkills);
@@ -3255,11 +3270,13 @@ Rules:
     state.reranked = false; state.changeSummary='';
     state.screen = 'paths';
   }catch(err){
+    if(myGen !== state.pathsDiscoveryGeneration) return;
     logDiag('discoverPaths', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
     state.errorRetry = discoverPaths; state.screen = 'paths';
   }finally{
-    state.busy = false; render();
+    if(myGen === state.pathsDiscoveryGeneration) state.busy = false;
+    render();
   }
 }
 
@@ -3592,6 +3609,9 @@ function handleCheckout(){
 // never mutate state after that happens — this widened window just makes it
 // far less likely to happen at all for a normal multi-tier repair.
 const ROADMAP_SECTION_TIMEOUT_MS = 45000;
+// discoverPaths can run up to 3 sequential API tiers (primary, reshape, repair);
+// 90s matches the roadmap pattern but allows the larger paths schema more room.
+const DISCOVER_PATHS_TIMEOUT_MS = 90000;
 
 function finalizeRoadmapStatus(){
   if(state.roadmapSections.foundation !== 'ready'){
