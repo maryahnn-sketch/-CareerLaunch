@@ -92,6 +92,8 @@
   .btn-primary{background:var(--cta);color:#FFFFFF;box-shadow:0 8px 22px var(--cta-shadow);}
   .btn-primary:hover{background:var(--cta-hover);transform:translateY(-1px);box-shadow:0 10px 26px rgba(26,21,32,0.28);}
   .btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+  .hero-ctas .btn-primary,.final-cta .btn-primary{background:var(--highlight);box-shadow:0 8px 22px rgba(79,70,229,0.18);}
+  .hero-ctas .btn-primary:hover,.final-cta .btn-primary:hover{background:var(--highlight);transform:translateY(-1px);box-shadow:0 10px 26px rgba(79,70,229,0.24);}
   .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line);}
   .btn-ghost:hover{border-color:var(--ink);}
   .btn-text{padding:8px 4px;font-weight:600;color:var(--ink-muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;}
@@ -2282,7 +2284,7 @@ function renderLanding(){
       </div>
     </section>
     <section class="section">
-      <div class="eyebrow"><span class="dot"></span>Why iFindWorth is different</div>
+      <div class="eyebrow"><span class="dot"></span>Why <span style="text-transform:none">iFindWorth</span> is different</div>
       <h2>Not another quiz, job board, or template</h2>
       <div class="diff-grid">
         <div class="diff-card"><div class="not">Not a resume builder</div><h3>We find the story before we format it.</h3></div>
