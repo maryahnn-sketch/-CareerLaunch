@@ -7,43 +7,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
 <title>iFindWorth</title>
-<script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="fo po init Fo Oo qo Zs Lo Bo Ro capture Do vo Go calculateEventProperties Vo register register_once register_for_session unregister unregister_for_session Ko Ao Zo getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync Yo identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset Xo shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Qo Uo createPersonProfile setInternalOrTestUser Jo Eo il opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ho debug Js mn getPageViewId captureTraceFeedback captureTraceMetric Co".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_p4TSuWAbFEfK946ATixj2k8aCgjTMjeo2eLZnHUtoyvF', {
-        api_host: 'https://us.i.posthog.com',
-        defaults: '2026-05-30',
-        person_profiles: 'identified_only',
-        // PostHog defaults (2026-05-30) already provide:
-        // - Session replay: all inputs masked by default; password fields always masked
-        // - Autocapture: ph-no-autocapture elements excluded; capture_copied_text: false
-        // - capture_pageview: 'history_change' (SPA-friendly pageviews)
-        // - strictMinimumDuration for session recordings (2025-11-30+)
-        // - rageclick ignores text-selection surfaces and stepper controls (2026-05-30)
-        session_recording: {
-            maskAllInputs: true,
-            maskInputOptions: {
-                password: true,
-                email: true,
-                text: true,
-                tel: true,
-                textarea: true,
-            },
-            maskTextSelector: '.ph-career-content, .ph-mask, #storyInput, #jdInput, #addExpInput, #convoInput, [id^="strengthenInput"], [id^="storyDetail"]',
-        },
-        autocapture: {
-            css_selector_ignorelist: [
-                '.ph-no-capture', '[data-ph-no-capture]',
-                '.ph-no-autocapture', '[data-ph-no-autocapture]',
-                '.ph-career-content',
-                '#storyInput', '#jdInput', '#addExpInput', '#convoInput',
-                '[id^="strengthenInput"]', '[id^="storyDetail"]',
-                'textarea', 'input[type="text"]', 'input[type="email"]', 'input[type="search"]',
-            ],
-            dom_event_allowlist: ['click', 'submit'],
-            capture_copied_text: false,
-        },
-    })
-</script>
+<script src="/js/analytics-consent.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
   :root{
@@ -162,7 +126,9 @@
   .starter-benefits{list-style:none;margin:20px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;border-top:1px solid var(--line);}
   .starter-benefits li{padding:14px 0;border-bottom:1px solid rgba(226,222,213,0.7);display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;font-size:13.5px;line-height:1.45;color:var(--ink-soft);}
   .starter-benefits li::before{content:'✓';color:var(--sage);font-size:12px;font-weight:600;margin-top:2px;}
-  .starter-benefits strong{display:block;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+  .starter-benefit-copy{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .starter-benefits strong{display:block;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink);margin:0;}
+  .starter-benefit-desc{display:block;margin:0;}
   @media (max-width:600px){.starter-benefits{grid-template-columns:1fr;gap:0;}}
   .price-card .amt{font-family:var(--serif);font-size:34px;margin:10px 0;}
   .price-card ul{margin:14px 0 0;padding-left:18px;font-size:14px;color:var(--ink-soft);}
@@ -2308,12 +2274,12 @@ function renderLanding(){
           <p style="font-size:14px;">One purchase gives you a personalized direction, credible positioning, and practical materials built from what you have actually done.</p>
           <p style="font-size:13px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
           <ul class="starter-benefits">
-            <li><span><strong>Know which roles to pursue</strong>See where your experience fits and why those roles deserve your attention.</span></li>
-            <li><span><strong>Follow a focused 90 day plan</strong>Get clear priorities for your first 7, 30, 60, and 90 days.</span></li>
-            <li><span><strong>Use stronger résumé language</strong>Turn real responsibilities and outcomes into credible, ready to use bullets.</span></li>
-            <li><span><strong>Position yourself on LinkedIn</strong>Communicate your value with a tailored headline and About section.</span></li>
-            <li><span><strong>Prepare memorable interview stories</strong>Build clear examples from situations you have genuinely handled.</span></li>
-            <li><span><strong>Search with greater precision</strong>Use relevant titles, keywords, and adjacent opportunities you may have missed.</span></li>
+            <li><div class="starter-benefit-copy"><strong>Know which roles to pursue</strong><span class="starter-benefit-desc">See where your experience fits and why those roles deserve your attention.</span></div></li>
+            <li><div class="starter-benefit-copy"><strong>Follow a focused 90 day plan</strong><span class="starter-benefit-desc">Get clear priorities for your first 7, 30, 60, and 90 days.</span></div></li>
+            <li><div class="starter-benefit-copy"><strong>Use stronger résumé language</strong><span class="starter-benefit-desc">Turn real responsibilities and outcomes into credible, ready to use bullets.</span></div></li>
+            <li><div class="starter-benefit-copy"><strong>Position yourself on LinkedIn</strong><span class="starter-benefit-desc">Communicate your value with a tailored headline and About section.</span></div></li>
+            <li><div class="starter-benefit-copy"><strong>Prepare memorable interview stories</strong><span class="starter-benefit-desc">Build clear examples from situations you have genuinely handled.</span></div></li>
+            <li><div class="starter-benefit-copy"><strong>Search with greater precision</strong><span class="starter-benefit-desc">Use relevant titles, keywords, and adjacent opportunities you may have missed.</span></div></li>
           </ul>
         </div>
       </div>
@@ -2335,6 +2301,7 @@ function renderLanding(){
       </div>
       <div class="footer-divider"></div>
       <p class="footer-disclaimer">Guidance, not guarantees. iFindWorth only knows what you share with it. Recommendations are a starting point for your own judgment, not a verdict on your potential.</p>
+      <p class="footer-privacy"><button type="button" class="footer-privacy-link" data-ifw-analytics-choices>Analytics &amp; privacy choices</button></p>
     </footer>
   </div>`;
 }
