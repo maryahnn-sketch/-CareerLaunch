@@ -358,7 +358,21 @@ function main() {
       /timeoutTimer = setTimeout\(/.test(DISCOVER_PATHS_FN) &&
       /DISCOVER_PATHS_COPY_DELAY_MS\)/.test(DISCOVER_PATHS_FN) &&
       /DISCOVER_PATHS_TIMEOUT_MS\)/.test(DISCOVER_PATHS_FN) &&
-      DISCOVER_PATHS_FN.indexOf('setTimeout') < DISCOVER_PATHS_FN.indexOf('await loadEvidenceGate')
+      DISCOVER_PATHS_FN.indexOf('setTimeout') < DISCOVER_PATHS_FN.indexOf('await yieldToMainThread')
+  );
+
+  assert(
+    'discoverPaths yields to main thread after timer registration',
+    /function yieldToMainThread\(\)/.test(INDEX_HTML) &&
+      /await yieldToMainThread\(\)/.test(DISCOVER_PATHS_FN) &&
+      DISCOVER_PATHS_FN.indexOf('await yieldToMainThread()') < DISCOVER_PATHS_FN.indexOf('await loadEvidenceGate')
+  );
+
+  assert(
+    'discoverPaths yields before heavy sync prep after module load',
+    /await loadPathValidation\(\)/.test(DISCOVER_PATHS_FN) &&
+      DISCOVER_PATHS_FN.indexOf('await loadPathValidation()') < DISCOVER_PATHS_FN.lastIndexOf('await yieldToMainThread()') &&
+      DISCOVER_PATHS_FN.indexOf('gateRetainedEvidence(') > DISCOVER_PATHS_FN.lastIndexOf('await yieldToMainThread()')
   );
 
   assert(

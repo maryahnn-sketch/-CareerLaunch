@@ -7,7 +7,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
 <title>iFindWorth</title>
-<!-- build: c8d41f2 -->
+<!-- build: d4f8a91 -->
 <script src="/js/analytics-consent.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -377,7 +377,7 @@
   .debug-build-badge{position:fixed;bottom:8px;right:8px;z-index:9999;font-family:var(--mono);font-size:11px;background:var(--ink);color:var(--paper);padding:4px 10px;border-radius:6px;pointer-events:none;opacity:0.9;letter-spacing:0.04em;}
 </style>
 </head>
-<body data-build="c8d41f2">
+<body data-build="d4f8a91">
 <div id="app"></div>
 <div id="debugBuildBadge" class="debug-build-badge" hidden aria-hidden="true"></div>
 
@@ -398,6 +398,11 @@ function invalidateDiscoverPathsGeneration(currentGen, getGen, setGen){
 
 function shouldClearDiscoverPathsBusy(myGen, currentGen){
   return currentGen <= myGen + 1;
+}
+
+/** Yield so inline discoverPaths timers (macrotasks) can run before heavy sync prep. */
+function yieldToMainThread(){
+  return new Promise((resolve) => { setTimeout(resolve, 0); });
 }
 
 function createDefaultState(){
@@ -3256,6 +3261,12 @@ async function discoverPaths(){
     render();
   }, DISCOVER_PATHS_TIMEOUT_MS);
 
+  // Macrotask yield: cached dynamic imports resolve in microtasks without
+  // processing setTimeout callbacks; prep through prompt build can run in the
+  // same turn and starve the 30s/90s watchdog until the API call yields.
+  await yieldToMainThread();
+  if(!isActive() || timedOut) return;
+
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
@@ -3263,7 +3274,9 @@ async function discoverPaths(){
   try{
     const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
     const pathValidation = await loadPathValidation();
-    if(!isActive()) throw new DiscoverPathsStaleError();
+    if(!isActive() || timedOut) throw new DiscoverPathsStaleError();
+    await yieldToMainThread();
+    if(!isActive() || timedOut) throw new DiscoverPathsStaleError();
     const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
     const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
     const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);

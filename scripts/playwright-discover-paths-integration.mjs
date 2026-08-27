@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const PORT = 8765;
 const ARTIFACT_DIR = join(ROOT, '.test-artifacts', 'discover-paths-integration');
-const BUILD_ID = 'c8d41f2';
+const BUILD_ID = 'd4f8a91';
 const COPY_DELAY_MS = 30000;
 const TIMEOUT_MS = 90000;
 const STALE_PATH_TITLE = 'STALE_PATH_SHOULD_NOT_APPEAR';
@@ -160,6 +160,7 @@ async function runIntegrationTest() {
   const consoleErrors = [];
   const criteria = {
     buildId: { pass: false, detail: '' },
+    syncPrep: { pass: false, detail: '', elapsedMs: null },
     copyAt30s: { pass: false, detail: '', timestampMs: null, elapsedMs: null },
     spinnerExitAt90s: { pass: false, detail: '', timestampMs: null, elapsedMs: null },
     timeoutUi: { pass: false, detail: '' },
@@ -225,6 +226,41 @@ async function runIntegrationTest() {
   await page.goto(baseUrl, { waitUntil: 'load', timeout: 60000 });
 
   await page.waitForFunction(() => document.getElementById('toPaths'), { timeout: 15000 });
+
+  // Pre-warm real modules so discoverPaths hits the cached-import + sync-prep path
+  // that previously starved macrotask timers in preview.
+  await page.evaluate(async () => {
+    await import('/js/evidence-gate.mjs');
+    await import('/js/path-validation.mjs');
+  });
+
+  const syncPrepMs = await page.evaluate(({ story, skills }) => {
+    const t0 = performance.now();
+    const retained = skills.filter((s) => s.name);
+    let gateMod;
+    let pathMod;
+    return Promise.all([import('/js/evidence-gate.mjs'), import('/js/path-validation.mjs')])
+      .then(([eg, pv]) => {
+        gateMod = eg;
+        pathMod = pv;
+        const evidenceGate = gateMod.gateRetainedEvidence(story, skills, []);
+        const pathBounds = pathMod.getEvidencePathBounds(story, skills, evidenceGate);
+        const pathCountRule = pathMod.formatEvidencePathCountInstruction(pathBounds);
+        const filtered = gateMod.formatDownstreamStoryForPaths(evidenceGate);
+        const summary = skills.map((s) => `${s.name} (${s.strength})`).join(', ');
+        pathMod.appendEvidencePathCountBlock(
+          `User's story:\n${filtered}\n\nRetained story skills:\n${summary}`,
+          pathCountRule
+        );
+        return performance.now() - t0;
+      });
+  }, { story: seedProfile.story, skills: seedProfile.skills });
+
+  criteria.syncPrep = {
+    pass: syncPrepMs < 500,
+    detail: `real module sync prep=${syncPrepMs.toFixed(1)}ms (cached imports)`,
+    elapsedMs: syncPrepMs,
+  };
 
   const build = await page.evaluate(() => document.body.dataset.build);
   criteria.buildId.pass = build === BUILD_ID;
@@ -323,10 +359,11 @@ function printReport({ criteria, consoleErrors, artifactDir }) {
   console.log('\n=== discoverPaths integration test report ===\n');
   const rows = [
     ['1. Build ID loaded', criteria.buildId],
-    ['2. Loading copy changes ~30s', criteria.copyAt30s],
-    ['3. Spinner exits ~90s', criteria.spinnerExitAt90s],
-    ['4. Timeout message + Try Again', criteria.timeoutUi],
-    ['5. Late response cannot overwrite timeout', criteria.staleProtection],
+    ['2. Real sync prep bounded (cached modules)', criteria.syncPrep],
+    ['3. Loading copy changes ~30s', criteria.copyAt30s],
+    ['4. Spinner exits ~90s', criteria.spinnerExitAt90s],
+    ['5. Timeout message + Try Again', criteria.timeoutUi],
+    ['6. Late response cannot overwrite timeout', criteria.staleProtection],
   ];
 
   let allPass = true;
