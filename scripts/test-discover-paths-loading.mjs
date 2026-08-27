@@ -70,6 +70,8 @@ async function runBehavioralTests() {
   await testNeverResolvingApiCall();
   await testCopyDelayAtThirtySeconds();
   await testStaleResponseAfterTimeout();
+  await testDiscoverPathsOrchestrationNeverResolvingApi();
+  await testHangingModuleImportBeforeWatchdog();
 }
 
 async function testNeverResolvingModuleLoad() {
@@ -238,6 +240,111 @@ async function testStaleResponseAfterTimeout() {
   watchdog.dispose();
 }
 
+/** Full discoverPaths orchestration: watchdog starts before any await; API never resolves. */
+async function testDiscoverPathsOrchestrationNeverResolvingApi() {
+  const fake = createFakeTimers();
+  let generation = 10;
+  let screen = 'analyzing';
+  let busy = true;
+  let loadingMsg = 'Mapping your skills to possible directions…';
+  let errorMsg = '';
+  let errorRetry = null;
+  let paths = null;
+
+  const myGen = ++generation;
+  const isActive = () => myGen === generation;
+  const startedAt = fake.now();
+  const watchdog = createDiscoverPathsWatchdog({
+    isActive,
+    onCopyDelay: () => { loadingMsg = DISCOVER_PATHS_COPY_MESSAGE; },
+    startedAt,
+    deadlineAt: startedAt + DISCOVER_PATHS_TIMEOUT_MS,
+    now: fake.now(),
+    setTimeoutFn: fake.setTimeoutFn,
+    clearTimeoutFn: fake.clearTimeoutFn,
+  });
+
+  const work = watchdog.raceDeadline((async () => {
+    await Promise.resolve();
+    await new Promise(() => {});
+    paths = [{ title: 'Late Path' }];
+    return paths;
+  })());
+
+  fake.tick(DISCOVER_PATHS_COPY_DELAY_MS);
+  assert(
+    'orchestration updates loading copy at 30s while API hangs',
+    loadingMsg === DISCOVER_PATHS_COPY_MESSAGE
+  );
+
+  fake.tick(DISCOVER_PATHS_TIMEOUT_MS - DISCOVER_PATHS_COPY_DELAY_MS);
+
+  try {
+    await work;
+  } catch (err) {
+    if (err instanceof DiscoverPathsTimeoutError) {
+      invalidateDiscoverPathsGeneration(myGen, () => generation, (g) => { generation = g; });
+      errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
+      errorRetry = () => {};
+      loadingMsg = '';
+      screen = 'paths';
+      if (shouldClearDiscoverPathsBusy(myGen, generation)) busy = false;
+    }
+  }
+  watchdog.dispose();
+
+  assert(
+    'orchestration exits analyzing to paths at 90s with retry',
+    screen === 'paths' && paths === null && typeof errorRetry === 'function' && !busy && errorMsg.includes('try again')
+  );
+}
+
+/** Regression: awaiting module import before watchdog left timers unregistered. */
+async function testHangingModuleImportBeforeWatchdog() {
+  const fake = createFakeTimers();
+  let loadingMsg = 'Mapping your skills to possible directions…';
+  let screen = 'analyzing';
+  let busy = true;
+
+  const startedAt = fake.now();
+  const isActive = () => true;
+  const watchdog = createDiscoverPathsWatchdog({
+    isActive,
+    onCopyDelay: () => { loadingMsg = DISCOVER_PATHS_COPY_MESSAGE; },
+    startedAt,
+    deadlineAt: startedAt + DISCOVER_PATHS_TIMEOUT_MS,
+    now: fake.now(),
+    setTimeoutFn: fake.setTimeoutFn,
+    clearTimeoutFn: fake.clearTimeoutFn,
+  });
+
+  const work = watchdog.raceDeadline((async () => {
+    await new Promise(() => {});
+  })());
+
+  fake.tick(DISCOVER_PATHS_COPY_DELAY_MS);
+  assert(
+    'watchdog timers fire even when inner module/API work never resolves',
+    loadingMsg === DISCOVER_PATHS_COPY_MESSAGE
+  );
+
+  fake.tick(DISCOVER_PATHS_TIMEOUT_MS - DISCOVER_PATHS_COPY_DELAY_MS);
+  let timedOut = false;
+  try {
+    await work;
+  } catch (err) {
+    timedOut = err instanceof DiscoverPathsTimeoutError;
+    screen = 'paths';
+    busy = false;
+  }
+  watchdog.dispose();
+
+  assert(
+    'watchdog exits hung discoverPaths work at 90s',
+    timedOut && screen === 'paths' && !busy
+  );
+}
+
 function main() {
   assert(
     'DISCOVER_PATHS_TIMEOUT_MS is 90000',
@@ -246,9 +353,31 @@ function main() {
   );
 
   assert(
+    'discoverPaths creates watchdog before any await',
+    /let watchdogApi = getDiscoverPathsWatchdogApi\(\)/.test(DISCOVER_PATHS_FN) &&
+      /const watchdog = watchdogApi\.createDiscoverPathsWatchdog\(\{/.test(DISCOVER_PATHS_FN) &&
+      !/if\(!window\.__discoverPathsWatchdog\)\{\s*window\.__discoverPathsWatchdog = await import/.test(DISCOVER_PATHS_FN)
+  );
+
+  assert(
+    'discoverPaths module fallback loads inside watchdog.raceDeadline',
+    /watchdog\.raceDeadline\(\(async \(\) => \{[\s\S]*__discoverPathsWatchdogReady/.test(DISCOVER_PATHS_FN)
+  );
+
+  assert(
+    'discoverPaths uses bootstrap API helper',
+    /function getDiscoverPathsWatchdogApi\(\)/.test(INDEX_HTML)
+  );
+
+  assert(
+    'index.html preloads discover-paths-watchdog module',
+    INDEX_HTML.includes('rel="modulepreload" href="/js/discover-paths-watchdog.mjs"')
+  );
+
+  assert(
     'discoverPaths anchors deadline at analyzing screen entry',
     /const startedAt = Date\.now\(\)/.test(DISCOVER_PATHS_FN) &&
-      /const deadlineAt = startedAt \+ DISCOVER_PATHS_TIMEOUT_MS/.test(DISCOVER_PATHS_FN)
+      /const deadlineAt = startedAt \+ watchdogApi\.DISCOVER_PATHS_TIMEOUT_MS/.test(DISCOVER_PATHS_FN)
   );
 
   assert(

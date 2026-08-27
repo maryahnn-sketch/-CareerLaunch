@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>discoverPaths watchdog browser verify</title>
+</head>
+<body>
+  <pre id="log">running…</pre>
+  <script type="module">
+    import {
+      createDiscoverPathsWatchdog,
+      DISCOVER_PATHS_COPY_MESSAGE,
+      DISCOVER_PATHS_COPY_DELAY_MS,
+      DISCOVER_PATHS_TIMEOUT_MS,
+      DiscoverPathsTimeoutError,
+    } from '/js/discover-paths-watchdog.mjs';
+
+    const logEl = document.getElementById('log');
+    const lines = [];
+    const log = (msg) => { lines.push(msg); logEl.textContent = lines.join('\n'); };
+
+    function createFakeTimers() {
+      let now = 0;
+      const timers = new Map();
+      let nextId = 1;
+      const setTimeoutFn = (fn, ms) => {
+        const id = nextId++;
+        timers.set(id, { fn, at: now + ms });
+        return id;
+      };
+      const clearTimeoutFn = (id) => { timers.delete(id); };
+      const tick = (ms) => {
+        now += ms;
+        const due = [...timers.entries()].filter(([, t]) => t.at <= now);
+        due.sort((a, b) => a[1].at - b[1].at);
+        for (const [id, t] of due) {
+          timers.delete(id);
+          t.fn();
+        }
+      };
+      return { now: () => now, setTimeoutFn, clearTimeoutFn, tick };
+    }
+
+    async function run() {
+      const fake = createFakeTimers();
+      let loadingMsg = 'Mapping your skills to possible directions…';
+      let screen = 'analyzing';
+      let busy = true;
+      const startedAt = fake.now();
+      const isActive = () => true;
+
+      const watchdog = createDiscoverPathsWatchdog({
+        isActive,
+        onCopyDelay: () => { loadingMsg = DISCOVER_PATHS_COPY_MESSAGE; },
+        startedAt,
+        deadlineAt: startedAt + DISCOVER_PATHS_TIMEOUT_MS,
+        now: fake.now(),
+        setTimeoutFn: fake.setTimeoutFn,
+        clearTimeoutFn: fake.clearTimeoutFn,
+      });
+
+      const work = watchdog.raceDeadline((async () => {
+        await new Promise(() => {});
+      })());
+
+      fake.tick(DISCOVER_PATHS_COPY_DELAY_MS - 1);
+      const beforeCopy = loadingMsg;
+      fake.tick(1);
+      const afterCopy = loadingMsg;
+
+      fake.tick(DISCOVER_PATHS_TIMEOUT_MS - DISCOVER_PATHS_COPY_DELAY_MS);
+      let timedOut = false;
+      try {
+        await work;
+      } catch (err) {
+        timedOut = err instanceof DiscoverPathsTimeoutError;
+        screen = 'paths';
+        busy = false;
+      }
+      watchdog.dispose();
+
+      log(`before_30s_copy: ${beforeCopy}`);
+      log(`after_30s_copy: ${afterCopy}`);
+      log(`expected_copy: ${DISCOVER_PATHS_COPY_MESSAGE}`);
+      log(`copy_pass: ${afterCopy === DISCOVER_PATHS_COPY_MESSAGE}`);
+      log(`timeout_pass: ${timedOut && screen === 'paths' && !busy}`);
+      log(`RESULT: ${afterCopy === DISCOVER_PATHS_COPY_MESSAGE && timedOut && screen === 'paths' && !busy ? 'PASS' : 'FAIL'}`);
+    }
+
+    run().catch((err) => {
+      log(`ERROR: ${err?.stack || err}`);
+      log('RESULT: FAIL');
+    });
+  </script>
+</body>
+</html>
