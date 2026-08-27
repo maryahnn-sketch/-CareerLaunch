@@ -1,22 +1,20 @@
 /**
- * Real headless-browser integration test for discoverPaths() watchdog behavior.
+ * Real headless-browser integration test for discoverPaths() inline timer behavior.
  * Run: node scripts/playwright-discover-paths-integration.mjs
  *
  * Requires: playwright (npx playwright install chromium)
- * Serves index.html locally; hangs /api/claude for discoverPaths; uses real ~30s/90s timers.
+ * Serves index.html via Playwright routes; hangs /api/claude for discoverPaths; uses real ~30s/90s timers.
  */
 
-import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
-import { spawn } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const PORT = 8765;
 const ARTIFACT_DIR = join(ROOT, '.test-artifacts', 'discover-paths-integration');
-const BUILD_ID = 'f4a91bc';
+const BUILD_ID = 'c8d41f2';
 const COPY_DELAY_MS = 30000;
 const TIMEOUT_MS = 90000;
 const STALE_PATH_TITLE = 'STALE_PATH_SHOULD_NOT_APPEAR';
@@ -38,29 +36,36 @@ function contentFor(urlPath) {
   return readFileSync(filePath);
 }
 
-function startStaticServer() {
-  const server = createServer((req, res) => {
-    const body = contentFor(req.url || '/');
-    if (!body) {
-      res.writeHead(404);
-      res.end('not found');
+function installStaticRoutes(page) {
+  const origin = `http://127.0.0.1:${PORT}`;
+  return page.route(`${origin}/**`, async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.href.startsWith(origin)) {
+      await route.continue();
       return;
     }
-    const ext = extname((req.url || '').split('?')[0]);
-    res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream' });
-    res.end(body);
-  });
-  return new Promise((resolve, reject) => {
-    server.once('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        console.log(`Port ${PORT} already in use — reusing existing static server.`);
-        resolve(null);
-        return;
-      }
-      reject(err);
+    const rel = url.pathname.replace(/^\//, '') || 'index.html';
+    const body = contentFor(`/${rel}`);
+    if (!body) {
+      await route.fulfill({ status: 404, body: 'not found' });
+      return;
+    }
+    const ext = extname(url.pathname);
+    await route.fulfill({
+      status: 200,
+      contentType: MIME[ext] || 'application/octet-stream',
+      body,
     });
-    server.listen(PORT, '127.0.0.1', () => resolve(server));
-  });
+  }).then(() =>
+    page.route(origin, async (route) => {
+      const body = contentFor('/');
+      await route.fulfill({
+        status: 200,
+        contentType: MIME['.html'],
+        body,
+      });
+    })
+  );
 }
 
 function makeSeedProfile() {
@@ -173,6 +178,8 @@ async function runIntegrationTest() {
   });
   page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
+  await installStaticRoutes(page);
+
   await page.route('**/api/public-config', async (route) => {
     await route.fulfill({
       status: 503,
@@ -215,7 +222,7 @@ async function runIntegrationTest() {
   }, seedProfile);
 
   const baseUrl = `http://127.0.0.1:${PORT}/`;
-  await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 60000 });
+  await page.goto(baseUrl, { waitUntil: 'load', timeout: 60000 });
 
   await page.waitForFunction(() => document.getElementById('toPaths'), { timeout: 15000 });
 
@@ -354,17 +361,14 @@ function printReport({ criteria, consoleErrors, artifactDir }) {
   return allPass ? 0 : 1;
 }
 
-const server = await startStaticServer();
-console.log(`Static server: http://127.0.0.1:${PORT}/`);
+console.log(`Static routes: http://127.0.0.1:${PORT}/`);
 
 try {
   await ensurePlaywright();
   const result = await runIntegrationTest();
   const code = printReport(result);
-  if (server) server.close();
   process.exit(code);
 } catch (err) {
   console.error('Test runner error:', err);
-  if (server) server.close();
   process.exit(2);
 }

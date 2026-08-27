@@ -6,9 +6,8 @@
 <meta name="description" content="iFindWorth helps you uncover professional skills hidden in your real-life experience, explore career possibilities, and build a practical path forward.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
-<link rel="modulepreload" href="/js/discover-paths-watchdog.mjs">
 <title>iFindWorth</title>
-<!-- build: f4a91bc -->
+<!-- build: c8d41f2 -->
 <script src="/js/analytics-consent.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -375,96 +374,30 @@
   .evidence-prompt li{margin:7px 0;}
   .kit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
   .copy-status{font-size:12px;font-weight:700;color:var(--sage);min-height:18px;margin-top:6px;}
+  .debug-build-badge{position:fixed;bottom:8px;right:8px;z-index:9999;font-family:var(--mono);font-size:11px;background:var(--ink);color:var(--paper);padding:4px 10px;border-radius:6px;pointer-events:none;opacity:0.9;letter-spacing:0.04em;}
 </style>
 </head>
-<body data-build="f4a91bc">
+<body data-build="c8d41f2">
 <div id="app"></div>
-
-<script type="module">
-import * as discoverPathsWatchdog from '/js/discover-paths-watchdog.mjs';
-window.__discoverPathsWatchdog = discoverPathsWatchdog;
-window.__discoverPathsWatchdogReady = Promise.resolve(discoverPathsWatchdog);
-</script>
+<div id="debugBuildBadge" class="debug-build-badge" hidden aria-hidden="true"></div>
 
 <script type="module" src="/js/supabase-auth.js"></script>
 <script>
 /* ============================= STATE (Career Intelligence Profile) ============================= */
-if(!window.__discoverPathsWatchdogReady){
-  window.__discoverPathsWatchdogReady = import('/js/discover-paths-watchdog.mjs').then((module) => {
-    window.__discoverPathsWatchdog = module;
-    return module;
-  }).catch((err) => {
-    console.error('[CareerLaunch] discover-paths-watchdog preload failed', err);
-    return null;
-  });
+const DISCOVER_PATHS_TIMEOUT_MS = 90000;
+const DISCOVER_PATHS_COPY_DELAY_MS = 30000;
+const DISCOVER_PATHS_COPY_MESSAGE = 'Still working — checking a fuller set of directions…';
+
+class DiscoverPathsStaleError extends Error {
+  constructor(){ super('Stale discoverPaths response'); this.name = 'DiscoverPathsStaleError'; }
 }
 
-// Inline bootstrap mirrors js/discover-paths-watchdog.mjs so timers start before any await.
-const DISCOVER_PATHS_BOOTSTRAP = {
-  DISCOVER_PATHS_TIMEOUT_MS: 90000,
-  DISCOVER_PATHS_COPY_DELAY_MS: 30000,
-  DISCOVER_PATHS_COPY_MESSAGE: 'Still working — checking a fuller set of directions…',
-};
-function getDiscoverPathsWatchdogApi(){
-  return window.__discoverPathsWatchdog || {
-    ...DISCOVER_PATHS_BOOTSTRAP,
-    DiscoverPathsStaleError: class DiscoverPathsStaleError extends Error {
-      constructor(){ super('Stale discoverPaths response'); this.name = 'DiscoverPathsStaleError'; }
-    },
-    DiscoverPathsTimeoutError: class DiscoverPathsTimeoutError extends Error {
-      constructor(message = `Operation did not respond within ${DISCOVER_PATHS_BOOTSTRAP.DISCOVER_PATHS_TIMEOUT_MS}ms.`){
-        super(message);
-        this.name = 'DiscoverPathsTimeoutError';
-        this.code = 'TIMEOUT';
-        this.category = 'network';
-      }
-    },
-    createDiscoverPathsWatchdog(opts){
-      const timeoutMs = DISCOVER_PATHS_BOOTSTRAP.DISCOVER_PATHS_TIMEOUT_MS;
-      const copyDelayMs = DISCOVER_PATHS_BOOTSTRAP.DISCOVER_PATHS_COPY_DELAY_MS;
-      const {
-        isActive,
-        onCopyDelay,
-        startedAt = Date.now(),
-        deadlineAt = startedAt + timeoutMs,
-        now = startedAt,
-        setTimeoutFn = setTimeout,
-        clearTimeoutFn = clearTimeout,
-      } = opts;
-      let copyTimer = null;
-      let disposed = false;
-      const copyAt = startedAt + copyDelayMs;
-      copyTimer = setTimeoutFn(() => {
-        if(disposed || !isActive()) return;
-        onCopyDelay();
-      }, Math.max(0, copyAt - now));
-      const TimeoutError = this.DiscoverPathsTimeoutError;
-      function remainingMs(at = Date.now()){ return Math.max(0, deadlineAt - at); }
-      function raceDeadline(promise, at = Date.now()){
-        const remaining = remainingMs(at);
-        if(remaining <= 0) return Promise.reject(new TimeoutError());
-        return Promise.race([
-          promise,
-          new Promise((_, reject) => {
-            setTimeoutFn(() => reject(new TimeoutError()), remaining);
-          }),
-        ]);
-      }
-      function dispose(){
-        if(disposed) return;
-        disposed = true;
-        if(copyTimer != null) clearTimeoutFn(copyTimer);
-        copyTimer = null;
-      }
-      return { raceDeadline, dispose, remainingMs, deadlineAt, startedAt };
-    },
-    invalidateDiscoverPathsGeneration(currentGen, getGen, setGen){
-      if(getGen() === currentGen) setGen(currentGen + 1);
-    },
-    shouldClearDiscoverPathsBusy(myGen, currentGen){
-      return currentGen <= myGen + 1;
-    },
-  };
+function invalidateDiscoverPathsGeneration(currentGen, getGen, setGen){
+  if(getGen() === currentGen) setGen(currentGen + 1);
+}
+
+function shouldClearDiscoverPathsBusy(myGen, currentGen){
+  return currentGen <= myGen + 1;
 }
 
 function createDefaultState(){
@@ -3293,36 +3226,49 @@ async function discoverPaths(){
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; state.errorRetry=null; render();
 
-  const startedAt = Date.now();
   const isActive = () => myGen === state.pathsDiscoveryGeneration;
-  let watchdogApi = getDiscoverPathsWatchdogApi();
-  const deadlineAt = startedAt + watchdogApi.DISCOVER_PATHS_TIMEOUT_MS;
-  const watchdog = watchdogApi.createDiscoverPathsWatchdog({
-    isActive,
-    onCopyDelay: () => { state.loadingMsg = watchdogApi.DISCOVER_PATHS_COPY_MESSAGE; render(); },
-    startedAt,
-    deadlineAt,
-  });
+  let copyTimer = null;
+  let timeoutTimer = null;
+  let timedOut = false;
+
+  function clearDiscoverPathsTimers(){
+    if(copyTimer != null){ clearTimeout(copyTimer); copyTimer = null; }
+    if(timeoutTimer != null){ clearTimeout(timeoutTimer); timeoutTimer = null; }
+  }
+
+  copyTimer = setTimeout(() => {
+    if(!isActive() || timedOut) return;
+    state.loadingMsg = DISCOVER_PATHS_COPY_MESSAGE;
+    render();
+  }, DISCOVER_PATHS_COPY_DELAY_MS);
+
+  timeoutTimer = setTimeout(() => {
+    if(!isActive() || timedOut) return;
+    timedOut = true;
+    invalidateDiscoverPathsGeneration(myGen, () => state.pathsDiscoveryGeneration, (g) => { state.pathsDiscoveryGeneration = g; });
+    logDiag('discoverPaths', 'timeout', `exceeded ${DISCOVER_PATHS_TIMEOUT_MS}ms`);
+    state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
+    state.errorRetry = discoverPaths;
+    state.loadingMsg = '';
+    state.screen = 'paths';
+    if(shouldClearDiscoverPathsBusy(myGen, state.pathsDiscoveryGeneration)) state.busy = false;
+    clearDiscoverPathsTimers();
+    render();
+  }, DISCOVER_PATHS_TIMEOUT_MS);
 
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
 
   try{
-    const paths = await watchdog.raceDeadline((async () => {
-      if(!window.__discoverPathsWatchdog){
-        watchdogApi = await window.__discoverPathsWatchdogReady;
-        if(watchdogApi) window.__discoverPathsWatchdog = watchdogApi;
-      }
-      if(!watchdogApi?.createDiscoverPathsWatchdog) throw new Error('discover-paths-watchdog module not loaded');
-      const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
-      const pathValidation = await loadPathValidation();
-      if(!isActive()) throw new watchdogApi.DiscoverPathsStaleError();
-      const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-      const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
-      const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);
-      const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-      const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
+    const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+    const pathValidation = await loadPathValidation();
+    if(!isActive()) throw new DiscoverPathsStaleError();
+    const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+    const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+    const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);
+    const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+    const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
@@ -3334,31 +3280,30 @@ Rules:
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
 7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.
 8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based path(s) for that direction without inventing unrelated alternatives. Reject near-duplicate job titles (e.g. "Administrative Coordinator" vs "Senior Administrative Coordinator") unless entry points and evidence differ meaningfully. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
-      const userPrompt = pathValidation.appendEvidencePathCountBlock(
-        `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
-        pathCountRule
-      );
-      const tierProgressFn = (tier) => {
-        if(!isActive()) return;
-        if(tier === 'reshape' || tier === 'repair'){
-          state.loadingMsg = watchdogApi.DISCOVER_PATHS_COPY_MESSAGE;
-          render();
-        }
-      };
-      const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, undefined, tierProgressFn);
-      if(!isActive()) throw new watchdogApi.DiscoverPathsStaleError();
-      let nextPaths = result.paths;
-      nextPaths = pathValidation.enforcePathDiscoveryBalance(nextPaths, fullStoryText(), retainedStorySkills, evidenceGate);
-      nextPaths = pathValidation.annotatePathsWithEvidenceNotes(nextPaths, fullStoryText(), retainedStorySkills);
-      nextPaths = nextPaths.map(p => ({
-        ...p,
-        transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
-        fitInterest: 'Needs More Information',
-        fitLifestyle: 'Needs More Information',
-      }));
-      return purgeRejectedFromObject(nextPaths, rejected);
-    })());
-    if(!isActive()) return;
+    const userPrompt = pathValidation.appendEvidencePathCountBlock(
+      `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
+      pathCountRule
+    );
+    const tierProgressFn = (tier) => {
+      if(!isActive() || timedOut) return;
+      if(tier === 'reshape' || tier === 'repair'){
+        state.loadingMsg = DISCOVER_PATHS_COPY_MESSAGE;
+        render();
+      }
+    };
+    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, undefined, tierProgressFn);
+    if(!isActive()) throw new DiscoverPathsStaleError();
+    let nextPaths = result.paths;
+    nextPaths = pathValidation.enforcePathDiscoveryBalance(nextPaths, fullStoryText(), retainedStorySkills, evidenceGate);
+    nextPaths = pathValidation.annotatePathsWithEvidenceNotes(nextPaths, fullStoryText(), retainedStorySkills);
+    nextPaths = nextPaths.map(p => ({
+      ...p,
+      transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
+      fitInterest: 'Needs More Information',
+      fitLifestyle: 'Needs More Information',
+    }));
+    const paths = purgeRejectedFromObject(nextPaths, rejected);
+    if(!isActive() || timedOut) return;
     state.paths = paths;
     state.pathFeedback = {};
     state.pathRegenerationCount = 0;
@@ -3367,18 +3312,18 @@ Rules:
     state.loadingMsg = '';
     state.screen = 'paths';
   }catch(err){
-    if(err instanceof watchdogApi.DiscoverPathsStaleError) return;
-    if(!isActive()) return;
-    watchdogApi.invalidateDiscoverPathsGeneration(myGen, () => state.pathsDiscoveryGeneration, (g) => { state.pathsDiscoveryGeneration = g; });
+    if(err instanceof DiscoverPathsStaleError) return;
+    if(!isActive() || timedOut) return;
+    invalidateDiscoverPathsGeneration(myGen, () => state.pathsDiscoveryGeneration, (g) => { state.pathsDiscoveryGeneration = g; });
     logDiag('discoverPaths', 'final_failure', err.message || String(err));
     state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
     state.errorRetry = discoverPaths;
     state.loadingMsg = '';
     state.screen = 'paths';
   }finally{
-    watchdog.dispose();
-    if(watchdogApi.shouldClearDiscoverPathsBusy(myGen, state.pathsDiscoveryGeneration)) state.busy = false;
-    render();
+    if(!timedOut) clearDiscoverPathsTimers();
+    if(!timedOut && shouldClearDiscoverPathsBusy(myGen, state.pathsDiscoveryGeneration)) state.busy = false;
+    if(!timedOut) render();
   }
 }
 
@@ -3711,9 +3656,6 @@ function handleCheckout(){
 // never mutate state after that happens — this widened window just makes it
 // far less likely to happen at all for a normal multi-tier repair.
 const ROADMAP_SECTION_TIMEOUT_MS = 45000;
-// discoverPaths can run up to 3 sequential API tiers (primary, reshape, repair);
-// 90s matches the roadmap pattern but allows the larger paths schema more room.
-const DISCOVER_PATHS_TIMEOUT_MS = 90000;
 
 function finalizeRoadmapStatus(){
   if(state.roadmapSections.foundation !== 'ready'){
@@ -4096,6 +4038,15 @@ Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text
 }
 
 /* ============================= INIT ============================= */
+(function initDebugBuildBadge(){
+  const badge = document.getElementById('debugBuildBadge');
+  if(!badge) return;
+  const debugOn = new URLSearchParams(window.location.search).has('debug');
+  if(!debugOn) return;
+  badge.hidden = false;
+  badge.removeAttribute('aria-hidden');
+  badge.textContent = 'build ' + (document.body.dataset.build || 'unknown');
+})();
 try{
   const savedProfile = loadProfileFromStorage();
   if(savedProfile) applyHydratedState(hydrateProfile(savedProfile));

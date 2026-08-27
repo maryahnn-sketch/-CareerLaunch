@@ -353,43 +353,39 @@ function main() {
   );
 
   assert(
-    'discoverPaths creates watchdog before any await',
-    /let watchdogApi = getDiscoverPathsWatchdogApi\(\)/.test(DISCOVER_PATHS_FN) &&
-      /const watchdog = watchdogApi\.createDiscoverPathsWatchdog\(\{/.test(DISCOVER_PATHS_FN) &&
-      !/if\(!window\.__discoverPathsWatchdog\)\{\s*window\.__discoverPathsWatchdog = await import/.test(DISCOVER_PATHS_FN)
+    'discoverPaths registers inline setTimeout before any await',
+    /copyTimer = setTimeout\(/.test(DISCOVER_PATHS_FN) &&
+      /timeoutTimer = setTimeout\(/.test(DISCOVER_PATHS_FN) &&
+      /DISCOVER_PATHS_COPY_DELAY_MS\)/.test(DISCOVER_PATHS_FN) &&
+      /DISCOVER_PATHS_TIMEOUT_MS\)/.test(DISCOVER_PATHS_FN) &&
+      DISCOVER_PATHS_FN.indexOf('setTimeout') < DISCOVER_PATHS_FN.indexOf('await loadEvidenceGate')
   );
 
   assert(
-    'discoverPaths module fallback loads inside watchdog.raceDeadline',
-    /watchdog\.raceDeadline\(\(async \(\) => \{[\s\S]*__discoverPathsWatchdogReady/.test(DISCOVER_PATHS_FN)
+    'discoverPaths does not use watchdog module or raceDeadline',
+    !/createDiscoverPathsWatchdog\(/.test(DISCOVER_PATHS_FN) &&
+      !/watchdog\.raceDeadline/.test(DISCOVER_PATHS_FN) &&
+      !/discover-paths-watchdog\.mjs/.test(INDEX_HTML)
   );
 
   assert(
-    'discoverPaths uses bootstrap API helper',
-    /function getDiscoverPathsWatchdogApi\(\)/.test(INDEX_HTML)
+    'discoverPaths clears timers only after completion, failure, or timeout',
+    /function clearDiscoverPathsTimers\(\)/.test(DISCOVER_PATHS_FN) &&
+      /if\(!timedOut\) clearDiscoverPathsTimers\(\)/.test(DISCOVER_PATHS_FN) &&
+      /clearDiscoverPathsTimers\(\);\s*\n\s*render\(\)/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
-    'index.html preloads discover-paths-watchdog module',
-    INDEX_HTML.includes('rel="modulepreload" href="/js/discover-paths-watchdog.mjs"')
+    'discoverPaths uses inline generation helpers',
+    /function invalidateDiscoverPathsGeneration\(/.test(INDEX_HTML) &&
+      /function shouldClearDiscoverPathsBusy\(/.test(INDEX_HTML)
   );
 
   assert(
-    'discoverPaths anchors deadline at analyzing screen entry',
-    /const startedAt = Date\.now\(\)/.test(DISCOVER_PATHS_FN) &&
-      /const deadlineAt = startedAt \+ watchdogApi\.DISCOVER_PATHS_TIMEOUT_MS/.test(DISCOVER_PATHS_FN)
-  );
-
-  assert(
-    'discoverPaths uses shared watchdog module',
-    /createDiscoverPathsWatchdog\(/.test(DISCOVER_PATHS_FN) &&
-      /discover-paths-watchdog\.mjs/.test(INDEX_HTML)
-  );
-
-  assert(
-    'discoverPaths races module loads inside watchdog.raceDeadline',
-    /watchdog\.raceDeadline\(\(async \(\) => \{[\s\S]*await loadEvidenceGate\(\)/.test(DISCOVER_PATHS_FN) &&
-      /await loadPathValidation\(\)/.test(DISCOVER_PATHS_FN)
+    'discoverPaths 90s timeout handler exits to paths with errorRetry',
+    /timedOut = true/.test(DISCOVER_PATHS_FN) &&
+      /state\.errorRetry = discoverPaths/.test(DISCOVER_PATHS_FN) &&
+      /state\.screen = 'paths'/.test(DISCOVER_PATHS_FN)
   );
 
   assert(
@@ -421,9 +417,20 @@ function main() {
   );
 
   assert(
-    'callStructured invokes tierProgressFn before reshape and repair tiers',
-    /if\(tierProgressFn\) tierProgressFn\('reshape'\)/.test(INDEX_HTML) &&
-      /if\(tierProgressFn\) tierProgressFn\('repair'\)/.test(INDEX_HTML)
+    'debug build badge markup exists and is gated on debug query param',
+    INDEX_HTML.includes('id="debugBuildBadge"') &&
+      INDEX_HTML.includes('initDebugBuildBadge') &&
+      /URLSearchParams\(window\.location\.search\)\.has\('debug'\)/.test(INDEX_HTML)
+  );
+
+  assert(
+    'vercel.json sets no-store for / and index.html',
+    (() => {
+      const vercel = readFileSync(join(__dirname, '../vercel.json'), 'utf8');
+      return vercel.includes('"source": "/"') &&
+        vercel.includes('"source": "/index.html"') &&
+        vercel.includes('no-store, max-age=0');
+    })()
   );
 
   assert(
@@ -462,13 +469,14 @@ function main() {
     'index.html has build identifier not 0eeb770',
     INDEX_HTML.includes('data-build=') &&
       !INDEX_HTML.includes('0eeb770') &&
+      !INDEX_HTML.includes('f4a91bc') &&
       INDEX_HTML.includes('<!-- build:')
   );
 
   assert(
-    'vercel.json sets no-store for index.html',
-    readFileSync(join(__dirname, '../vercel.json'), 'utf8').includes('"source": "/index.html"') &&
-      readFileSync(join(__dirname, '../vercel.json'), 'utf8').includes('no-store')
+    'callStructured invokes tierProgressFn before reshape and repair tiers',
+    /if\(tierProgressFn\) tierProgressFn\('reshape'\)/.test(INDEX_HTML) &&
+      /if\(tierProgressFn\) tierProgressFn\('repair'\)/.test(INDEX_HTML)
   );
 
   return runBehavioralTests().then(() => {
