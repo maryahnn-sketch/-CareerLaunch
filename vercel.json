@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/start.html"
+    },
+    {
       "source": "/start",
       "destination": "/index.html"
     }
@@ -8,6 +12,15 @@
   "headers": [
     {
       "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/start.html",
       "headers": [
         {
           "key": "Cache-Control",
