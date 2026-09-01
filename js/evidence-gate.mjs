@@ -26,8 +26,17 @@ const TRAIT =
 const LISTEN_AS_ABILITY =
   /\b(listen to people|listening to people|active listening|i listen)\b/i;
 
-const PAST_ACTION_VERB =
-  /\bi\s+(?:organized|scheduled|managed|coordinated|led|trained|helped|answered|fixed|completed|handled|volunteered|worked|served|created|built|developed|implemented|processed|prepared|maintained|facilitated|supervised|resolved|delivered|provided|assisted|supported|taught|planned|executed|ran|designed|wrote|cooked|drove|stocked|cleaned|filed|updated|tracked|monitored|reviewed|edited|researched|presented|mentored|sold|packaged|shipped|assembled|installed|repaired|tested|drafted|published|hosted|greeted|booked|registered|enrolled|studied|performed|directed|produced|collaborated|moved|started|began|initiated|established|founded|constructed|manufactured|inventoried|restocked|reordered|balanced|counted|entered|transcribed|translated|interpreted|mediated|examined|diagnosed|treated|administered|measured|mixed|baked|grilled|fried|graduated|practiced|auditioned|toured|relocated|voted|campaigned|canvassed|petitioned|lobbied|testified|declared|communicated|partnered|contracted|automated|converted|transformed|transferred|switched|changed|modified|adjusted|adapted|customized|standardized|operationalized|launched|opened|closed|commenced|instituted|formed|forged|cast|molded|shaped|sculpted|carved|welded|soldered|riveted|bolted|screwed|nailed|glued|attached|fastened|secured|anchored|parked|stored|warehoused|replenished|refilled|resupplied|reordered|acquired|obtained|procured|sourced|supplied|mailed|posted|sent|transmitted|broadcast|released|debuted|premiered)\b/i;
+const ACTION_VERB_STEM =
+  '(?:organiz(?:e|es|ed|ing)|schedul(?:e|es|ed|ing)|manag(?:e|es|ed|ing)|coordinat(?:e|es|ed|ing)|lead|leads|led|train(?:s|ed|ing)?|help(?:s|ed|ing)?|answer(?:s|ed|ing)?|fix(?:es|ed|ing)?|complet(?:e|es|ed|ing)|handl(?:e|es|ed|ing)|volunteer(?:s|ed|ing)?|work(?:s|ed|ing)?|serv(?:e|es|ed|ing)|creat(?:e|es|ed|ing)|build|builds|built|develop(?:s|ed|ing)?|implement(?:s|ed|ing)?|process(?:es|ed|ing)?|prepar(?:e|es|ed|ing)|maintain(?:s|ed|ing)?|facilitat(?:e|es|ed|ing)|supervis(?:e|es|ed|ing)|resolv(?:e|es|ed|ing)|deliver(?:s|ed|ing)?|provid(?:e|es|ed|ing)|assist(?:s|ed|ing)?|support(?:s|ed|ing)?|teach|teaches|taught|teaching|plan|plans|planned|planning|execut(?:e|es|ed|ing)|run|runs|ran|running|design(?:s|ed|ing)?|write|writes|wrote|writing|file|files|filed|filing|update|updates|updated|updating|track|tracks|tracked|tracking|monitor|monitors|monitored|monitoring|review|reviews|reviewed|reviewing|research|researches|researched|researching|communicat(?:e|es|ed|ing)|book|books|booked|booking|register|registers|registered|registering|send|sends|sent|sending|source|sources|sourced|sourcing|order|orders|ordered|ordering|pay|pays|paid|paying|compare|compares|compared|comparing)';
+
+// Real experience is often told in the present tense ("I manage appointments")
+// or present perfect ("I have helped with events"). Both are concrete action
+// evidence, not merely traits. The old past-tense-only matcher incorrectly
+// discarded these common story forms and produced empty paid application kits.
+const PAST_ACTION_VERB = new RegExp(
+  `\\bi\\s+(?:(?:have|have been|ve|ve been)\\s+)?${ACTION_VERB_STEM}\\b`,
+  'i'
+);
 
 const WORK_CONTEXT =
   /\b(worked as a|served as a|volunteered at|interned at|employed as|for my (?:manager|team|boss|aunt|church|school)|helped (?:my|with)|helped my)\b/i;
@@ -416,6 +425,29 @@ export function validateResumeBulletSources(bullets, gate) {
   });
 }
 
+/** Flag resume bullets that soften direct evidence with "helped manage" style phrasing. */
+export function findResumeBulletIndirectnessViolation(bullet) {
+  if (!bullet || !isNonEmptyStr(bullet.text)) return null;
+  const text = String(bullet.text);
+  if (!/\bhelped manage\b/i.test(text)) return null;
+  const source = String(bullet.sourceQuote || '');
+  if (!source) return 'helped-manage-without-source';
+  if (/\b(?:manage|managed|managing|organiz(?:e|ed|es|ing)?|coordinat(?:e|ed|es|ing)?|schedul(?:e|ed|es|ing)?|lead(?:s|ing|er)?|train(?:s|ed|ing)?|creat(?:e|ed|es|ing)?|build(?:s|ing)?|develop(?:s|ed|ing)?|implement(?:s|ed|ing)?|process(?:es|ed|ing)?|maintain(?:s|ed|ing)?|facilitat(?:e|ed|es|ing)?|supervis(?:e|es|ed|ing)?|deliver(?:s|ed|ing)?|provid(?:e|es|ed|ing)?|assist(?:s|ed|ing)?|support(?:s|ed|ing)?)\b/i.test(source)) {
+    return 'helped-manage-over-direct-evidence';
+  }
+  return null;
+}
+
+/** Validate all resume bullets for indirect phrasing violations. */
+export function validateResumeBulletDirectness(bullets) {
+  const violations = [];
+  for (const bullet of bullets || []) {
+    const v = findResumeBulletIndirectnessViolation(bullet);
+    if (v) violations.push(v);
+  }
+  return { ok: violations.length === 0, violations };
+}
+
 function isNonEmptyStr(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -426,22 +458,87 @@ function stripInternalBulletFields(bullet) {
   return out;
 }
 
+export const RICH_EVIDENCE_SOURCE_THRESHOLD = 3;
+export const MIN_RESUME_BULLETS_WHEN_RICH = 3;
+
+/** Minimum grounded bullets required when enough distinct concrete sources exist. */
+export function getRequiredResumeBulletCount(gate) {
+  const count = gate?.concretePastActions?.length || 0;
+  if (count >= RICH_EVIDENCE_SOURCE_THRESHOLD) {
+    return Math.min(MIN_RESUME_BULLETS_WHEN_RICH, count);
+  }
+  return 0;
+}
+
+/** Concrete past-action sources not yet covered by a bullet sourceQuote. */
+export function getUncoveredConcreteSources(bullets, gate) {
+  const used = new Set(
+    (bullets || []).map((b) => normalizeSourceQuote(b?.sourceQuote)).filter(Boolean)
+  );
+  return (gate?.concretePastActions || []).filter(
+    (item) => !used.has(normalizeSourceQuote(item.source))
+  );
+}
+
+/** Deterministic strengthen prompt for an uncovered source (no fabricated bullet text). */
+export function strengthenQuestionForUncoveredSource(source) {
+  const text = String(source || '').trim();
+  if (!text) return 'What is one concrete task or outcome from this experience?';
+  const excerpt = text.length > 55 ? `${text.slice(0, 52)}...` : text;
+  return `What measurable detail can you add about: ${excerpt}?`;
+}
+
+/** Validate minimum bullet count and distinct source coverage before post-gate stripping. */
+export function validateResumeBulletCount(result, gate) {
+  const required = getRequiredResumeBulletCount(gate);
+  if (!required) return { ok: true };
+
+  const bullets = result?.resumeBullets || [];
+  if (bullets.length < required) {
+    return {
+      ok: false,
+      reason: `need at least ${required} resume bullets when ${gate.concretePastActions.length} concrete past-action sources exist`,
+    };
+  }
+
+  const distinct = new Set(
+    bullets.map((b) => normalizeSourceQuote(b?.sourceQuote)).filter(Boolean)
+  );
+  if (distinct.size < required) {
+    return {
+      ok: false,
+      reason: `need at least ${required} resume bullets grounded in different concrete past-action sources`,
+    };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Enforce resume bullet evidence per bullet. Zero concrete actions → [].
  * Surviving bullets have internal sourceQuote stripped before UI use.
+ * When rich evidence still yields too few bullets after filtering, surface
+ * strengthen questions for uncovered sources instead of fabricating bullets.
  */
 export function applyResumeBulletGate(kitResult, gate) {
   if (!kitResult || typeof kitResult !== 'object') return kitResult;
 
   if (!gate?.allowResumeBullets) {
-    return { ...kitResult, resumeBullets: [] };
+    return { ...kitResult, resumeBullets: [], resumeBulletGaps: [] };
   }
 
-  const validated = validateResumeBulletSources(kitResult.resumeBullets || [], gate).map(
-    stripInternalBulletFields
-  );
+  const validated = validateResumeBulletSources(kitResult.resumeBullets || [], gate);
+  const stripped = validated.map(stripInternalBulletFields);
+  const required = getRequiredResumeBulletCount(gate);
+  let resumeBulletGaps = [];
 
-  return { ...kitResult, resumeBullets: validated };
+  if (required > 0 && validated.length < required) {
+    resumeBulletGaps = getUncoveredConcreteSources(validated, gate).map((item) => ({
+      strengthen: strengthenQuestionForUncoveredSource(item.source),
+    }));
+  }
+
+  return { ...kitResult, resumeBullets: stripped, resumeBulletGaps };
 }
 
 function formatAllowedCategoryBlock(gate, category) {
@@ -470,6 +567,11 @@ export function formatEvidenceGateForPrompt(gate) {
     lines.push(
       'Each resume bullet MUST include sourceQuote set to the EXACT concrete_past_action quote it is grounded in (copy verbatim from the list above). Bullets with missing or invalid sourceQuote are removed after generation.'
     );
+    if (gate.concretePastActions.length >= RICH_EVIDENCE_SOURCE_THRESHOLD) {
+      lines.push(
+        `RESUME BULLET MINIMUM: ${gate.concretePastActions.length} concrete past actions identified. Return at least ${MIN_RESUME_BULLETS_WHEN_RICH} resume bullets, each with sourceQuote from a DIFFERENT concrete_past_action source above.`
+      );
+    }
   }
 
   return lines.join('\n\n');
@@ -906,4 +1008,75 @@ export function applyLinkedInGate(kitResult, gate, targetPathTitle = '') {
     linkedinHeadlines: fallback.linkedinHeadlines,
     linkedinAbout: fallback.linkedinAbout,
   };
+}
+
+const VAGUE_SEARCH_TERM =
+  /^(?:professional|meaningful work|great opportunity|entry level|job seeker|job|career|role|position|work|employment)$/i;
+
+const SKILL_SEARCH_TERM_HINTS = [
+  { pattern: /(?:organiz|coordin|admin|office|schedul|clerical)/i, terms: ['Office Coordinator', 'Administrative Assistant'] },
+  { pattern: /(?:listen|communication|customer|service|support|interpersonal|relationship)/i, terms: ['Customer Service Representative', 'Client Support Specialist'] },
+  { pattern: /(?:care|caregiv|personal support|companion)/i, terms: ['Caregiver', 'Personal Care Assistant'] },
+  { pattern: /(?:operations|logistics|inventory|supply)/i, terms: ['Operations Coordinator', 'Logistics Coordinator'] },
+  { pattern: /(?:problem.?solv|troubleshoot|fix)/i, terms: ['Help Desk Support', 'Operations Support Specialist'] },
+];
+
+function sanitizeSearchTerm(term) {
+  const cleaned = String(term || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!cleaned || cleaned.length > 30) return null;
+  if (VAGUE_SEARCH_TERM.test(cleaned)) return null;
+  if (/\b(?:and|or|the|a|an)\b/i.test(cleaned) && cleaned.split(/\s+/).length > 4) return null;
+  return cleaned;
+}
+
+function addSearchTerm(terms, seen, raw) {
+  const cleaned = sanitizeSearchTerm(raw);
+  if (!cleaned) return;
+  const key = cleaned.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
+  terms.push(cleaned);
+}
+
+function searchTermsFromSkills(retainedSkills = []) {
+  const derived = [];
+  for (const skill of retainedSkills) {
+    const name = String(skill?.name || '');
+    for (const hint of SKILL_SEARCH_TERM_HINTS) {
+      if (!hint.pattern.test(name)) continue;
+      for (const term of hint.terms) derived.push(term);
+    }
+  }
+  return derived;
+}
+
+/**
+ * Resolve defensible job-search terms for the application kit.
+ * Priority: roadmap direction → chosen path → grounded skills.
+ */
+export function deriveApplicationKitSearchTerms({
+  roadmapSearchTerms,
+  chosenPath,
+  retainedSkills = [],
+} = {}) {
+  const terms = [];
+  const seen = new Set();
+
+  for (const term of roadmapSearchTerms || []) addSearchTerm(terms, seen, term);
+  if (terms.length >= 3) return terms.slice(0, 5);
+
+  if (chosenPath) {
+    addSearchTerm(terms, seen, chosenPath.title);
+    if (chosenPath.entryPoint && chosenPath.entryPoint !== chosenPath.title) {
+      addSearchTerm(terms, seen, chosenPath.entryPoint);
+    }
+    addSearchTerm(terms, seen, chosenPath.progression);
+  }
+  if (terms.length >= 3) return terms.slice(0, 5);
+
+  for (const term of searchTermsFromSkills(retainedSkills)) addSearchTerm(terms, seen, term);
+
+  return terms.slice(0, 5);
 }

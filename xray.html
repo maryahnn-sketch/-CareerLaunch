@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Turn something you've actually done into professional skill language with iFindWorth Skill X-Ray.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<title>Skill X-Ray — iFindWorth</title>
+<title>Skill X-Ray | iFindWorth</title>
+<script src="/js/analytics-consent.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
   :root{
@@ -168,7 +169,7 @@
       <div class="limit-card">
         <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Preview complete</div>
         <h2>You've seen what Skill X-Ray can do.</h2>
-        <p>You've used your three free Skill X-Rays. Ready to go deeper — with evidence, career paths, and a plan built from your story?</p>
+        <p>You've used your three free Skill X-Rays. Ready to go deeper with evidence, career paths, and a plan built from your story?</p>
         <a class="btn btn-primary" href="/">Discover My Career Options</a>
       </div>
     </section>
@@ -187,6 +188,7 @@
     </div>
     <div class="footer-divider"></div>
     <p class="footer-disclaimer">Guidance, not guarantees. Skill X-Ray only knows what you share. Skill names are a starting point for your own judgment.</p>
+    <p class="footer-privacy"><button type="button" class="footer-privacy-link" data-ifw-analytics-choices>Analytics &amp; privacy choices</button></p>
   </footer>
 </div>
 
@@ -275,7 +277,7 @@ function normalizeStory(text) {
 function validateStoryClient(story) {
   if (!story) return 'Please describe something you have done.';
   if (story.length < MIN_STORY_CHARS) {
-    return 'Please share a bit more detail — at least ' + MIN_STORY_CHARS + ' characters.';
+    return 'Please share a bit more detail (at least ' + MIN_STORY_CHARS + ' characters).';
   }
   if (story.length > MAX_STORY_CHARS) {
     return 'Please shorten your description to ' + MAX_STORY_CHARS + ' characters or fewer.';

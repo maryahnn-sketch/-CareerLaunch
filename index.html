@@ -7,55 +7,25 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/logo/iFindWorth_Icon_Transparent_180x180.png">
 <title>iFindWorth</title>
-<script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="fo po init Fo Oo qo Zs Lo Bo Ro capture Do vo Go calculateEventProperties Vo register register_once register_for_session unregister unregister_for_session Ko Ao Zo getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync Yo identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset Xo shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Qo Uo createPersonProfile setInternalOrTestUser Jo Eo il opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Ho debug Js mn getPageViewId captureTraceFeedback captureTraceMetric Co".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_p4TSuWAbFEfK946ATixj2k8aCgjTMjeo2eLZnHUtoyvF', {
-        api_host: 'https://us.i.posthog.com',
-        defaults: '2026-05-30',
-        person_profiles: 'identified_only',
-        // PostHog defaults (2026-05-30) already provide:
-        // - Session replay: all inputs masked by default; password fields always masked
-        // - Autocapture: ph-no-autocapture elements excluded; capture_copied_text: false
-        // - capture_pageview: 'history_change' (SPA-friendly pageviews)
-        // - strictMinimumDuration for session recordings (2025-11-30+)
-        // - rageclick ignores text-selection surfaces and stepper controls (2026-05-30)
-        session_recording: {
-            maskAllInputs: true,
-            maskInputOptions: {
-                password: true,
-                email: true,
-                text: true,
-                tel: true,
-                textarea: true,
-            },
-            maskTextSelector: '.ph-career-content, .ph-mask, #storyInput, #jdInput, #addExpInput, #convoInput, [id^="strengthenInput"], [id^="storyDetail"]',
-        },
-        autocapture: {
-            css_selector_ignorelist: [
-                '.ph-no-capture', '[data-ph-no-capture]',
-                '.ph-no-autocapture', '[data-ph-no-autocapture]',
-                '.ph-career-content',
-                '#storyInput', '#jdInput', '#addExpInput', '#convoInput',
-                '[id^="strengthenInput"]', '[id^="storyDetail"]',
-                'textarea', 'input[type="text"]', 'input[type="email"]', 'input[type="search"]',
-            ],
-            dom_event_allowlist: ['click', 'submit'],
-            capture_copied_text: false,
-        },
-    })
-</script>
+<!-- build: d4f8a91 -->
+<script src="/js/analytics-consent.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
   :root{
     --paper:#FAF9F6;
     --paper-dim:#F0EEE8;
     --card:#FFFFFF;
-    --ink:#20292C;
-    --ink-soft:#5B6669;
-    --ink-faint:#6B7477;
+    --ink:#171C1E;
+    --ink-soft:#2A3234;
+    --ink-muted:#3A4346;
+    --ink-faint:#4A5457;
+    --ink-support:#5C6669;
     --highlight:#4F46E5;
     --highlight-soft:rgba(79,70,229,0.12);
     --highlight-line:rgba(79,70,229,0.32);
+    --cta:#2A2230;
+    --cta-hover:#1A1520;
+    --cta-shadow:rgba(42,34,48,0.2);
     --sage:#4F7561;
     --sage-soft:rgba(79,117,97,0.14);
     --clay:#EA580C;
@@ -75,21 +45,25 @@
   .wrap-wide{max-width:900px;margin:0 auto;padding:0 24px;}
 
   h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-0.01em;margin:0;}
-  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
   .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--highlight);}
   p{color:var(--ink-soft);}
+  strong{color:var(--ink);font-weight:700;}
   a{color:inherit;}
 
   button{font-family:var(--sans);cursor:pointer;border:none;background:none;}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:15px 26px;border-radius:999px;font-size:15px;font-weight:600;transition:transform .15s ease, box-shadow .15s ease, background .15s ease;min-height:48px;}
   .btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
-  .btn-primary{   background:var(--highlight);   color:#FFFFFF;   box-shadow:0 8px 22px rgba(79,70,229,0.18); }
-  .btn-primary:hover{   transform:translateY(-1px);   box-shadow:0 10px 26px rgba(79,70,229,0.24); }
+  .btn-primary{background:var(--cta);color:#FFFFFF;box-shadow:0 8px 22px var(--cta-shadow);}
+  .btn-primary:hover{background:var(--cta-hover);transform:translateY(-1px);box-shadow:0 10px 26px rgba(26,21,32,0.28);}
   .btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+  .hero-ctas .btn-primary,.final-cta .btn-primary{background:var(--highlight);box-shadow:0 8px 22px rgba(79,70,229,0.18);}
+  .hero-ctas .btn-primary:hover,.final-cta .btn-primary:hover{background:var(--highlight);transform:translateY(-1px);box-shadow:0 10px 26px rgba(79,70,229,0.24);}
   .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line);}
   .btn-ghost:hover{border-color:var(--ink);}
-  .btn-text{padding:8px 4px;font-weight:600;color:var(--ink-soft);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;}
+  .btn-text{padding:8px 4px;font-weight:600;color:var(--ink-muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;}
   .btn-text:hover{color:var(--ink);text-decoration-color:var(--ink);}
+  .btn-text:focus-visible{outline:2px solid var(--highlight);outline-offset:3px;border-radius:4px;}
   .btn-sm{padding:9px 16px;font-size:13px;min-height:36px;}
 
   .screen{padding:64px 0 96px;animation:rise .5s ease both;}
@@ -104,10 +78,12 @@
   .progress-steps span.current{background:var(--line);}
   .progress-steps span.current::after{content:'';position:absolute;inset:0;background:var(--highlight);transform-origin:left;animation:fill 1.2s ease forwards;}
   @keyframes fill{from{transform:scaleX(0);}to{transform:scaleX(1);}}
-  .progress-label{font-family:var(--mono);font-size:11px;color:var(--ink-faint);white-space:nowrap;}
+  .progress-label{font-family:var(--mono);font-size:11px;color:var(--ink-muted);white-space:nowrap;}
   .brand-tiny{font-family:var(--serif);font-weight:700;font-size:15px;cursor:pointer;}
 
   .nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;}
+  .nav-cta{background:var(--cta);color:#fff;border:1.5px solid var(--cta);box-shadow:0 4px 14px rgba(42,34,48,0.16);}
+  .nav-cta:hover{background:var(--cta-hover);border-color:var(--cta-hover);transform:translateY(-1px);box-shadow:0 6px 18px rgba(26,21,32,0.22);}
   .brand{font-family:var(--serif);font-weight:700;font-size:19px;}
   .brand em{font-style:normal;color:var(--clay);}
   .brand-logo{display:block;width:180px;height:auto;flex-shrink:0;}
@@ -118,7 +94,7 @@
   .hero h1 mark{background:none;color:var(--ink);position:relative;display:inline;}
   .hero h1 mark::after{content:'';position:absolute;left:-2px;right:-2px;bottom:2px;height:0.34em;background:var(--highlight-soft);border-radius:2px;z-index:-1;}
   .hero p.lede{font-size:18px;max-width:600px;margin-top:20px;}
-  .hero .micro{font-family:var(--mono);font-size:12.5px;color:var(--ink-faint);margin-top:18px;}
+  .hero .micro{font-family:var(--mono);font-size:12.5px;color:var(--ink-muted);margin-top:18px;}
   .hero-ctas{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap;}
 
   .translate-demo{margin-top:64px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);}
@@ -132,35 +108,44 @@
   .section{padding:64px 0;border-top:1px solid var(--line);}
   .section h2{font-size:28px;margin-bottom:8px;}
   .section .lede{max-width:540px;}
-  .how-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:24px;margin-top:36px;}
-  .how-step .num{font-family:var(--mono);font-size:12px;color:var(--highlight);margin-bottom:8px;}
+  .how-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:28px 32px;margin-top:36px;}
+  @media (max-width:900px){.how-steps{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:560px){.how-steps{grid-template-columns:1fr;gap:24px;}}
+  .how-step .num{font-family:var(--mono);font-size:12px;color:var(--ink-muted);margin-bottom:8px;}
   .how-step h3{font-size:17px;margin-bottom:6px;}
   .how-step p{font-size:14px;}
   .who-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;}
-  .who-chip{font-size:13.5px;padding:9px 14px;border-radius:10px;background:var(--card);border:1px solid var(--line);color:var(--ink-soft);}
+  .who-chip{font-size:13px;padding:7px 12px;border-radius:4px;background:transparent;border:1px solid rgba(226,222,213,0.75);color:var(--ink-muted);letter-spacing:0.01em;}
   .diff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-top:32px;}
   .diff-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;}
   .diff-card .not{font-family:var(--mono);font-size:11px;color:var(--clay);text-decoration:line-through;margin-bottom:8px;}
   .diff-card h3{font-size:16px;}
-  .pricing-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:32px;}
+  .pricing-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:32px;align-items:start;}
   @media (max-width:600px){.pricing-row{grid-template-columns:1fr;}}
-  .price-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;}
-  .price-card.featured{border-color:var(--highlight);position:relative;}
+  .price-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;height:auto;}
+  .price-card.featured{border-color:rgba(42,34,48,0.22);position:relative;}
+  .starter-benefits{list-style:none;margin:20px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;border-top:1px solid var(--line);}
+  .starter-benefits li{padding:14px 0;border-bottom:1px solid rgba(226,222,213,0.7);display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;font-size:13.5px;line-height:1.45;color:var(--ink-soft);}
+  .starter-benefits li::before{content:'✓';color:var(--sage);font-size:12px;font-weight:600;margin-top:2px;}
+  .starter-benefit-copy{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .starter-benefits strong{display:block;font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink);margin:0;}
+  .starter-benefit-desc{display:block;margin:0;}
+  @media (max-width:600px){.starter-benefits{grid-template-columns:1fr;gap:0;}}
   .price-card .amt{font-family:var(--serif);font-size:34px;margin:10px 0;}
   .price-card ul{margin:14px 0 0;padding-left:18px;font-size:14px;color:var(--ink-soft);}
   .price-card li{margin-bottom:6px;}
   .final-cta{padding:80px 0;text-align:center;border-top:1px solid var(--line);}
   .final-cta h2{font-size:34px;max-width:560px;margin:0 auto 24px;}
-  footer.site-footer{background:transparent;padding:28px 0 40px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);}
+  footer.site-footer{background:transparent;padding:28px 0 40px;font-size:12.5px;color:var(--ink-muted);border-top:1px solid var(--line);}
   .footer-top{display:flex;justify-content:space-between;align-items:flex-start;gap:28px;margin-bottom:18px;}
   .footer-wordmark{font-family:var(--serif);font-weight:700;font-size:18px;color:var(--ink);line-height:1.2;}
   .footer-tagline{margin:6px 0 0;font-size:13px;font-style:italic;color:var(--ink-soft);line-height:1.45;max-width:280px;}
   .footer-beta{text-align:right;flex-shrink:0;}
-  .footer-beta-label{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+  .footer-beta-label{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:6px;}
   .footer-email{font-size:14px;font-weight:500;color:var(--ink-soft);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;word-break:break-word;}
   .footer-email:hover{color:var(--ink);text-decoration-color:var(--ink);}
   .footer-divider{height:1px;background:var(--line);margin-bottom:14px;}
-  .footer-disclaimer{margin:0 auto;font-size:12px;line-height:1.55;color:var(--ink-faint);max-width:640px;text-align:center;}
+  .footer-disclaimer{margin:0 auto;font-size:12px;line-height:1.55;color:var(--ink-muted);max-width:640px;text-align:center;}
   @media (max-width:640px){
     footer.site-footer{padding:24px 0 32px;}
     .footer-top{flex-direction:column;align-items:flex-start;gap:16px;margin-bottom:16px;}
@@ -169,25 +154,45 @@
   }
 
   .intake-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);}
+  .intake-hint{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 10px;padding:0 6px;line-height:1.45;}
+  .intake-hint-sub{font-size:13.5px;color:var(--ink-muted);margin:0 0 14px;padding:0 6px;line-height:1.45;}
   textarea#storyInput, textarea.plain-textarea{width:100%;min-height:260px;border:none;outline:none;resize:vertical;font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink);padding:22px;background:transparent;}
-  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:var(--ink-faint);font-style:italic;}
+  textarea#storyInput:focus, textarea.plain-textarea:focus{outline:2px solid var(--highlight);outline-offset:-2px;border-radius:8px;}
+  textarea#storyInput::placeholder, textarea.plain-textarea::placeholder{color:var(--ink-muted);opacity:1;font-style:normal;font-size:17px;font-weight:500;}
   .intake-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 14px;border-top:1px solid var(--line);}
-  .mic-btn{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:var(--sage-soft);color:var(--sage);font-weight:600;font-size:13.5px;border:1px solid rgba(79,117,97,0.3);}
+  .mic-btn{display:flex;align-items:center;gap:9px;padding:11px 18px;border-radius:999px;background:var(--sage-soft);color:var(--sage);font-weight:600;font-size:14px;border:1.5px solid rgba(79,117,97,0.35);}
+  .mic-btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+  .mic-icon{width:15px;height:15px;flex-shrink:0;}
   .mic-btn.recording{background:var(--clay-soft);color:var(--clay);border-color:rgba(181,96,63,0.35);}
   .mic-dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
   .mic-btn.recording .mic-dot{animation:pulse 1s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
-  .wordcount{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);}
-  .prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;}
-  .prompt-chip{font-size:13px;padding:8px 13px;border-radius:10px;background:var(--card);border:1px dashed var(--line);color:var(--ink-soft);}
-  .prompt-chip:hover{border-color:var(--ink-soft);color:var(--ink);}
-  .privacy-note{font-size:12.5px;color:var(--ink-faint);margin-top:22px;max-width:500px;}
+  .wordcount{font-family:var(--mono);font-size:11.5px;color:var(--ink-muted);}
+  .intake-cta-row{display:flex;gap:14px;align-items:center;margin-top:24px;flex-wrap:wrap;}
+  .prompt-helper{font-size:14px;color:var(--ink-muted);margin:28px 0 12px;line-height:1.45;}
+  .prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:0;}
+  .prompt-chip{font-size:13px;padding:8px 13px;border-radius:10px;background:var(--card);border:1px dashed var(--line);color:var(--ink-muted);}
+  .prompt-chip:hover{border-color:var(--ink-muted);color:var(--ink);background:var(--paper-dim);}
+  .prompt-chip:focus-visible{outline:2px solid var(--highlight);outline-offset:2px;}
+  .privacy-note{font-size:12.5px;color:var(--ink-muted);margin-top:22px;max-width:500px;}
+  @media (max-width:768px){
+    textarea#storyInput, textarea.plain-textarea{min-height:220px;font-size:18px;padding:18px;}
+    .intake-cta-row .btn-primary{flex:1;min-width:0;}
+  }
+  @media (max-width:390px){
+    .wrap{padding:0 16px;}
+    textarea#storyInput, textarea.plain-textarea{min-height:200px;font-size:17px;padding:16px;}
+    .intake-toolbar{flex-wrap:wrap;gap:10px;}
+    .intake-cta-row{flex-direction:column;align-items:stretch;}
+    .intake-cta-row .btn{width:100%;}
+    .prompt-helper{font-size:13.5px;margin:24px 0 10px;}
+  }
 
   .analyzing-wrap{text-align:center;padding:100px 0;}
   .analyzing-wrap .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--highlight);margin:0 auto 26px;animation:spin 0.9s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .analyzing-wrap .msg{font-family:var(--serif);font-size:20px;font-style:italic;}
-  .analyzing-wrap .msg-sub{font-size:14px;color:var(--ink-faint);margin-top:12px;}
+  .analyzing-wrap .msg-sub{font-size:14px;color:var(--ink-muted);margin-top:12px;}
 
   .big-stat{font-family:var(--serif);font-size:clamp(32px,5vw,46px);line-height:1.1;margin-bottom:6px;}
   .big-stat mark{background:none;color:var(--clay);}
@@ -199,17 +204,39 @@
   .strength-Strong{background:var(--sage-soft);color:var(--sage);}
   .strength-Moderate{background:var(--highlight-soft);color:#8a6417;}
   .strength-Developing{background:var(--clay-soft);color:var(--clay);}
-  .strength-NeedsMoreInformation, .strength-Needs{background:var(--paper-dim);color:var(--ink-faint);}
+  .strength-NeedsMoreInformation, .strength-Needs{background:var(--paper-dim);color:var(--ink-muted);}
   .skill-evidence{font-size:14px;color:var(--ink-soft);margin-top:10px;padding:10px 14px;background:var(--paper-dim);border-left:2px solid var(--highlight);border-radius:0 6px 6px 0;}
-  .skill-evidence .lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-faint);display:block;margin-bottom:4px;}
+  .skill-evidence .lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);display:block;margin-bottom:4px;}
   .skill-actions{display:flex;gap:8px;margin-top:14px;}
-  .validate-btn{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;border:1px solid var(--line);color:var(--ink-soft);}
+  .validate-btn{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;border:1px solid var(--line);color:var(--ink-muted);}
+  .validate-btn:focus-visible{outline:2px solid var(--highlight);outline-offset:2px;}
   .validate-btn.active-yes{background:var(--sage-soft);border-color:transparent;color:var(--sage);}
   .validate-btn.active-no{background:var(--clay-soft);border-color:transparent;color:var(--clay);}
   .skill-card.rejected{opacity:0.5;}
 
   .path-category{margin-top:44px;}
   .path-category h3{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:18px;}
+  .path-tier{margin-top:44px;}
+  .path-tier h3{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-muted);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:6px;}
+  .path-tier .tier-desc{font-size:13.5px;color:var(--ink-soft);margin-bottom:18px;line-height:1.45;}
+  .novelty-feedback{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
+  .novelty-btn{font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink-muted);background:var(--paper);}
+  .novelty-btn:hover{border-color:var(--ink-muted);color:var(--ink);}
+  .novelty-btn:focus-visible{outline:2px solid var(--highlight);outline-offset:2px;}
+  .novelty-btn.active-known{background:var(--paper-dim);border-color:var(--ink-muted);color:var(--ink-soft);}
+  .novelty-btn.active-new{background:var(--sage-soft);border-color:transparent;color:var(--sage);}
+  .novelty-btn.active-not{background:var(--clay-soft);border-color:transparent;color:var(--clay);}
+  .regen-cap-hint{flex-basis:100%;font-size:13px;color:var(--ink-soft);margin:4px 0 0;line-height:1.45;}
+  @media (max-width:768px){
+    .path-card{padding:18px 20px;}
+    .novelty-feedback{gap:6px;}
+  }
+  @media (max-width:390px){
+    .path-tier{margin-top:32px;}
+    .novelty-feedback{flex-direction:column;}
+    .novelty-btn{width:100%;text-align:center;}
+    .paywall-card{padding:28px 20px;}
+  }
   .path-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;cursor:pointer;transition:border-color .15s ease;}
   .path-card:hover{border-color:var(--ink-soft);}
   .path-card.selected{border-color:var(--highlight);box-shadow:0 0 0 1px var(--highlight);}
@@ -217,16 +244,17 @@
   .path-why{font-size:14px;margin-bottom:12px;}
   .path-changed{font-size:12.5px;color:var(--highlight);font-style:italic;margin-bottom:10px;}
   .path-meta{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;margin-top:10px;}
-  .path-meta .k{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:3px;}
+  .path-meta .k{font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:3px;}
   .path-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-  .mini-tag{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--paper-dim);color:var(--ink-soft);}
+  .mini-tag{font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--paper-dim);color:var(--ink);font-weight:600;}
   .transition-Strong{color:var(--sage);}
   .transition-Moderate{color:#8a6417;}
   .transition-Developing, .transition-NeedsMoreInformation{color:var(--clay);}
   .fit-dims{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
   .fit-dim{font-size:12px;}
-  .fit-dim .k{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;color:var(--ink-faint);display:block;}
-  .sequence-inline{font-size:12.5px;color:var(--ink-faint);margin-top:8px;}
+  .fit-dim .k{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;color:var(--ink-muted);display:block;}
+  .sequence-inline{font-size:12.5px;color:var(--ink-muted);margin-top:8px;}
+  .path-evidence-note{font-size:12.5px;color:var(--ink-muted);font-style:italic;margin-top:8px;}
   .change-summary{background:var(--highlight-soft);border-radius:10px;padding:14px 18px;font-size:14px;color:#6b4d10;margin-bottom:24px;}
 
   .convo-log{display:flex;flex-direction:column;gap:14px;margin:26px 0;}
@@ -238,8 +266,9 @@
   .learned-chip{font-size:12.5px;padding:6px 11px;border-radius:999px;background:var(--sage-soft);color:var(--sage);}
   .learned-chip.down{background:var(--clay-soft);color:var(--clay);}
   .convo-input-row{display:flex;gap:10px;margin-top:20px;}
-  .convo-input-row input{flex:1;padding:14px 16px;border-radius:10px;border:1px solid var(--line);font-family:var(--sans);font-size:14.5px;outline:none;background:var(--card);}
-  .convo-input-row input:focus{border-color:var(--ink);}
+  .convo-input-row input{flex:1;padding:14px 16px;border-radius:10px;border:1px solid var(--line);font-family:var(--sans);font-size:14.5px;outline:none;background:var(--card);color:var(--ink);}
+  .convo-input-row input::placeholder{color:var(--ink-muted);}
+  .convo-input-row input:focus{border-color:var(--highlight);outline:2px solid var(--highlight-soft);outline-offset:0;}
   .convo-prompts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
 
   .priority-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:24px;}
@@ -248,19 +277,28 @@
 
   .paywall-card{background:var(--card);border:1px solid var(--ink);border-radius:20px;padding:40px;box-shadow:var(--shadow);margin-top:20px;}
   .paywall-card .amt{font-family:var(--serif);font-size:52px;margin:6px 0 18px;}
+  .paywall-intro{font-size:15.5px;color:var(--ink-soft);max-width:480px;margin:16px auto 0;line-height:1.55;}
   .unlock-list{text-align:left;max-width:420px;margin:22px auto;display:flex;flex-direction:column;gap:10px;font-size:14.5px;color:var(--ink-soft);}
   .unlock-list li{list-style:none;display:flex;gap:10px;align-items:flex-start;}
   .unlock-list li::before{content:'✓';color:var(--sage);font-weight:700;}
+  .paywall-card{padding:44px 48px;}
+  .paywall-card .amt{margin:8px 0 2px;}
+  .paywall-promise{font-family:var(--serif);font-size:25px;line-height:1.25;color:var(--ink);margin:8px auto 12px;max-width:560px;}
+  .paywall-subcopy{font-size:15px;color:var(--ink-soft);max-width:580px;margin:0 auto 28px;line-height:1.65;}
+  .unlock-list.premium{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px;text-align:left;margin:30px 0;}
+  .unlock-list.premium li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:15px 16px;line-height:1.45;color:var(--ink);}
+  .unlock-list.premium strong{display:block;margin-bottom:3px;}
+  @media(max-width:700px){.paywall-card{padding:30px 22px}.unlock-list.premium{grid-template-columns:1fr}}
   .bring-card{background:var(--paper-dim);border-radius:12px;padding:20px;margin:20px 0;text-align:left;}
-  .bring-card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px;}
+  .bring-card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--ink);font-weight:700;margin-bottom:10px;}
   .gap-preview{background:var(--clay-soft);border-radius:12px;padding:16px 18px;text-align:left;margin-bottom:20px;font-size:14px;color:var(--clay);}
 
   .roadmap-section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:14px;}
-  .roadmap-section h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:12px;}
-  .roadmap-section ul{margin:0;padding-left:20px;font-size:14.5px;color:var(--ink-soft);}
+  .roadmap-section h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink);font-weight:700;margin-bottom:12px;}
+  .roadmap-section ul{margin:0;padding-left:20px;font-size:14.5px;color:var(--ink);}
   .roadmap-section li{margin-bottom:6px;}
   .ladder-level{margin-bottom:12px;}
-  .ladder-level .lvl-name{font-weight:600;font-size:13.5px;margin-bottom:4px;}
+  .ladder-level .lvl-name{font-weight:700;font-size:13.5px;color:var(--ink);margin-bottom:4px;}
   .not-zero{font-family:var(--serif);font-style:italic;font-size:19px;text-align:center;padding:26px 0;color:var(--ink);}
 
   .sequence-track{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 32px;}
@@ -274,8 +312,12 @@
   .phase-tab{padding:9px 15px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;background:var(--card);}
   .phase-tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
 
+  .kit-summary{background:var(--paper-dim);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:24px;}
+  .kit-summary h2{font-family:var(--serif);font-size:18px;margin:0 0 8px;color:var(--ink);}
+  .kit-summary p{font-size:14px;color:var(--ink-soft);margin:0;line-height:1.5;}
   .kit-block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:16px;}
-  .kit-block h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:12px;}
+  .kit-block .block-lede{font-size:13.5px;color:var(--ink-muted);margin:-4px 0 14px;line-height:1.45;}
+  .kit-block h3{font-size:13px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;color:var(--ink);font-weight:700;margin-bottom:12px;}
   .kit-block p, .kit-block li{font-family:var(--serif);font-size:16.5px;color:var(--ink);line-height:1.6;}
   .kit-block ul{padding-left:20px;margin:0;}
   .kit-block li{margin-bottom:6px;}
@@ -283,26 +325,35 @@
   .bullet-row:last-child{border-bottom:none;}
   .strengthen-link{font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--highlight);text-decoration:underline;cursor:pointer;margin-top:4px;display:inline-block;}
   .strengthen-box{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
-  .strengthen-box input{flex:1;min-width:180px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-family:var(--sans);font-size:13.5px;}
+  .strengthen-box input{flex:1;min-width:180px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-family:var(--sans);font-size:13.5px;color:var(--ink);}
+  .strengthen-box input:focus{border-color:var(--highlight);outline:2px solid var(--highlight-soft);outline-offset:0;}
+  .strengthen-gap{background:var(--paper-dim);border-radius:8px;padding:12px 14px;margin-top:10px;font-size:13.5px;color:var(--ink-soft);line-height:1.45;}
+  .search-terms-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .search-term-tag{font-size:12px;padding:6px 12px;border-radius:999px;background:var(--highlight-soft);color:var(--ink);font-weight:600;border:1px solid var(--highlight-line);}
   .headline-option{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;}
-  .headline-option.selected{border-color:var(--ink);background:var(--paper-dim);}
-  .headline-option .style-lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;}
+  .headline-option:focus-visible{outline:2px solid var(--highlight);outline-offset:2px;}
+  .headline-option.selected{border-color:var(--highlight);background:var(--highlight-soft);box-shadow:0 0 0 1px var(--highlight-line);}
+  .headline-option.selected .selected-badge{display:inline-block;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--highlight);font-weight:700;margin-bottom:6px;}
+  .selected-badge{display:none;}
+  .headline-option .style-lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--ink);font-weight:700;margin-bottom:6px;}
   .headline-option .text{font-family:var(--serif);font-style:italic;font-size:15.5px;color:var(--ink);}
 
   .dash-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:24px;}
   @media (min-width:720px){.dash-grid.two-col{grid-template-columns:1fr 1fr;}}
   .dash-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;}
-  .dash-card h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-faint);margin-bottom:10px;}
+  .dash-card h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink);font-weight:700;margin-bottom:10px;}
+  .dash-card p,.dash-card li{color:var(--ink);}
   .next-step-card{border-color:var(--ink);}
   .next-step-card p.big{font-family:var(--serif);font-size:19px;color:var(--ink);margin:0;}
-  .evidence-lib-card{background:var(--paper-dim);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;}
-  .evidence-lib-card .theme{font-weight:700;font-size:12.5px;}
+  .evidence-lib-card{background:var(--paper-dim);border-radius:8px;padding:12px 14px;margin-bottom:9px;font-size:13px;color:var(--ink);line-height:1.55;}
+  .evidence-lib-card .theme{font-weight:800;font-size:12.5px;color:var(--ink);}
   .progress-track{height:8px;background:var(--paper-dim);border-radius:4px;overflow:hidden;margin-top:10px;}
   .progress-track .fill{height:100%;background:var(--sage);}
   .tool-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
 
   .story-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px;}
   .story-card h4{font-family:var(--serif);font-size:17px;margin-bottom:8px;}
+  .story-card p{color:var(--ink);}
   .story-card .status-need{font-size:12.5px;color:var(--clay);font-weight:600;margin-bottom:8px;}
   .story-add-row{display:flex;gap:8px;margin-top:10px;}
   .story-add-row input{flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13.5px;}
@@ -317,14 +368,143 @@
   .center{text-align:center;}
   .mt-16{margin-top:16px;} .mt-32{margin-top:32px;} .mt-40{margin-top:40px;}
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  .evidence-prompt{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:22px 0;box-shadow:var(--shadow);}
+  .evidence-prompt h3{font-family:var(--sans);font-size:16px;font-weight:700;margin-bottom:8px;color:var(--ink);}
+  .evidence-prompt ul{color:var(--ink);padding-left:20px;margin:10px 0 18px;}
+  .evidence-prompt li{margin:7px 0;}
+  .kit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .copy-status{font-size:12px;font-weight:700;color:var(--sage);min-height:18px;margin-top:6px;}
+  .debug-build-badge{position:fixed;bottom:8px;right:8px;z-index:9999;font-family:var(--mono);font-size:11px;background:var(--ink);color:var(--paper);padding:4px 10px;border-radius:6px;pointer-events:none;opacity:0.9;letter-spacing:0.04em;}
+
+  /* Investor visual system: landing page only. The product journey keeps its
+     existing layout and behavior while the public front door gets upgraded. */
+  .landing-shell{--landing-accent:#5B4CF0;--landing-night:#17151F;overflow:hidden;background:
+    radial-gradient(circle at 92% 5%,rgba(91,76,240,.13),transparent 29rem),
+    radial-gradient(circle at 8% 36%,rgba(79,117,97,.10),transparent 25rem),var(--paper);}
+  .site-container{width:min(1180px,calc(100% - 48px));margin:0 auto;}
+  .landing-nav{display:flex;align-items:center;justify-content:space-between;padding:24px 0;gap:24px;}
+  .landing-nav-actions{display:flex;align-items:center;gap:14px;}
+  .beta-pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);}
+  .beta-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--sage);box-shadow:0 0 0 5px var(--sage-soft);}
+  .hero-premium{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(420px,.98fr);gap:72px;align-items:center;padding:76px 0 92px;}
+  .hero-copy h1{font-size:clamp(48px,6.3vw,78px);line-height:.98;letter-spacing:-.045em;max-width:720px;}
+  .hero-copy h1 span{color:var(--landing-accent);font-style:italic;}
+  .hero-copy .lede{font-size:19px;line-height:1.65;max-width:620px;margin:26px 0 0;color:var(--ink-soft);}
+  .hero-copy .micro{font-size:12px;font-family:var(--mono);color:var(--ink-muted);margin:20px 0 0;}
+  .hero-copy .hero-ctas{margin-top:34px;}
+  .hero-note{display:flex;align-items:center;gap:10px;margin-top:22px;font-size:12.5px;color:var(--ink-muted);}
+  .hero-note svg{width:16px;height:16px;color:var(--sage);flex:none;}
+  .product-stage{position:relative;min-height:560px;display:flex;align-items:center;justify-content:center;}
+  .product-stage::before{content:'';position:absolute;width:420px;height:420px;border-radius:50%;background:linear-gradient(145deg,rgba(91,76,240,.22),rgba(79,117,97,.10));filter:blur(2px);}
+  .product-window{position:relative;width:100%;background:rgba(255,255,255,.94);border:1px solid rgba(23,28,30,.12);border-radius:24px;box-shadow:0 32px 80px rgba(31,28,45,.18),0 8px 24px rgba(31,28,45,.08);overflow:hidden;transform:rotate(1deg);}
+  .window-bar{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line);background:rgba(250,249,246,.88);}
+  .window-dots{display:flex;gap:6px}.window-dots i{display:block;width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .window-label{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);}
+  .journey-preview{padding:24px;}
+  .journey-kicker{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--landing-accent);margin-bottom:10px;}
+  .journey-preview h2{font-size:27px;line-height:1.14;max-width:390px;}
+  .evidence-quote{margin:20px 0 16px;padding:16px 18px;border-left:3px solid var(--landing-accent);background:#F5F3FF;border-radius:0 12px 12px 0;font-family:var(--serif);font-size:15px;color:var(--ink);line-height:1.55;}
+  .skill-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px;}
+  .skill-chip{font-size:10.5px;padding:6px 9px;border-radius:999px;background:var(--sage-soft);color:var(--sage);font-weight:700;border:1px solid rgba(79,117,97,.18);}
+  .path-preview{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:15px 0;border-top:1px solid var(--line);}
+  .path-preview strong{display:block;font-family:var(--serif);font-size:16px}.path-preview small{color:var(--ink-muted);font-size:11px;}
+  .fit-score{font-family:var(--mono);font-size:10px;color:var(--landing-accent);background:var(--highlight-soft);padding:6px 8px;border-radius:6px;}
+  .floating-proof{position:absolute;right:-26px;bottom:28px;width:210px;padding:16px 17px;background:var(--landing-night);color:#fff;border-radius:15px;box-shadow:0 20px 45px rgba(23,21,31,.25);transform:rotate(-2deg);}
+  .floating-proof .proof-label{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.62);}
+  .floating-proof strong{display:block;color:#fff;font-family:var(--serif);font-size:17px;line-height:1.2;margin-top:7px;}
+  .value-strip{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .value-item{padding:24px 20px;border-right:1px solid var(--line);font-size:12px;color:var(--ink-muted);text-align:center;}
+  .value-item:last-child{border-right:0}.value-item strong{display:block;font-family:var(--serif);font-size:17px;margin-bottom:4px;}
+  .landing-section{padding:112px 0;border-bottom:1px solid var(--line);}
+  .section-heading{display:grid;grid-template-columns:.72fr 1.28fr;gap:80px;align-items:start;margin-bottom:54px;}
+  .section-heading h2{font-size:clamp(36px,4.7vw,58px);line-height:1.04;letter-spacing:-.035em;}
+  .section-heading .lede{font-size:17px;line-height:1.7;margin:4px 0 0;max-width:600px;}
+  .story-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:story;}
+  .story-step{counter-increment:story;min-height:280px;padding:28px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.72);position:relative;overflow:hidden;}
+  .story-step::before{content:'0' counter(story);display:block;font-family:var(--mono);font-size:11px;color:var(--landing-accent);margin-bottom:54px;}
+  .story-step h3{font-size:24px;line-height:1.15;margin-bottom:12px;}.story-step p{font-size:14px;line-height:1.6;margin:0;}
+  .story-step::after{content:'';position:absolute;width:130px;height:130px;border-radius:50%;right:-70px;top:-70px;background:var(--highlight-soft);}
+  .showcase{display:grid;grid-template-columns:.9fr 1.1fr;gap:24px;background:var(--landing-night);color:#fff;border-radius:28px;padding:34px;box-shadow:0 30px 70px rgba(23,21,31,.16);}
+  .showcase-copy{padding:26px 22px;display:flex;flex-direction:column;justify-content:center;}.showcase-copy .eyebrow{color:rgba(255,255,255,.64)}
+  .showcase-copy h2{font-size:42px;line-height:1.08;color:#fff}.showcase-copy p{color:rgba(255,255,255,.7);font-size:15px;line-height:1.65;}
+  .showcase-panel{background:#F8F7F3;color:var(--ink);border-radius:19px;padding:26px;}
+  .showcase-panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.showcase-panel-header span{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted)}
+  .roadmap-row{display:grid;grid-template-columns:56px 1fr;gap:16px;padding:15px 0;border-top:1px solid var(--line);}.roadmap-row:first-of-type{border-top:0}
+  .roadmap-day{font-family:var(--mono);font-size:10px;color:var(--landing-accent);padding-top:3px}.roadmap-row strong{font-size:13px}.roadmap-row p{font-size:11.5px;line-height:1.45;margin:4px 0 0;}
+  .audience-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}.audience-card{padding:28px;border-top:2px solid var(--ink);background:rgba(255,255,255,.56);}.audience-card h3{font-size:22px;margin-bottom:10px}.audience-card p{font-size:14px;line-height:1.6;margin:0;}
+  .difference-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:62px}.difference-card{padding:24px 0;border-top:1px solid var(--line)}.difference-card .not{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--clay);margin-bottom:12px}.difference-card h3{font-size:19px;line-height:1.3;}
+  .founder-note{display:grid;grid-template-columns:.6fr 1.4fr;gap:70px;padding:54px;border-radius:24px;background:#EEEAE2;}.founder-mark{font-family:var(--serif);font-size:25px;line-height:1.15}.founder-copy blockquote{font-family:var(--serif);font-size:clamp(25px,3vw,36px);line-height:1.3;margin:0;color:var(--ink)}.founder-copy p{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:24px;}
+  .landing-pricing{display:grid;grid-template-columns:.72fr 1.28fr;gap:70px;align-items:start}.pricing-intro h2{font-size:46px;line-height:1.05}.pricing-intro p{font-size:15px;line-height:1.65}.pricing-offer{background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;box-shadow:var(--shadow)}.pricing-top{display:flex;justify-content:space-between;gap:30px;align-items:start}.pricing-top .amt{font-family:var(--serif);font-size:44px;line-height:1}.pricing-top small{display:block;color:var(--ink-muted);margin-top:7px}.pricing-offer ul{display:grid;grid-template-columns:1fr 1fr;gap:13px 26px;list-style:none;padding:24px 0 0;margin:24px 0 0;border-top:1px solid var(--line)}.pricing-offer li{font-size:13px;color:var(--ink-soft);position:relative;padding-left:20px}.pricing-offer li::before{content:'✓';position:absolute;left:0;color:var(--sage);font-weight:700}
+  .landing-final{padding:120px 0;text-align:center}.landing-final h2{font-size:clamp(40px,5.5vw,68px);line-height:1.03;max-width:850px;margin:0 auto 20px}.landing-final p{font-size:17px;max-width:560px;margin:0 auto 30px}.landing-footer{padding:32px 0 42px;border-top:1px solid var(--line)}
+  @media(max-width:900px){.hero-premium{grid-template-columns:1fr;gap:28px;padding:54px 0 70px}.product-stage{min-height:520px;max-width:620px;margin:0 auto}.section-heading,.landing-pricing{grid-template-columns:1fr;gap:22px}.showcase{grid-template-columns:1fr}.founder-note{grid-template-columns:1fr;gap:28px}.story-flow,.audience-grid{grid-template-columns:1fr 1fr}.value-strip{grid-template-columns:1fr 1fr}.value-item:nth-child(2){border-right:0}.value-item:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+  @media(max-width:640px){.site-container{width:min(100% - 32px,1180px)}.landing-nav{padding:18px 0}.landing-nav .brand-logo{width:142px}.beta-pill{display:none}.landing-nav .btn{padding:10px 14px;font-size:12px}.hero-premium{padding-top:42px}.hero-copy h1{font-size:47px}.hero-copy .lede{font-size:16.5px}.product-stage{min-height:450px}.product-window{transform:none}.journey-preview{padding:19px}.journey-preview h2{font-size:22px}.floating-proof{right:-7px;bottom:5px;width:180px}.landing-section{padding:76px 0}.story-flow,.audience-grid,.difference-row{grid-template-columns:1fr}.story-step{min-height:230px}.story-step::before{margin-bottom:34px}.showcase{padding:18px;border-radius:22px}.showcase-copy{padding:20px 12px}.showcase-copy h2{font-size:34px}.founder-note{padding:30px}.pricing-offer{padding:24px}.pricing-top{flex-direction:column}.pricing-offer ul{grid-template-columns:1fr}.landing-final{padding:86px 0}}
+
+  .cinematic-hero{position:relative;width:min(1440px,calc(100vw - 32px));min-height:clamp(700px,82svh,920px);margin:18px 0 74px 50%;transform:translateX(-50%);border-radius:32px;overflow:hidden;background:#17151f;color:#fff;isolation:isolate;box-shadow:0 34px 90px rgba(23,21,31,.2);}
+  .cinematic-scene,.cinematic-scene img,.scene-shade{position:absolute;inset:0;width:100%;height:100%;}
+  .cinematic-scene img{object-fit:cover;object-position:center center;animation:scene-awaken 3.4s cubic-bezier(.2,.7,.2,1) both;}
+  .scene-shade{z-index:1;background:linear-gradient(90deg,rgba(18,16,26,.91) 0%,rgba(18,16,26,.73) 31%,rgba(18,16,26,.20) 63%,rgba(18,16,26,.04) 100%),linear-gradient(0deg,rgba(14,13,19,.68) 0%,transparent 35%);}
+  .cloud-veil{position:absolute;z-index:2;top:-18%;bottom:-18%;width:72%;filter:blur(24px);opacity:.95;pointer-events:none;}
+  .cloud-veil-left{left:-25%;background:radial-gradient(ellipse at 52% 48%,rgba(248,243,235,.98) 0 19%,rgba(228,220,214,.84) 36%,transparent 68%);animation:cloud-part-left 2.8s .25s cubic-bezier(.2,.7,.15,1) both;}
+  .cloud-veil-right{right:-31%;background:radial-gradient(ellipse at 46% 50%,rgba(252,246,237,.96) 0 18%,rgba(222,216,224,.78) 38%,transparent 69%);animation:cloud-part-right 2.9s .35s cubic-bezier(.2,.7,.15,1) both;}
+  .cinematic-copy{position:relative;z-index:5;display:flex;min-height:clamp(700px,82svh,920px);width:min(58%,760px);padding:clamp(64px,7vw,108px);flex-direction:column;justify-content:center;align-items:flex-start;}
+  .cinematic-copy .eyebrow{color:rgba(255,255,255,.68);opacity:0;animation:copy-rise .75s 1.15s ease forwards;}
+  .cinematic-copy h1{font-size:clamp(57px,7vw,102px);line-height:.91;letter-spacing:-.055em;color:#fff;max-width:760px;opacity:0;animation:copy-rise .9s 1.28s cubic-bezier(.2,.7,.2,1) forwards;}
+  .cinematic-copy h1 em{display:block;font-weight:500;color:#CFC8FF;}
+  .cinematic-copy .lede{font-size:clamp(16px,1.35vw,20px);line-height:1.65;color:rgba(255,255,255,.78);max-width:590px;margin:27px 0 0;opacity:0;animation:copy-rise .85s 1.48s ease forwards;}
+  .cinematic-copy .hero-ctas{opacity:0;animation:copy-rise .8s 1.67s ease forwards;}
+  .cinematic-hero .btn-primary{background:#fff;color:#17151f;box-shadow:0 12px 34px rgba(0,0,0,.2);}
+  .cinematic-hero .btn-primary:hover{background:#F2EEE7;color:#17151f;box-shadow:0 14px 38px rgba(0,0,0,.26);}
+  .cinematic-text-btn{display:inline-flex;align-items:center;min-height:48px;padding:12px 3px;color:#fff;border-bottom:1px solid rgba(255,255,255,.42);font-size:14px;font-weight:600;}
+  .cinematic-text-btn:hover{border-color:#fff;}
+  .cinematic-micro{font-family:var(--mono);font-size:10.5px;line-height:1.5;letter-spacing:.02em;color:rgba(255,255,255,.55);margin-top:22px;opacity:0;animation:copy-rise .8s 1.82s ease forwards;}
+  .memory-fragment{position:absolute;z-index:4;width:220px;padding:15px 17px;border:1px solid rgba(255,255,255,.27);border-radius:13px;background:rgba(30,27,42,.3);box-shadow:0 18px 45px rgba(17,15,24,.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);opacity:0;transform:translateY(60px) scale(.94);}
+  .memory-fragment span{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.58);margin-bottom:6px;}
+  .memory-fragment strong{font-family:var(--serif);font-size:15px;line-height:1.25;color:#fff;}
+  .memory-one{right:9%;top:17%;animation:memory-rise 1.05s 1.5s cubic-bezier(.2,.8,.2,1) forwards;}
+  .memory-two{right:2.5%;top:43%;animation:memory-rise 1.05s 1.78s cubic-bezier(.2,.8,.2,1) forwards;}
+  .memory-three{right:14%;top:67%;animation:memory-rise 1.05s 2.03s cubic-bezier(.2,.8,.2,1) forwards;}
+  .reveal-caption{position:absolute;z-index:5;left:54%;right:7%;bottom:38px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.63);opacity:0;animation:copy-rise .85s 2.18s ease forwards;}
+  .reveal-caption i{height:1px;background:rgba(255,255,255,.32);}.reveal-caption strong{font-family:var(--mono);font-size:9px;color:#fff;font-weight:500;}
+  .scroll-cue{position:absolute;z-index:6;left:clamp(42px,7vw,108px);bottom:34px;display:flex;align-items:center;gap:11px;color:rgba(255,255,255,.7);font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;}
+  .scroll-cue i{display:block;width:34px;height:1px;background:rgba(255,255,255,.48);position:relative;overflow:hidden}.scroll-cue i::after{content:'';position:absolute;inset:0;background:#fff;transform:translateX(-100%);animation:scroll-line 2.1s 2.5s ease-in-out infinite;}
+  @keyframes scene-awaken{from{transform:scale(1.1);filter:saturate(.72) brightness(.8)}to{transform:scale(1.015);filter:saturate(.96) brightness(.96)}}
+  @keyframes cloud-part-left{0%{transform:translateX(15%) scale(1.15);opacity:1}100%{transform:translateX(-48%) scale(1.03);opacity:.13}}
+  @keyframes cloud-part-right{0%{transform:translateX(-12%) scale(1.12);opacity:1}100%{transform:translateX(50%) scale(1);opacity:.08}}
+  @keyframes memory-rise{0%{opacity:0;transform:translateY(60px) scale(.94)}100%{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes copy-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes scroll-line{0%{transform:translateX(-100%)}55%,100%{transform:translateX(100%)}}
+  @media(max-width:900px){.cinematic-copy{width:72%;padding:64px 48px}.cinematic-copy h1{font-size:74px}.memory-fragment{width:190px}.memory-two{display:none}.reveal-caption{display:none}.scene-shade{background:linear-gradient(90deg,rgba(18,16,26,.88),rgba(18,16,26,.34) 75%,rgba(18,16,26,.14)),linear-gradient(0deg,rgba(14,13,19,.68),transparent 40%)}}
+  @media(max-width:640px){.cinematic-hero{width:100vw;margin-top:8px;margin-bottom:52px;border-radius:0;min-height:760px}.cinematic-scene img{object-position:62% center}.scene-shade{background:linear-gradient(0deg,rgba(15,14,21,.95) 0%,rgba(15,14,21,.56) 58%,rgba(15,14,21,.14) 100%)}.cinematic-copy{width:100%;min-height:760px;padding:310px 24px 86px;justify-content:flex-end}.cinematic-copy h1{font-size:51px;line-height:.94}.cinematic-copy .lede{font-size:15.5px;line-height:1.55;max-width:100%}.cinematic-copy .hero-ctas{gap:10px;margin-top:25px}.cinematic-copy .hero-ctas .btn{width:100%}.cinematic-text-btn{justify-content:center;width:100%}.cinematic-micro{text-align:center;width:100%}.memory-fragment{width:158px;padding:11px 12px}.memory-fragment strong{font-size:12px}.memory-one{right:5%;top:14%}.memory-two,.memory-three{display:none}.scroll-cue{left:24px;bottom:27px}.cloud-veil{filter:blur(16px)}}
 </style>
 </head>
-<body>
+<body data-build="d4f8a91">
 <div id="app"></div>
+<div id="debugBuildBadge" class="debug-build-badge" hidden aria-hidden="true"></div>
 
 <script type="module" src="/js/supabase-auth.js"></script>
 <script>
 /* ============================= STATE (Career Intelligence Profile) ============================= */
+const DISCOVER_PATHS_TIMEOUT_MS = 90000;
+const DISCOVER_PATHS_COPY_DELAY_MS = 30000;
+const DISCOVER_PATHS_COPY_MESSAGE = 'Still working — checking a fuller set of directions…';
+
+class DiscoverPathsStaleError extends Error {
+  constructor(){ super('Stale discoverPaths response'); this.name = 'DiscoverPathsStaleError'; }
+}
+
+function invalidateDiscoverPathsGeneration(currentGen, getGen, setGen){
+  if(getGen() === currentGen) setGen(currentGen + 1);
+}
+
+function shouldClearDiscoverPathsBusy(myGen, currentGen){
+  return currentGen <= myGen + 1;
+}
+
+/** Yield so inline discoverPaths timers (macrotasks) can run before heavy sync prep. */
+function yieldToMainThread(){
+  return new Promise((resolve) => { setTimeout(resolve, 0); });
+}
+
 function createDefaultState(){
   return {
     screen: 'landing',
@@ -378,14 +558,19 @@ function createDefaultState(){
     convoBusy: false,
     kitBusyIndex: null,
     storyBankBusyIndex: null,
+    // Per-path novelty feedback — separate from skillValidation (name -> 'known' | 'new' | 'not_interested')
+    pathFeedback: {},
+    pathRegenerationCount: 0,
+    pathsDiscoveryGeneration: 0, // incremented on each discoverPaths() start — stale responses cannot mutate state after timeout/retry
   };
 }
 
 const state = createDefaultState();
+let regenCapHintTitle = null;
 
 /* ============================= PROFILE SERIALIZATION (V1) ============================= */
 // Local-only persistence layer — browser localStorage (V1 profile snapshot).
-const PROFILE_SCHEMA_VERSION = 1;
+const PROFILE_SCHEMA_VERSION = 2;
 const TRANSIENT_SCREENS = new Set(['analyzing']);
 const ROADMAP_SECTION_KEYS = ['foundation', 'actionPlan', 'direction'];
 const ROADMAP_SECTION_TERMINAL = new Set(['idle', 'ready', 'failed']);
@@ -401,6 +586,15 @@ function isPlainObject(value){
 function cloneStringArray(value){
   if(!Array.isArray(value)) return [];
   return value.filter(item => typeof item === 'string').map(item => item);
+}
+
+function clonePathFeedback(value){
+  if(!isPlainObject(value)) return {};
+  const out = {};
+  for(const title in value){
+    if(value[title] === 'known' || value[title] === 'new' || value[title] === 'not_interested') out[title] = value[title];
+  }
+  return out;
 }
 
 function cloneSkillValidation(value){
@@ -511,6 +705,8 @@ function serializeProfile(sourceState){
     storyBank: sourceState.storyBank && typeof sourceState.storyBank === 'object' ? jsonClone(sourceState.storyBank) : null,
     jdText: typeof sourceState.jdText === 'string' ? sourceState.jdText : '',
     jdAnalysis: sourceState.jdAnalysis && typeof sourceState.jdAnalysis === 'object' ? jsonClone(sourceState.jdAnalysis) : null,
+    pathFeedback: clonePathFeedback(sourceState.pathFeedback),
+    pathRegenerationCount: Number.isInteger(sourceState.pathRegenerationCount) && sourceState.pathRegenerationCount >= 0 ? sourceState.pathRegenerationCount : 0,
   };
 }
 
@@ -523,6 +719,11 @@ function migrateProfile(savedProfile){
   if(typeof version !== 'number' || !Number.isFinite(version)) return null;
   if(version > PROFILE_SCHEMA_VERSION) return null;
   if(version < 1) version = 1;
+  if(version < 2){
+    if(!isPlainObject(cloned.pathFeedback)) cloned.pathFeedback = {};
+    if(typeof cloned.pathRegenerationCount !== 'number') cloned.pathRegenerationCount = 0;
+    version = 2;
+  }
   cloned.schemaVersion = version;
   return cloned;
 }
@@ -565,6 +766,8 @@ function hydrateProfile(savedProfile){
   if(migrated.storyBank && isPlainObject(migrated.storyBank)) restored.storyBank = jsonClone(migrated.storyBank);
   if(typeof migrated.jdText === 'string') restored.jdText = migrated.jdText;
   if(migrated.jdAnalysis && isPlainObject(migrated.jdAnalysis)) restored.jdAnalysis = jsonClone(migrated.jdAnalysis);
+  if(isPlainObject(migrated.pathFeedback)) restored.pathFeedback = clonePathFeedback(migrated.pathFeedback);
+  if(Number.isInteger(migrated.pathRegenerationCount) && migrated.pathRegenerationCount >= 0) restored.pathRegenerationCount = migrated.pathRegenerationCount;
 
   restored.skillValidation = pruneSkillValidationForSkills(restored.skillValidation, restored.skills);
   if(restored.chosenPath){
@@ -606,8 +809,24 @@ function applyHydratedState(hydrated){
 }
 
 
-const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','paywall','roadmap','kit','dashboard'];
+const STEP_ORDER = ['intake','analyzing','skills','paths','conversation','choose','evidenceCheck','paywall','roadmap','kit','dashboard'];
 function stepIndex(){ return STEP_ORDER.indexOf(state.screen); }
+function hasMeaningfulStoryContent(text){
+  const t = (text || '').trim();
+  if(!t) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  return t.length >= 12 || words.length >= 2;
+}
+function intakePromptHelperText(){
+  return hasMeaningfulStoryContent(state.story)
+    ? 'Want to add another experience? These prompts are optional.'
+    : 'Not sure where to start? Tap an example below, or use the microphone.';
+}
+function updateIntakePromptHelper(){
+  const el = document.getElementById('promptHelper');
+  if(el) el.textContent = intakePromptHelperText();
+}
+const MIC_ICON_SVG = '<svg class="mic-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 function getConfirmedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'yes'); }
 function getRetainedStorySkills(){ return state.skills.filter(s => state.skillValidation[s.name] !== 'no'); }
 function getRejectedSkills(){ return state.skills.filter(s => state.skillValidation[s.name] === 'no'); }
@@ -617,6 +836,44 @@ let evidenceGateModulePromise = null;
 function loadEvidenceGate(){
   if(!evidenceGateModulePromise) evidenceGateModulePromise = import('/js/evidence-gate.mjs');
   return evidenceGateModulePromise;
+}
+let pathValidationModulePromise = null;
+function loadPathValidation(){
+  if(!pathValidationModulePromise) pathValidationModulePromise = import('/js/path-validation.mjs');
+  return pathValidationModulePromise;
+}
+function syncKitSearchTermsFallback(){
+  const terms = [];
+  const seen = new Set();
+  const add = (raw) => {
+    const cleaned = String(raw || '').trim().replace(/\s+/g, ' ');
+    if(!cleaned || cleaned.length > 30) return;
+    const key = cleaned.toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    terms.push(cleaned);
+  };
+  for(const term of (state.roadmap && state.roadmap.searchTerms) || []) add(term);
+  if(terms.length >= 3) return terms.slice(0, 5);
+  if(state.chosenPath){
+    add(state.chosenPath.title);
+    if(state.chosenPath.entryPoint && state.chosenPath.entryPoint !== state.chosenPath.title) add(state.chosenPath.entryPoint);
+    add(state.chosenPath.progression);
+  }
+  return terms.slice(0, 5);
+}
+function kitSearchTermsForDisplay(){
+  if(Array.isArray(state.applicationKitSearchTerms) && state.applicationKitSearchTerms.length) return state.applicationKitSearchTerms;
+  return syncKitSearchTermsFallback();
+}
+async function refreshApplicationKitSearchTerms(evidenceGate){
+  const { deriveApplicationKitSearchTerms } = await loadEvidenceGate();
+  state.applicationKitSearchTerms = deriveApplicationKitSearchTerms({
+    roadmapSearchTerms: state.roadmap && state.roadmap.searchTerms,
+    chosenPath: state.chosenPath,
+    retainedSkills: getRetainedStorySkills(),
+  });
+  return state.applicationKitSearchTerms;
 }
 function skillsSummaryStr(skills){ return skills.map(s=>`${s.name} (${s.strength})`).join(', '); }
 function fullStoryText(){ return [state.story, ...state.additionalExperiences].filter(Boolean).join('\n\n'); }
@@ -1056,7 +1313,7 @@ function runCancelable(buildPromise, ms){
   return Promise.race([buildPromise(undefined), timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
-async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal){
+async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal, tierProgressFn){
   function runValidation(rawResult){
     let result = rawResult;
     if(normalizeFn) result = normalizeFn(result);
@@ -1087,6 +1344,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
   // failure has nothing usable to send here, so it skips straight to tier 3.
   if(tier1Err.category === 'schema' && tier1Err.partial){
     try{
+      if(tierProgressFn) tierProgressFn('reshape');
       let reshapeSystem = `You are a strict data formatter for iFindWorth. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
       const reshapeUserPrompt = `Content to reshape (fix structure/formatting only — keep the substance exactly as given):\n${JSON.stringify(tier1Err.partial)}`;
@@ -1106,6 +1364,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
   // size-related, with the invalid/partial content included so the model is
   // fixing its own last answer rather than starting blind.
   try{
+    if(tierProgressFn) tierProgressFn('repair');
     let repairNote = `Your previous response was invalid (${tier1Err.code || 'ERROR'}): ${tier1Err.detail || tier1Err.message}. Call the SAME tool again with a corrected, COMPLETE result that matches the schema and instructions exactly — every required field must be present, and every enum field must match one of its allowed values EXACTLY (same wording and capitalization).`;
     if(extraRepairHint) repairNote += ` ${extraRepairHint}`;
     const sizeRelated = tier1Err.code === 'TRUNCATED_OUTPUT' || tier1Err.code === 'RESPONSE_PARSE_ERROR' || tier1Err.code === 'NO_STRUCTURED_OUTPUT';
@@ -1207,7 +1466,6 @@ function ensureArray(v){
 // the UI already, so it's deliberately NOT required here. Requiring fields
 // the product tolerates being absent only increases the chance one omission
 // sinks an otherwise-good path.
-const MIN_VALID_PATHS = 3;
 function isValidPathItem(p){
   return !!p && typeof p === 'object'
     && isNonEmptyStr(p.title)
@@ -1464,7 +1722,7 @@ const pathsTool = {
   input_schema: {
     type: 'object',
     properties: {
-      paths: { type: 'array', minItems: 4, maxItems: 5, items: pathFieldsSchema }
+      paths: { type: 'array', minItems: 1, maxItems: 5, items: pathFieldsSchema }
     },
     required: ['paths']
   }
@@ -1533,12 +1791,12 @@ const refinePathFieldsSchema = {
 
 const refinePathsTool = {
   name: 'report_refined_career_paths',
-  description: 'Report a refreshed set of 4-5 evidence-supported career paths after learning user preferences. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
+  description: 'Report a refreshed set of evidence-supported career paths after learning user preferences. Path count follows the EVIDENCE-SUPPORTED PATH COUNT block in the user message. May introduce new paths supported by retained story skills and omit or deprioritize rejected directions.',
   input_schema: {
     type: 'object',
     properties: {
       changeSummary: { type: 'string', maxLength: 180 },
-      paths: { type: 'array', minItems: 4, maxItems: 5, items: refinePathFieldsSchema },
+      paths: { type: 'array', minItems: 1, maxItems: 5, items: refinePathFieldsSchema },
     },
     required: ['changeSummary','paths']
   }
@@ -1826,17 +2084,22 @@ const REFINE_PATHS_REPAIR_HINT = `${PATHS_REPAIR_HINT} ${RERANK_REPAIR_HINT} The
 const ACTION_PLAN_REPAIR_HINT = `The schema requires ALL FOUR time-period arrays — first7Days, days8to30, days31to60, days61to90 — plus nextBestStep. Never omit any of the four arrays, even if you need to shorten individual items (each item max ~80 characters) to fit. A short but complete response covering all four periods is required, not a longer response missing one.`;
 const DIRECTION_REPAIR_HINT = `The schema requires learningStrategy as an array (it may be empty if there's genuinely nothing to add, but the field itself must always be present) — never omit it. Also always required: careerSequence with now/next/later, searchTerms, and positioning. Keep every item short (learning items max ~70 characters, sequence descriptions max ~90) so the complete response fits.`;
 
-function validatePathsResult(result){
+function validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
   if(!result || !Array.isArray(result.paths)) return { ok:false, reason:'paths array is missing' };
-  // By this point normalizePathsResult has already filtered out anything
-  // malformed — this loop is a defensive re-check, not the primary
-  // enforcement point, in case validatePathsResult is ever called without
-  // the normalize step running first.
   for(const p of result.paths){
     if(!isValidPathItem(p)) return { ok:false, reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
   }
-  if(result.paths.length < MIN_VALID_PATHS){
-    return { ok:false, reason:`only ${result.paths.length} valid path(s) found after filtering out malformed items — need at least ${MIN_VALID_PATHS} for a useful set of options` };
+  return pathValidation.validatePathsResult(result, storyText, retainedSkills, evidenceGate);
+}
+
+function validateRefinePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
+  const pathCheck = validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate);
+  if(!pathCheck.ok) return pathCheck;
+  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
+  for(const p of result.paths){
+    if(!RERANK_CATEGORY_ENUM.includes(p.category)){
+      return { ok:false, reason:`refinement category invalid for path "${p.title}"` };
+    }
   }
   return { ok:true };
 }
@@ -1869,18 +2132,6 @@ function normalizeRefinePathsResult(result){
     changeSummary: typeof result.changeSummary === 'string' ? result.changeSummary.trim() : '',
     paths,
   };
-}
-
-function validateRefinePathsResult(result){
-  const pathCheck = validatePathsResult(result);
-  if(!pathCheck.ok) return pathCheck;
-  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
-  for(const p of result.paths){
-    if(!RERANK_CATEGORY_ENUM.includes(p.category)){
-      return { ok:false, reason:`refinement category invalid for path "${p.title}"` };
-    }
-  }
-  return { ok:true };
 }
 
 // Merges the compact rerank delta back into the already-valid path objects.
@@ -1958,20 +2209,36 @@ function validateRoadmapDirectionResult(result){
   return { ok:true };
 }
 
-function validateKitResult(result, sourceEvidenceText){
+function validateKitResult(result, sourceEvidenceText, gate){
   if(!result || !Array.isArray(result.resumeBullets)) return { ok:false, reason:'resumeBullets missing' };
   if(result.resumeBullets.length > 4) return { ok:false, reason:'resumeBullets exceeds maximum of 4' };
   if(!Array.isArray(result.linkedinHeadlines) || result.linkedinHeadlines.length !== 3) return { ok:false, reason:'linkedinHeadlines must have exactly 3 entries' };
   if(!isNonEmptyStr(result.linkedinAbout)) return { ok:false, reason:'linkedinAbout is missing' };
-  // Evidence-traceability heuristic (items A/B/G4): a number in generated resume
-  // copy that never appears in the user's own story is very likely fabricated.
+  const headlineTexts = result.linkedinHeadlines.map(h => String(h?.text || '').trim().toLowerCase()).filter(Boolean);
+  if(new Set(headlineTexts).size < headlineTexts.length){
+    return { ok:false, reason:'linkedinHeadlines must be meaningfully different from each other' };
+  }
   for(const b of result.resumeBullets){
     if(!isNonEmptyStr(b.sourceQuote)) return { ok:false, reason:'each resume bullet must include sourceQuote (exact concrete_past_action quote)' };
     const bad = findUnsupportedNumerals(b.text, sourceEvidenceText);
-    if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}") — remove it, don't invent metrics` };
+    if(bad.length) return { ok:false, reason:`resume bullet contains a number not present in the user's evidence ("${bad.join(', ')}"): remove it, don't invent metrics` };
+    if(/\bhelped manage\b/i.test(String(b.text || '')) && /\b(?:manage|managed|organiz|coordinat|schedul|lead|train)\b/i.test(String(b.sourceQuote || ''))){
+      return { ok:false, reason:'resume bullet uses "helped manage" when evidence names the action directly' };
+    }
   }
   const badAbout = findUnsupportedNumerals(result.linkedinAbout, sourceEvidenceText);
   if(badAbout.length) return { ok:false, reason:`linkedinAbout contains a number not present in the user's evidence ("${badAbout.join(', ')}")` };
+  const concreteCount = gate?.concretePastActions?.length || 0;
+  if(concreteCount >= 3){
+    const required = Math.min(3, concreteCount);
+    if(result.resumeBullets.length < required){
+      return { ok:false, reason:`need at least ${required} resume bullets when ${concreteCount} concrete past-action sources exist` };
+    }
+    const distinct = new Set(result.resumeBullets.map(b => String(b.sourceQuote || '').trim().toLowerCase()).filter(Boolean));
+    if(distinct.size < required){
+      return { ok:false, reason:`need at least ${required} resume bullets grounded in different concrete past-action sources` };
+    }
+  }
   return { ok:true };
 }
 
@@ -2015,6 +2282,7 @@ function render(){
     case 'paths': html += renderPaths(); break;
     case 'conversation': html += renderConversation(); break;
     case 'choose': html += renderChoose(); break;
+    case 'evidenceCheck': html += renderEvidenceCheck(); break;
     case 'paywall': html += renderPaywall(); break;
     case 'roadmap': html += renderRoadmap(); break;
     case 'kit': html += renderKit(); break;
@@ -2031,7 +2299,7 @@ function render(){
 
 function renderProgress(){
   const idx = stepIndex();
-  const labels = { intake:'Your story', analyzing:'Analyzing', skills:'Skills', paths:'Career paths', conversation:'Discuss results', choose:'Choose direction', paywall:'Unlock roadmap', roadmap:'Your roadmap', kit:'Positioning', dashboard:'Dashboard' };
+  const labels = { intake:'Your story', analyzing:'Analyzing', skills:'Skills', paths:'Career paths', conversation:'Discuss results', choose:'Choose direction', evidenceCheck:'Strengthen evidence', paywall:'Unlock roadmap', roadmap:'Roadmap', kit:'Positioning', dashboard:'Dashboard' };
   let steps = '';
   STEP_ORDER.forEach((s,i)=>{ steps += `<span class="${i<idx?'done':(i===idx?'current':'')}"></span>`; });
   return `<div class="progress-bar"><div class="progress-inner">
@@ -2051,85 +2319,130 @@ function subHeader(title){
 /* ============================= LANDING ============================= */
 function renderLanding(){
   return `
-  <div class="wrap">
-    <nav class="nav">
-      <img class="brand-logo" src="/logo/iFindWorth_Logo_Primary_NoTagline_Transparent.png" alt="iFindWorth">
-      <button class="btn btn-ghost btn-sm" data-go="intake">Discover My Career Options</button>
-    </nav>
-    <section class="hero">
-      <div class="eyebrow"><span class="dot"></span>Experience Translator</div>
-      <h1>You've done more <mark>than you think.</mark></h1>
-      <p class="lede">Tell iFindWorth what you've actually done, in your own words. We'll help you uncover the skills inside your experience, explore the career paths they may transfer to, and build a practical path forward.</p>
-      <p class="micro">No perfect resume required. No professional terminology required. Just tell us your story.</p>
-      <div class="hero-ctas">
-        <button class="btn btn-primary" data-go="intake">Discover My Career Options</button>
-        <button class="btn btn-text" data-scroll="how">See how it works</button>
-      </div>
-      <div class="translate-demo">
-        <div class="before">"I helped run my sister's clothing business — <span>answered WhatsApp messages</span>, <span>ordered products</span>, <span>dealt with angry customers</span>, and <span>trained new girls</span>."</div>
-        <div class="translate-tags">
-          <span class="tag">Customer Service</span><span class="tag">Vendor Coordination</span><span class="tag">Issue Resolution</span><span class="tag">Staff Training</span><span class="tag">Operations Support</span>
+  <div class="landing-shell">
+    <div class="site-container">
+      <nav class="landing-nav" aria-label="Main navigation">
+        <img class="brand-logo" src="/logo/iFindWorth_Logo_Primary_NoTagline_Transparent.png" alt="iFindWorth">
+        <div class="landing-nav-actions">
+          <span class="beta-pill">Private beta</span>
+          <button class="btn btn-sm nav-cta" data-go="intake">Enter iFindWorth</button>
         </div>
-        <p class="translate-demo-preview">See 3 professional skills hidden in something you've already done.</p>
-        <div class="translate-demo-cta">
-          <a href="/xray.html" class="btn btn-ghost btn-sm">Try the Skill X-Ray</a>
+      </nav>
+
+      <section class="cinematic-hero" aria-labelledby="hero-title">
+        <div class="cinematic-scene" aria-hidden="true">
+          <img src="/assets/ifindworth-horizon-v1.webp" alt="">
+          <div class="scene-shade"></div>
+          <div class="cloud-veil cloud-veil-left"></div>
+          <div class="cloud-veil cloud-veil-right"></div>
+          <div class="memory-fragment memory-one"><span>A real moment</span><strong>“I helped my sister at her shop.”</strong></div>
+          <div class="memory-fragment memory-two"><span>A real moment</span><strong>“I spoke with customers when something went wrong.”</strong></div>
+          <div class="memory-fragment memory-three"><span>A real moment</span><strong>“I showed new people how we did things.”</strong></div>
         </div>
-      </div>
-    </section>
-    <section class="section" id="how">
-      <div class="eyebrow"><span class="dot"></span>The process</div>
-      <h2>How it works</h2>
-      <p class="lede">A conversation, not a form — and it keeps learning as you go.</p>
-      <div class="how-steps">
-        <div class="how-step"><div class="num">01</div><h3>Tell us your story</h3><p>Type or talk. Jobs, businesses, family responsibilities, side hustles — whatever feels relevant.</p></div>
-        <div class="how-step"><div class="num">02</div><h3>Discover your skills</h3><p>We identify transferable capabilities, with the evidence for each one shown from your own words.</p></div>
-        <div class="how-step"><div class="num">03</div><h3>Explore possible paths</h3><p>Career directions your skills could transfer to — with why, and what's still uncertain.</p></div>
-        <div class="how-step"><div class="num">04</div><h3>Tell us what matters</h3><p>As you talk, we update what we recommend — and always explain why it changed.</p></div>
-        <div class="how-step"><div class="num">05</div><h3>Build your roadmap</h3><p>A Now → Next → Later sequence and a 7/30/60/90-day action plan, not just a category list.</p></div>
-        <div class="how-step"><div class="num">06</div><h3>Prepare to move</h3><p>Resume language, LinkedIn positioning, and interview stories — built from the experience you shared, nothing invented.</p></div>
-      </div>
-    </section>
-    <section class="section">
-      <div class="eyebrow"><span class="dot"></span>Who it's for</div>
-      <h2>Career-ready, even if it doesn't feel that way yet</h2>
-      <div class="who-grid">
-        ${['Career changers','Immigrants translating experience into a new market','Small-business owners returning to employment','Freelancers & gig workers','Parents returning to work','Recent graduates','People without traditional corporate experience',"People who don't know how to describe what they can do.",'Anyone considering consulting or entrepreneurship']
-          .map(w=>`<span class="who-chip">${w}</span>`).join('')}
-      </div>
-    </section>
-    <section class="section">
-      <div class="eyebrow"><span class="dot"></span>Why iFindWorth is different</div>
-      <h2>Not another quiz, job board, or template</h2>
-      <div class="diff-grid">
-        <div class="diff-card"><div class="not">Not a resume builder</div><h3>We find the story before we format it.</h3></div>
-        <div class="diff-card"><div class="not">Not a personality quiz</div><h3>Recommendations are built from evidence in your own words, not archetypes.</h3></div>
-        <div class="diff-card"><div class="not">Not a one-shot chatbot</div><h3>We remember what you've told us and update your plan as you go.</h3></div>
-      </div>
-    </section>
-    <section class="section">
-      <div class="eyebrow"><span class="dot"></span>Pricing</div>
-      <h2>Free to discover. Pay to execute.</h2>
-      <div class="pricing-row">
-        <div class="price-card">
-          <div class="eyebrow"><span class="dot"></span>Free</div>
-          <div class="amt">$0</div>
-          <p style="font-size:14px;">Full career discovery — skills, evidence, career paths, and a results conversation.</p>
-          <ul><li>Story intake, type or voice</li><li>Transferable skills with evidence</li><li>Career path preview by category</li><li>Recommendations that update as you talk</li></ul>
+        <div class="cinematic-copy">
+          <div class="eyebrow"><span class="dot"></span>AI-powered career discovery</div>
+          <h1 id="hero-title">You've done more <em>than you think.</em></h1>
+          <p class="lede">Your future may already be hidden inside what you have done. iFindWorth reveals the skills, career directions, and practical next steps inside your real experience.</p>
+          <div class="hero-ctas">
+            <button class="btn btn-primary" data-go="intake">Reveal My Career Options</button>
+            <button class="cinematic-text-btn" data-scroll="how">See how the journey unfolds</button>
+          </div>
+          <p class="cinematic-micro">No perfect résumé. No professional vocabulary. Start with your real story.</p>
         </div>
-        <div class="price-card featured">
-          <div class="eyebrow"><span class="dot"></span>iFindWorth Starter</div>
-          <div class="amt">$19.99</div>
-          <p style="font-size:14px;">Planned one-time price.</p>
-          <p style="font-size:13px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
-          <ul><li>Career sequence + 7/30/60/90-day plan</li><li>Full gap analysis & learning ladder</li><li>Resume, LinkedIn & interview story bank</li><li>Command-center dashboard</li></ul>
+        <div class="reveal-caption">
+          <span>What you remember as “just helping”</span>
+          <i></i>
+          <strong>can contain evidence of where you can go next.</strong>
         </div>
+        <button class="scroll-cue" data-scroll="how" aria-label="Continue to the product journey"><span>Explore</span><i></i></button>
+      </section>
+
+      <div class="value-strip" aria-label="Product capabilities">
+        <div class="value-item"><strong>Your story</strong>Type or speak naturally</div>
+        <div class="value-item"><strong>Your evidence</strong>See why each skill was found</div>
+        <div class="value-item"><strong>Your direction</strong>Compare realistic career paths</div>
+        <div class="value-item"><strong>Your next move</strong>Follow a practical roadmap</div>
       </div>
-    </section>
-    <section class="final-cta">
-      <h2>Your experience counts. Let's find out where it can take you.</h2>
-      <button class="btn btn-primary" data-go="intake">Start My Career Discovery</button>
-    </section>
-    <footer class="site-footer">
+
+      <section class="landing-section" id="how">
+        <div class="section-heading">
+          <div><div class="eyebrow"><span class="dot"></span>The product journey</div><h2>From lived experience to forward motion.</h2></div>
+          <p class="lede">iFindWorth does more than generate ideas. It keeps the evidence connected to every recommendation, learns what matters to you, and helps turn one direction into materials you can actually use.</p>
+        </div>
+        <div class="story-flow">
+          <article class="story-step"><h3>Tell the truth of what you have done</h3><p>Jobs, businesses, caregiving, side work, volunteering, study, or responsibilities that never appeared on a formal résumé.</p></article>
+          <article class="story-step"><h3>See the value inside your experience</h3><p>Review transferable skills with evidence from your own words, then confirm what feels accurate before moving forward.</p></article>
+          <article class="story-step"><h3>Choose a direction and build the bridge</h3><p>Explore direct, adjacent, and longer-term paths, then create a roadmap, résumé language, LinkedIn positioning, and interview stories.</p></article>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="showcase">
+          <div class="showcase-copy">
+            <div class="eyebrow"><span class="dot"></span>Not just a result</div>
+            <h2>A path you can act on.</h2>
+            <p>Career discovery becomes useful when it tells you what to do next. iFindWorth turns your chosen direction into a sequence that respects where you are starting.</p>
+            <a href="/xray.html" class="btn btn-ghost btn-sm" style="align-self:flex-start;color:#fff;border-color:rgba(255,255,255,.35);margin-top:12px;">Try the Skill X-Ray</a>
+          </div>
+          <div class="showcase-panel">
+            <div class="showcase-panel-header"><strong>Your practical roadmap</strong><span>Illustrative preview</span></div>
+            <div class="roadmap-row"><div class="roadmap-day">DAY 7</div><div><strong>Clarify your evidence</strong><p>Capture three examples that prove your strongest transferable skills.</p></div></div>
+            <div class="roadmap-row"><div class="roadmap-day">DAY 30</div><div><strong>Close the smallest gap</strong><p>Complete one focused project or learning step tied to the target role.</p></div></div>
+            <div class="roadmap-row"><div class="roadmap-day">DAY 60</div><div><strong>Position your experience</strong><p>Use role-specific résumé language and a credible LinkedIn story.</p></div></div>
+            <div class="roadmap-row"><div class="roadmap-day">DAY 90</div><div><strong>Move with intention</strong><p>Apply, connect, and interview with evidence you can stand behind.</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="section-heading">
+          <div><div class="eyebrow"><span class="dot"></span>Built for real lives</div><h2>Experience does not have to look traditional to be valuable.</h2></div>
+          <p class="lede">iFindWorth is for people whose capabilities are bigger than their current title, résumé, or confidence allows others to see.</p>
+        </div>
+        <div class="audience-grid">
+          <article class="audience-card"><h3>Changing direction</h3><p>Career changers, recent graduates, and people who know they need something different but cannot yet name the right path.</p></article>
+          <article class="audience-card"><h3>Translating experience</h3><p>Immigrants, freelancers, caregivers, and small-business owners whose real abilities may not fit conventional corporate language.</p></article>
+          <article class="audience-card"><h3>Returning with more</h3><p>People coming back after an interruption who need to reconnect their past experience with the person they are now.</p></article>
+        </div>
+        <div class="difference-row">
+          <article class="difference-card"><div class="not">Not a personality quiz</div><h3>Recommendations begin with evidence, not an archetype.</h3></article>
+          <article class="difference-card"><div class="not">Not a résumé template</div><h3>We find the story before we format the language.</h3></article>
+          <article class="difference-card"><div class="not">Not a one-shot chatbot</div><h3>Your direction can evolve as you respond and reflect.</h3></article>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="founder-note">
+          <div class="founder-mark">A note from<br>the founder</div>
+          <div class="founder-copy"><blockquote>“Too many capable people believe they are starting from zero. iFindWorth exists to help them see the evidence that they are not.”</blockquote><p>Maryann Schuler, Founder of iFindWorth</p></div>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="landing-pricing">
+          <div class="pricing-intro"><div class="eyebrow"><span class="dot"></span>Private beta</div><h2>Discover freely. Decide with evidence.</h2><p>Complete the career discovery journey before deciding whether the deeper execution package is valuable to you.</p></div>
+          <div class="pricing-offer price-card featured">
+            <div class="pricing-top"><div><div class="eyebrow"><span class="dot"></span>iFindWorth Starter</div><p>Personalized direction, practical positioning, and action materials grounded in what you have actually done.</p></div><div><div class="amt">$19.99</div><small>Beta preview: no payment collected</small></div></div>
+            <ul class="starter-benefits">
+              <li><div class="starter-benefit-copy"><strong>Know which roles to pursue</strong><span class="starter-benefit-desc">Compare evidence-backed directions and understand why they fit.</span></div></li>
+              <li><div class="starter-benefit-copy"><strong>Follow a focused roadmap</strong><span class="starter-benefit-desc">Move through clear priorities for your first 7, 30, 60, and 90 days.</span></div></li>
+              <li><div class="starter-benefit-copy"><strong>Use stronger résumé language</strong><span class="starter-benefit-desc">Turn real responsibilities into credible, ready-to-use material.</span></div></li>
+              <li><div class="starter-benefit-copy"><strong>Position yourself on LinkedIn</strong><span class="starter-benefit-desc">Communicate your value with a tailored headline and About section.</span></div></li>
+              <li><div class="starter-benefit-copy"><strong>Prepare interview stories</strong><span class="starter-benefit-desc">Build memorable examples from situations you have genuinely handled.</span></div></li>
+              <li><div class="starter-benefit-copy"><strong>Search with precision</strong><span class="starter-benefit-desc">Use relevant titles, keywords, and adjacent opportunities.</span></div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-final">
+        <div class="eyebrow" style="justify-content:center"><span class="dot"></span>Your experience counts</div>
+        <h2>Find the value. Choose the direction. Build the bridge.</h2>
+        <p>Start with the truth of what you have already done.</p>
+        <button class="btn btn-primary" data-go="intake">Start My Career Discovery</button>
+      </section>
+
+      <footer class="site-footer landing-footer">
       <div class="footer-top">
         <div class="footer-brand">
           <div class="footer-wordmark">iFindWorth</div>
@@ -2142,36 +2455,41 @@ function renderLanding(){
       </div>
       <div class="footer-divider"></div>
       <p class="footer-disclaimer">Guidance, not guarantees. iFindWorth only knows what you share with it. Recommendations are a starting point for your own judgment, not a verdict on your potential.</p>
+      <p class="footer-privacy"><button type="button" class="footer-privacy-link" data-ifw-analytics-choices>Analytics &amp; privacy choices</button></p>
     </footer>
+    </div>
   </div>`;
 }
 
 /* ============================= INTAKE ============================= */
 function renderIntake(){
   const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
+  const micLabel = state.recording ? 'Listening… tap to stop' : 'Use microphone';
   return `
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Step one</div>
     <h1 style="font-size:36px;">Tell me your story.</h1>
-    <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Tell me what you've actually done — jobs, businesses, volunteering, family responsibilities, side hustles, school projects, community work. Whatever feels relevant.</p>
-    <div class="intake-card mt-32">
-      <textarea id="storyInput" class="ph-no-capture" placeholder="Start typing, or tap the microphone to talk instead...">${state.story}</textarea>
+    <p style="max-width:520px;margin-top:12px;">Forget professional language for a minute. Describe work, business, caregiving, volunteering, household responsibilities, side hustles, school projects, or community experience. Whatever feels relevant counts.</p>
+    <p class="intake-hint mt-32">Type here or use the microphone</p>
+    <p class="intake-hint-sub">Plain language is perfect. Jobs and formal titles optional.</p>
+    <div class="intake-card">
+      <textarea id="storyInput" class="ph-no-capture" placeholder="Start typing here… or tap Use microphone below to speak." aria-label="Your story. Type here or use the microphone button below.">${state.story}</textarea>
       <div class="intake-toolbar">
-        <button class="mic-btn ${state.recording?'recording':''}" id="micBtn"><span class="mic-dot"></span> ${state.recording ? 'Listening… tap to stop' : 'Just talk'}</button>
+        <button class="mic-btn ${state.recording?'recording':''}" id="micBtn" type="button" aria-label="${state.recording ? 'Stop microphone input' : 'Use microphone to speak your story'}">${state.recording ? '<span class="mic-dot"></span>' : MIC_ICON_SVG} ${micLabel}</button>
         <span class="wordcount">${wc} words</span>
       </div>
     </div>
     <div id="voiceWarning"></div>
-    <p class="eyebrow mt-32" style="margin-bottom:12px;"><span class="dot"></span>Not sure where to start?</p>
+    <div class="intake-cta-row">
+      <button class="btn btn-primary" id="submitStory" ${wc < 8 ? 'disabled':''}>Discover My Skills</button>
+      <button class="btn btn-text" data-go="landing">Back</button>
+    </div>
+    <p class="prompt-helper" id="promptHelper">${intakePromptHelperText()}</p>
     <div class="prompts">
       ${['Have you ever sold anything?','Managed money or a budget?','Trained or onboarded someone?','Handled an angry customer?','Organized an event?','Managed household logistics?','Built a social media page?','Solved a problem without being told how?']
         .map(p=>`<span class="prompt-chip">${p}</span>`).join('')}
     </div>
-    <div class="mt-40" style="display:flex;gap:14px;align-items:center;">
-      <button class="btn btn-primary" id="submitStory" ${wc < 8 ? 'disabled':''}>Discover My Skills</button>
-      <button class="btn btn-text" data-go="landing">Back</button>
-    </div>
-    <p class="privacy-note">We only analyze what you write here to identify skills and possible directions. You can edit or delete your story at any time, and every recommendation is guidance — not a guarantee.</p>
+    <p class="privacy-note">We only analyze what you write here to identify skills and possible directions. You can edit or delete your story at any time, and every recommendation is guidance, not a guarantee.</p>
   </div></div>`;
 }
 
@@ -2187,7 +2505,7 @@ function renderSkills(){
   return `
   <div class="wrap"><div class="screen">
     <div class="big-stat">You have <mark>${n}</mark> transferable<br/>professional skills.</div>
-    <p style="max-width:520px;">Based on what you've shared, you may be more career-ready than you realized. Here's what we found — and why.</p>
+    <p style="max-width:520px;">Based on what you've shared, you may be more career-ready than you realized. Here's what we found and why.</p>
     <div class="mt-40">
       ${state.skills.map(s=>{
         const v = state.skillValidation[s.name];
@@ -2201,54 +2519,111 @@ function renderSkills(){
         </div>`;
       }).join('')}
     </div>
-    <p style="font-size:12.5px;color:var(--ink-faint);">Skills marked "Not Quite" won't influence your career paths, roadmap, or resume.</p>
-    <p style="font-size:12px;color:var(--ink-faint);margin-top:10px;">Anything you leave unmarked will be included when you continue. Mark "Not quite" to exclude a skill.</p>
-    <div class="mt-32"><button class="btn btn-primary" id="toPaths">Show Me My Career Paths</button></div>
+    <p style="font-size:13px;color:var(--ink-muted);">Skills marked "Not Quite" will not influence your career paths, roadmap, or résumé.</p>
+    <p style="font-size:12.5px;color:var(--ink-muted);margin-top:10px;">Anything you leave unmarked will be included when you continue. Mark "Not quite" to exclude a skill.</p>
+    <div class="mt-32"><button class="btn btn-primary" id="toPaths" ${state.busy ? 'disabled' : ''}>Show Me My Career Paths</button></div>
   </div></div>`;
 }
 
 /* ============================= PATHS ============================= */
-const CATEGORY_ORDER = ['Strong Evidence','Best Paths to Explore First','Worth Exploring','Strong Alternatives','Growth Path','Growth Directions','Independent Path','Longer-Term / Independent Paths','Lower Interest Based on What You Told Us'];
+const DISCOVERY_TIERS = ['Direct-fit paths','Adjacent opportunities','Longer-term possibilities'];
+const TIER_DESCRIPTIONS = {
+  'Direct-fit paths': 'Strongest evidence match. Paths where your experience and transferable skills align most directly, including familiar directions worth taking seriously.',
+  'Adjacent opportunities': 'Realistic stretch directions that build on what you bring, with honest gaps noted. Often the most actionable next step.',
+  'Longer-term possibilities': 'Evidence-supported options that may not match your first guess. Worth exploring when the story supports them, without forcing novelty.',
+};
+function pathObviousnessScore(category){
+  const c = (category || '').toLowerCase();
+  if(c.includes('strong evidence') || c.includes('best paths')) return 4;
+  if(c.includes('worth exploring') || c.includes('strong alternatives')) return 3;
+  if(c.includes('growth')) return 2;
+  if(c.includes('independent') || c.includes('longer-term')) return 1;
+  if(c.includes('lower interest')) return 2;
+  return 2;
+}
+function classifyPathsIntoTiers(paths){
+  const visible = paths.filter(p => state.pathFeedback[p.title] !== 'not_interested');
+  const buckets = { 'Direct-fit paths': [], 'Adjacent opportunities': [], 'Longer-term possibilities': [] };
+  if(!visible.length) return buckets;
+  const scored = visible.map(path => {
+    const evidence = pathStrengthScore(path.transition || path.fitEvidence);
+    const transfers = Math.min((path.transfers || []).length, 3);
+    const interest = pathStrengthScore(path.fitInterest);
+    const obvious = pathObviousnessScore(path.category);
+    const matchScore = evidence * 2.5 + transfers + interest * 0.75 + obvious;
+    const surpriseScore = (5 - obvious) * 2 + Math.max(0, 4 - evidence) * 0.5 + ((path.category || '').toLowerCase().includes('independent') ? 2 : 0);
+    return { path, matchScore, surpriseScore };
+  });
+  const maxMatch = Math.max(...scored.map(s => s.matchScore), 1);
+  const maxSurprise = Math.max(...scored.map(s => s.surpriseScore), 1);
+  for(const item of scored){
+    const normMatch = item.matchScore / maxMatch;
+    const normSurprise = item.surpriseScore / maxSurprise;
+    if(normSurprise >= 0.68 && normMatch < 0.85){
+      buckets['Longer-term possibilities'].push(item.path);
+    } else if(normMatch >= 0.62){
+      buckets['Direct-fit paths'].push(item.path);
+    } else {
+      buckets['Adjacent opportunities'].push(item.path);
+    }
+  }
+  return buckets;
+}
+function renderPathNoveltyFeedback(title){
+  const fb = state.pathFeedback[title];
+  const capHint = regenCapHintTitle === title
+    ? `<p class="regen-cap-hint" role="status">We've already explored less obvious directions from your story. To surface more, add an experience or tell us more in conversation.</p>`
+    : '';
+  return `<div class="novelty-feedback" role="group" aria-label="Feedback for ${title}">
+    <button type="button" class="novelty-btn ${fb==='known'?'active-known':''}" data-path-feedback="known" data-path-title="${encodeURIComponent(title)}">I already knew this</button>
+    <button type="button" class="novelty-btn ${fb==='new'?'active-new':''}" data-path-feedback="new" data-path-title="${encodeURIComponent(title)}">This is new to me</button>
+    <button type="button" class="novelty-btn ${fb==='not_interested'?'active-not':''}" data-path-feedback="not_interested" data-path-title="${encodeURIComponent(title)}">Not interested</button>
+    ${capHint}
+  </div>`;
+}
+function renderPathCard(p){
+  const sel = state.chosenPath && state.chosenPath.title===p.title;
+  const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
+  return `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
+    <div class="path-title">${p.title}</div>
+    <div class="ph-career-content">
+    ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
+    <div class="path-why">${p.why}</div>
+    ${p.evidenceNote ? `<div class="path-evidence-note">${p.evidenceNote}</div>`:''}
+    ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
+    <div class="path-meta">
+      <div><span class="k">Transfers</span><div class="path-tags">${(p.transfers||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+      <div><span class="k">Still developing</span><div class="path-tags">${(p.gaps||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+      <div><span class="k">Transition</span><div class="${transClass}" style="font-weight:600;">${p.transition}</div></div>
+    </div>
+    <div class="path-meta">
+      <div><span class="k">Work environment</span>${p.workEnvironment||''}</div>
+      <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
+    </div>
+    ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
+      <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'Not rated'}</div>
+      <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'Not rated'}</div>
+      <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'Not rated'}</div>
+    </div>`:''}
+    </div>
+    ${renderPathNoveltyFeedback(p.title)}
+  </div>`;
+}
 function renderPaths(){
   if(state.errorMsg) return renderError();
-  const byCat = {};
-  state.paths.forEach(p=>{ const c = p.category || 'Worth Exploring'; (byCat[c]=byCat[c]||[]).push(p); });
+  const tierBuckets = classifyPathsIntoTiers(state.paths);
   let html = `<div class="wrap-wide"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Career path discovery</div>
-    <h1 style="font-size:34px;">We found ${state.paths.length} career paths you may not have considered.</h1>
-    <p style="max-width:560px;">These are possibilities to explore, not verdicts. Tap one that resonates, or one that doesn't feel like you — you'll get a chance to talk it through next.</p>`;
+    <h1 style="font-size:34px;">We found ${(() => { const n = state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length; return `${n} career path${n === 1 ? '' : 's'}`; })()} grounded in your story.</h1>
+    <p style="max-width:560px;">These are possibilities to explore, not verdicts.${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').length > 1 ? ' Each tier reflects how directly your experience supports the path.' : ' This direction reflects what your story supports most clearly right now.'} Tap one that resonates, or one that does not feel like you.</p>`;
   if(state.reranked && state.changeSummary){
     html += `<div class="change-summary ph-career-content mt-32"><strong>Your recommendations changed.</strong> ${state.changeSummary}</div>`;
   }
-  CATEGORY_ORDER.forEach(cat=>{
-    if(!byCat[cat] || !byCat[cat].length) return;
-    html += `<div class="path-category"><h3>${cat}</h3>`;
-    byCat[cat].forEach(p=>{
-      const sel = state.chosenPath && state.chosenPath.title===p.title;
-      const transClass = 'transition-' + (p.transition||'').replace(/\s+/g,'');
-      html += `<div class="path-card ${sel?'selected':''}" data-path="${encodeURIComponent(p.title)}">
-        <div class="path-title">${p.title}</div>
-        <div class="ph-career-content">
-        ${p.whyChanged ? `<div class="path-changed">${p.whyChanged}</div>`:''}
-        <div class="path-why">${p.why}</div>
-        ${p.entryPoint ? `<div class="sequence-inline"><strong>Entry point:</strong> ${p.entryPoint}${p.progression?` &rarr; <strong>Progression:</strong> ${p.progression}`:''}</div>`:''}
-        <div class="path-meta">
-          <div><span class="k">Transfers</span><div class="path-tags">${(p.transfers||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-          <div><span class="k">Still developing</span><div class="path-tags">${(p.gaps||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-          <div><span class="k">Transition</span><div class="${transClass}" style="font-weight:600;">${p.transition}</div></div>
-        </div>
-        <div class="path-meta">
-          <div><span class="k">Work environment</span>${p.workEnvironment||''}</div>
-          <div><span class="k">Relevant to</span><div class="path-tags">${(p.relevance||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>
-        </div>
-        ${(p.fitEvidence||p.fitInterest)?`<div class="fit-dims">
-          <div class="fit-dim"><span class="k">Evidence</span>${p.fitEvidence||p.transition||'—'}</div>
-          <div class="fit-dim"><span class="k">Interest</span>${p.fitInterest||'—'}</div>
-          <div class="fit-dim"><span class="k">Lifestyle fit</span>${p.fitLifestyle||'—'}</div>
-        </div>`:''}
-        </div>
-      </div>`;
-    });
+  DISCOVERY_TIERS.forEach(tier=>{
+    const paths = tierBuckets[tier];
+    if(!paths || !paths.length) return;
+    html += `<div class="path-tier"><h3>${tier}</h3><p class="tier-desc">${TIER_DESCRIPTIONS[tier]}</p>`;
+    paths.forEach(p => { html += renderPathCard(p); });
     html += `</div>`;
   });
   html += `<div class="mt-40"><button class="btn btn-primary" id="toConvo">Let's Talk About These</button></div></div></div>`;
@@ -2261,7 +2636,7 @@ function renderConversation(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Before you choose</div>
     <h1 style="font-size:32px;">Let's talk about your results.</h1>
-    <p>Anything here surprise you? Anything missing, or not feel like you? Tell me more and I'll refine what I'm seeing — and update your recommendations.</p>
+    <p>Anything here surprise you? Anything missing, or not feel like you? Tell me more and I'll refine what I'm seeing and update your recommendations.</p>
     <div class="convo-log ph-career-content">
       ${state.convo.map(c=>{
         if(c.who==='learned') return renderLearnedCard(c);
@@ -2301,13 +2676,13 @@ function renderChoose(){
     <div class="eyebrow"><span class="dot"></span>Pick a path</div>
     <h1 style="font-size:32px;">Which direction do you want to build toward?</h1>
     <div class="mt-32">
-      ${state.paths.map(p=>{
+      ${state.paths.filter(p => state.pathFeedback[p.title] !== 'not_interested').map(p=>{
         const sel = state.chosenPath && state.chosenPath.title===p.title;
         return `<div class="path-card ${sel?'selected':''}" data-choose="${encodeURIComponent(p.title)}"><div class="path-title">${p.title}</div><div class="path-why ph-career-content">${p.why}</div></div>`;
       }).join('')}
     </div>
     <div class="eyebrow mt-40" style="margin-bottom:6px;"><span class="dot"></span>What matters most to you?</div>
-    <p style="font-size:13.5px;">Pick as many as apply — this shapes your roadmap and sequence, not which path is "correct."</p>
+    <p style="font-size:13.5px;">Pick as many as apply. This shapes your roadmap and sequence, not which path is "correct."</p>
     <div class="priority-grid">
       ${PRIORITIES.map(p=>`<button class="priority-chip ${state.priorities.includes(p)?'active':''}" data-priority="${encodeURIComponent(p)}">${p}</button>`).join('')}
     </div>
@@ -2315,15 +2690,40 @@ function renderChoose(){
   </div></div>`;
 }
 
+/* ============================= EVIDENCE READINESS CHECK ============================= */
+function renderEvidenceCheck(){
+  return `
+  <div class="wrap"><div class="screen">
+    <div class="eyebrow"><span class="dot"></span>Before we build your package</div>
+    <h1 style="font-size:32px;">Give us one concrete example.</h1>
+    <p style="font-size:16px;max-width:620px;">Your paid package should contain usable language, not guesses. Add one real example so iFindWorth can show what you did, how you did it, and what it proves.</p>
+    <div class="evidence-prompt">
+      <h3>You can describe work, business, volunteering, school, caregiving, church, community, or household responsibilities.</h3>
+      <ul>
+        <li>What did you organize, solve, create, manage, or coordinate?</li>
+        <li>Who depended on you, and which tools did you use?</li>
+        <li>What changed, improved, or got completed because of your action?</li>
+      </ul>
+      <textarea class="plain-textarea ph-no-capture" id="evidenceDetailInput" placeholder="Example: I coordinated a school event by tracking dates, contacting vendors, and making sure materials arrived before the event."></textarea>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-primary" id="saveEvidenceDetail">Add This Evidence</button>
+      <button class="btn btn-text" id="skipEvidenceDetail">I already shared enough detail</button>
+    </div>
+    <p id="evidenceDetailError" class="error-box" style="display:none;"></p>
+  </div></div>`;
+}
+
 /* ============================= PAYWALL ============================= */
 function renderPaywall(){
   const strengths = getRetainedStorySkills().filter(s=>s.strength==='Strong' || s.strength==='Moderate').slice(0,5);
-  const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps[0];
+  const gap = state.chosenPath && state.chosenPath.gaps && state.chosenPath.gaps.find(isRespectfulGap);
   const alreadyPaid = state.paymentStatus === 'paid';
   return `
   <div class="wrap"><div class="screen center">
-    <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now let's build the path.</div>
+    <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>You found a direction. Now build your strategy.</div>
     <h1 style="font-size:30px;">${state.chosenPath ? state.chosenPath.title : 'Your next role'}</h1>
+    <p class="paywall-intro">Your experience has value. This package turns it into clear positioning, practical career materials, and a focused plan you can begin using immediately.</p>
 
     <div class="bring-card ph-career-content">
       <h4>What you already bring</h4>
@@ -2333,28 +2733,36 @@ function renderPaywall(){
 
     <div class="paywall-card">
       ${alreadyPaid ? `
-        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Demo Already Unlocked</div>
-        <p style="font-size:14px;">You've already unlocked iFindWorth Starter in this demo — no card required, and you can explore another path without any real payment.</p>
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Starter Already Unlocked</div>
+        <p style="font-size:14px;">You have already unlocked iFindWorth Starter in this private beta preview. No card required. You can explore another path without any real payment.</p>
         <button class="btn btn-primary" id="doCheckout" style="width:100%;">Build My Roadmap for This Path</button>
       ` : `
-        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>MY CAREER PLAN</div>
+        <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Your career intelligence package</div>
+        <div class="paywall-promise">Your experience deserves a real career strategy.</div>
         <div class="amt">$19.99</div>
-        <ul class="unlock-list">
-          <li>Career sequence: Now → Next → Later</li>
-          <li>7 / 30 / 60 / 90-day action plan</li>
-          <li>Full skill-gap plan & learning strategy</li>
-          <li>Resume positioning, never fabricated</li>
-          <li>LinkedIn positioning, multiple strategies</li>
-          <li>Evidence-strengthening prompts</li>
-          <li>Search terms & interview story starters</li>
-          <li>Your personal Command Center dashboard</li>
+        <p class="paywall-subcopy">One purchase gives you a personalized direction, credible positioning, and practical materials built from what you have actually done.</p>
+        <ul class="unlock-list premium">
+          <li><span><strong>Know which roles to pursue</strong>See where your experience fits and why those roles deserve your attention.</span></li>
+          <li><span><strong>Follow a focused 90 day plan</strong>Get clear priorities for your first 7, 30, 60, and 90 days.</span></li>
+          <li><span><strong>Use stronger résumé language</strong>Turn real responsibilities and outcomes into credible, ready to use bullets.</span></li>
+          <li><span><strong>Position yourself on LinkedIn</strong>Communicate your value with a tailored headline and About section.</span></li>
+          <li><span><strong>Prepare memorable interview stories</strong>Build clear examples from situations you have genuinely handled.</span></li>
+          <li><span><strong>Search with greater precision</strong>Use relevant titles, keywords, and adjacent opportunities you may have missed.</span></li>
         </ul>
-        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Demo Unlock My Career Plan</button>
-        <p style="font-size:12.5px;color:var(--ink-faint);margin-top:10px;">Planned one-time price.</p>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">Private beta preview. No card required. No payment will be collected.</p>
+        <button class="btn btn-primary" id="doCheckout" style="width:100%;">Preview My Career Strategy</button>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin-top:12px;">Private beta preview. No card or payment required.</p>
       `}
     </div>
   </div></div>`;
+}
+
+function isRespectfulGap(value){
+  const text = String(value || '').toLowerCase();
+  return text && !/(formal employer|formal title|formal operations|professional setting|traditional employer|independent setting|professional track record)/i.test(text);
+}
+
+function respectfulGaps(){
+  return ((state.chosenPath && state.chosenPath.gaps) || []).filter(isRespectfulGap);
 }
 
 /* ============================= ROADMAP ============================= */
@@ -2374,9 +2782,9 @@ function renderRoadmap(){
   const actionPlanBlock = sections.actionPlan === 'ready' ? `<div class="roadmap-section ph-career-content">
       <h3>Your action plan</h3>
       <div class="ladder-level"><div class="lvl-name">First 7 days</div><ul>${(r.plan.first7||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 8–30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 31–60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
-      <div class="ladder-level"><div class="lvl-name">Days 61–90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 8 to 30</div><ul>${(r.plan.days8to30||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 31 to 60</div><ul>${(r.plan.days31to60||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
+      <div class="ladder-level"><div class="lvl-name">Days 61 to 90</div><ul>${(r.plan.days61to90||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>
     </div>
     <div class="roadmap-section ph-career-content"><h3>Your next best step</h3><p style="color:var(--ink);font-weight:600;">${r.nextStep}</p></div>`
     : renderRoadmapSectionRetry('Your action plan', 'actionPlan', sections.actionPlan, sectionErrors.actionPlan);
@@ -2392,16 +2800,16 @@ function renderRoadmap(){
       ${(r.learn||[]).map(l=>`<div class="ladder-level"><div class="lvl-name">${l.level}</div><ul>${(l.items||[]).map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}
     </div>
     <div class="roadmap-section ph-career-content"><h3>How to position this experience</h3><p style="color:var(--ink);">${r.positioning}</p></div>
-    <div class="roadmap-section ph-career-content"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div></div>`
+    <div class="roadmap-section ph-career-content"><h3>Search terms</h3><div class="path-tags">${(r.searchTerms||[]).map(t=>`<span class="mini-tag">${t}</span>`).join(' ')}</div></div>`
     : renderRoadmapSectionRetry('Your career sequence & learning strategy', 'direction', sections.direction, sectionErrors.direction);
 
   return `
   <div class="wrap"><div class="screen">
-    <div class="eyebrow"><span class="dot"></span>Your roadmap</div>
+    <div class="eyebrow"><span class="dot"></span>Personal career plan</div>
     <h1 style="font-size:32px;">Your Roadmap to ${state.chosenPath.title}</h1>
     <div class="not-zero">You're not starting from zero.</div>
 
-    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your demo unlock is complete — no real payment was collected. Most of your roadmap is ready below — one section needs a retry.</div>` : ''}
+    ${state.roadmapStatus === 'partial' ? `<div class="change-summary mt-32">Your Starter package is unlocked. No real payment was collected. Most of your roadmap is ready below, and one section needs a retry.</div>` : ''}
 
     ${directionBlock}
 
@@ -2429,39 +2837,69 @@ function renderKit(){
   if(state.errorMsg) return renderError();
   const k = state.kit;
   if(!k) return renderAnalyzing();
+  const searchTerms = kitSearchTermsForDisplay();
+  const selectedHeadline = (k.linkedinHeadlines || [])[state.selectedHeadline] || {};
+  const bulletCount = (k.resumeBullets || []).length;
+  const gapCount = (k.resumeBulletGaps || []).length;
   return `
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Application kit</div>
-    <h1 style="font-size:32px;">Positioning your experience.</h1>
-    <p>Built from the experience you shared — nothing invented, no fabricated numbers. Some bullets can be strengthened if you know a detail.</p>
+    <h1 style="font-size:32px;">Your positioning for ${state.chosenPath ? state.chosenPath.title : 'this direction'}.</h1>
+
+    <div class="kit-summary ph-career-content">
+      <h2>What you received</h2>
+      <p>Materials grounded in your story for <strong>${state.chosenPath ? state.chosenPath.title : 'your chosen direction'}</strong>: ${bulletCount ? `${bulletCount} résumé bullet${bulletCount === 1 ? '' : 's'} from distinct experiences` : 'LinkedIn positioning while we gather more concrete examples'}${gapCount ? `, plus ${gapCount} optional strengthen question${gapCount === 1 ? '' : 's'}` : ''}, 3 headline strategies with one selected, and a polished About section.</p>
+    </div>
 
     <div class="kit-block mt-32 ph-career-content">
-      <h3>Resume bullets</h3>
+      <h3>Résumé bullets</h3>
+      <p class="block-lede">Role-relevant lines drawn from specific things you did. No invented numbers or generic filler.</p>
       ${(k.resumeBullets||[]).length ? (k.resumeBullets||[]).map((b,i)=>`
         <div class="bullet-row">
           <p id="bulletText${i}">${typeof b === 'string' ? b : b.text}</p>
           ${b.strengthen ? `
-            <span class="strengthen-link" data-strengthen-open="${i}">Help me strengthen this — ${b.strengthen}</span>
+            <span class="strengthen-link" data-strengthen-open="${i}">Add detail to strengthen this bullet</span>
             <div class="strengthen-box" id="strengthenBox${i}" style="display:none;">
-              <input type="text" class="ph-no-capture" id="strengthenInput${i}" placeholder="Your answer, or leave blank if not sure" ${state.kitBusyIndex===i?'disabled':''} />
-              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'I Know — Update'}</button>
-              <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>I'm Not Sure / Skip</button>
+              <input type="text" class="ph-no-capture" id="strengthenInput${i}" placeholder="One concrete detail, e.g. how many, how often, or what changed" ${state.kitBusyIndex===i?'disabled':''} />
+              <button class="btn btn-primary btn-sm" data-strengthen-submit="${i}" ${state.kitBusyIndex!==null?'disabled':''}>${state.kitBusyIndex===i?'Updating…':'Update with detail'}</button>
+              <button class="btn btn-text btn-sm" data-strengthen-skip="${i}" ${state.kitBusyIndex!==null?'disabled':''}>Skip for now</button>
             </div>` : ''}
-        </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you've actually done before we can write evidence-based resume bullets.</p>`}
+        </div>`).join('') : `<p style="font-size:14px;color:var(--ink-soft);">We need a little more detail about what you have actually done before we can write evidence-based résumé bullets. Your LinkedIn materials below are still useful.</p>`}
+      ${(k.resumeBulletGaps||[]).map(g=>`<div class="strengthen-gap"><strong>Optional:</strong> ${g.strengthen}</div>`).join('')}
+      <div class="kit-actions"><button class="btn btn-ghost btn-sm" data-copy-kit="resume">Copy résumé bullets</button></div>
     </div>
 
     <div class="kit-block ph-career-content">
-      <h3>LinkedIn headline — choose a strategy</h3>
+      <h3>LinkedIn headline options</h3>
+      <p class="block-lede">Three strategies for the same direction. Tap to select the one you will use.</p>
       ${(k.linkedinHeadlines||[]).map((h,i)=>`
-        <div class="headline-option ${state.selectedHeadline===i?'selected':''}" data-headline="${i}">
+        <div class="headline-option ${state.selectedHeadline===i?'selected':''}" data-headline="${i}" tabindex="0" role="button" aria-pressed="${state.selectedHeadline===i}">
+          <span class="selected-badge">Selected headline</span>
           <div class="style-lbl">${h.style}</div>
           <div class="text">${h.text}</div>
         </div>`).join('')}
+      <div class="kit-actions"><button class="btn btn-ghost btn-sm" data-copy-kit="headline">Copy selected headline</button></div>
     </div>
 
-    <div class="kit-block ph-career-content"><h3>LinkedIn about</h3><p>${k.linkedinAbout||''}</p></div>
+    <div class="kit-block ph-career-content"><h3>LinkedIn About</h3>
+      <p class="block-lede">Grounded in your experience, connected to ${state.chosenPath ? state.chosenPath.title : 'your target direction'}.</p>
+      <p id="linkedinAboutText">${k.linkedinAbout||''}</p>
+      <div class="kit-actions">
+        <button class="btn btn-ghost btn-sm" data-copy-kit="about">Copy About section</button>
+        <button class="btn btn-ghost btn-sm" id="editLinkedinAbout">Edit</button>
+      </div>
+    </div>
 
-    <div class="mt-40"><button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button></div>
+    ${searchTerms.length ? `<div class="kit-block ph-career-content"><h3>Search terms for this direction</h3>
+      <p class="block-lede">Use these as separate job title searches on LinkedIn or job boards.</p>
+      <div class="search-terms-row">${searchTerms.map(t=>`<span class="search-term-tag">${t}</span>`).join('')}</div>
+    </div>` : ''}
+    <div class="copy-status" id="copyStatus" aria-live="polite"></div>
+    <div class="mt-40" style="display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="toDashboard">Go to My Dashboard</button>
+      <button class="btn btn-ghost" id="downloadKit">Download My Kit</button>
+      <button class="btn btn-text" id="regenerateKit">Regenerate</button>
+    </div>
   </div></div>`;
 }
 
@@ -2477,7 +2915,7 @@ function renderDashboard(){
 
     <div class="dash-grid two-col mt-32">
       <div class="dash-card ph-career-content"><h3>Where you're going</h3>
-        <p style="font-family:var(--serif);font-size:19px;margin:0 0 10px;">${state.chosenPath ? state.chosenPath.title : '—'}</p>
+        <p style="font-family:var(--serif);font-size:19px;margin:0 0 10px;">${state.chosenPath ? state.chosenPath.title : 'Not selected'}</p>
         ${r && r.sequence ? `<div style="font-size:13px;color:var(--ink-soft);">${r.sequence.now.title} &rarr; ${r.sequence.next.title} &rarr; ${r.sequence.later.title}</div>`:''}
       </div>
       <div class="dash-card next-step-card ph-career-content"><h3>What should I do next</h3><p class="big">${r ? r.nextStep : 'Unlock your roadmap to see your next step.'}</p></div>
@@ -2492,16 +2930,16 @@ function renderDashboard(){
     </div>
 
     <div class="dash-grid two-col">
-      <div class="dash-card ph-career-content"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet — mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
-      <div class="dash-card ph-career-content"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">—</span>'}</div></div>
+      <div class="dash-card ph-career-content"><h3>Confirmed by you</h3><div class="path-tags">${confirmedSkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None confirmed yet. Mark skills as "Yes, that\'s right" on the skills screen.</span>'}</div></div>
+      <div class="dash-card ph-career-content"><h3>Skills from your story</h3><div class="path-tags">${unconfirmedStorySkillNames.map(s=>`<span class="mini-tag">${s}</span>`).join('') || '<span style="font-size:13px;color:var(--ink-faint);">None yet</span>'}</div></div>
     </div>
 
     <div class="dash-card mt-16 ph-career-content"><h3>Evidence library</h3>
-      ${state.evidenceLibrary.map(e=>`<div class="evidence-lib-card"><span class="theme">${e.theme}</span> — ${e.evidence}</div>`).join('') || '<p style="font-size:13px;">Build your kit to populate your evidence library.</p>'}
+      ${state.evidenceLibrary.map(e=>`<div class="evidence-lib-card"><span class="theme">${e.theme}</span>: ${e.evidence}</div>`).join('') || '<p style="font-size:13px;">Build your kit to populate your evidence library.</p>'}
     </div>
 
     <div class="dash-card mt-16"><h3>Your application kit</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from the experience you shared — nothing invented.</p>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:0;">Resume bullets, LinkedIn positioning, and interview stories built from the experience you shared, nothing invented.</p>
       <div class="tool-row">
         <button class="btn btn-ghost btn-sm" id="backToKit">View Resume & LinkedIn</button>
         <button class="btn btn-ghost btn-sm" id="openStoryBank">Interview Story Bank</button>
@@ -2529,7 +2967,7 @@ function renderAddExperience(){
   return `${subHeader('Add another experience')}
   <div class="wrap"><div class="screen">
     <h1 style="font-size:30px;">What else have you done?</h1>
-    <p style="max-width:500px;">Another job, a side hustle, a volunteer role, a school project, freelance work — anything you didn't mention before.</p>
+    <p style="max-width:500px;">Another job, a side hustle, a volunteer role, a school project, freelance work, anything you didn't mention before.</p>
     <div class="intake-card mt-32"><textarea class="plain-textarea ph-no-capture" id="addExpInput" placeholder="Tell me about it...">${state.addExpText}</textarea></div>
     <div class="mt-32" style="display:flex;gap:14px;">
       <button class="btn btn-primary" id="submitAddExp">Update My Profile</button>
@@ -2546,13 +2984,13 @@ function renderStoryBank(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Interview prep</div>
     <h1 style="font-size:30px;">My Story Bank</h1>
-    <p>Interview-ready stories, built from the experience you shared — nothing invented.</p>
+    <p>Interview-ready stories, built from the experience you shared, nothing invented.</p>
     <div class="mt-32 ph-career-content">
       ${state.storyBank.stories.map((s,i)=>`
         <div class="story-card">
           <h4>${s.category}</h4>
           ${s.status==='ready' ? `<p style="font-size:14.5px;">${s.story}</p>` : `
-            <div class="status-need">Not enough evidence yet — ${s.prompt || 'tell me more?'}</div>
+            <div class="status-need">Not enough evidence yet: ${s.prompt || 'tell me more?'}</div>
             <div class="story-add-row">
               <input type="text" class="ph-no-capture" id="storyDetail${i}" placeholder="Add a detail..." ${state.storyBankBusyIndex===i?'disabled':''} />
               <button class="btn btn-primary btn-sm" data-story-add="${i}" ${state.storyBankBusyIndex!==null?'disabled':''}>${state.storyBankBusyIndex===i?'Adding…':'Add'}</button>
@@ -2570,7 +3008,7 @@ function renderJdAnalyzer(){
   <div class="wrap"><div class="screen">
     <div class="eyebrow"><span class="dot"></span>Job match analysis</div>
     <h1 style="font-size:30px;">Analyze a job description.</h1>
-    <p style="max-width:520px;">Paste a real job posting. We'll compare it against skills from your story — based only on the text you paste, not live market data.</p>
+    <p style="max-width:520px;">Paste a real job posting. We'll compare it against skills from your story, based only on the text you paste, not live market data.</p>
     <div class="intake-card mt-32"><textarea class="plain-textarea ph-no-capture" id="jdInput" placeholder="Paste the job description here...">${state.jdText}</textarea></div>
     <div class="mt-32"><button class="btn btn-primary" id="submitJd">Analyze Against My Profile</button></div>
 
@@ -2618,6 +3056,7 @@ function attachHandlers(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       document.querySelector('.wordcount').textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      updateIntakePromptHelper();
       saveProfileToStorage(state);
     });
   }
@@ -2632,6 +3071,8 @@ function attachHandlers(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       document.querySelector('.wordcount').textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      updateIntakePromptHelper();
+      saveProfileToStorage(state);
     });
   });
   const micBtn = document.getElementById('micBtn'); if(micBtn) micBtn.addEventListener('click', toggleVoice);
@@ -2650,17 +3091,24 @@ function attachHandlers(){
 
   // paths
   document.querySelectorAll('[data-path]').forEach(el=>{
-    el.addEventListener('click', ()=>{
+    el.addEventListener('click', (e)=>{
+      if(e.target.closest('[data-path-feedback]')) return;
       const title = decodeURIComponent(el.getAttribute('data-path'));
       const p = state.paths.find(p=>p.title===title);
       state.chosenPath = (state.chosenPath && state.chosenPath.title===title) ? null : p;
       render();
     });
   });
+  document.querySelectorAll('[data-path-feedback]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      handlePathFeedback(decodeURIComponent(el.getAttribute('data-path-title')), el.getAttribute('data-path-feedback'));
+    });
+  });
   const toConvo = document.getElementById('toConvo');
   if(toConvo) toConvo.addEventListener('click', ()=>{
     if(!state.convo.length){
-      state.convo.push({who:'ai', text: "I've laid out the paths I found strongest evidence for first, then a few worth exploring. What's your first reaction — does anything surprise you, or feel off?"});
+      state.convo.push({who:'ai', text: "I grouped paths by how directly your story supports them: direct-fit first, then adjacent options, then longer-term possibilities. What is your first reaction? Does anything surprise you, or feel off?"});
     }
     state.screen = 'conversation'; render();
   });
@@ -2694,7 +3142,13 @@ function attachHandlers(){
       render();
     });
   });
-  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', ()=>{ state.screen='paywall'; render(); });
+  const toPaywall = document.getElementById('toPaywall'); if(toPaywall) toPaywall.addEventListener('click', routeToEvidenceStep);
+
+  // evidence readiness check
+  const saveEvidenceDetail = document.getElementById('saveEvidenceDetail');
+  if(saveEvidenceDetail) saveEvidenceDetail.addEventListener('click', ()=>continueEvidenceCheck(true));
+  const skipEvidenceDetail = document.getElementById('skipEvidenceDetail');
+  if(skipEvidenceDetail) skipEvidenceDetail.addEventListener('click', ()=>continueEvidenceCheck(false));
 
   // paywall
   const doCheckout = document.getElementById('doCheckout');
@@ -2713,7 +3167,9 @@ function attachHandlers(){
   // kit
   const toDashboard = document.getElementById('toDashboard'); if(toDashboard) toDashboard.addEventListener('click', ()=>{ state.screen='dashboard'; render(); });
   document.querySelectorAll('[data-headline]').forEach(el=>{
-    el.addEventListener('click', ()=>{ state.selectedHeadline = parseInt(el.getAttribute('data-headline'),10); render(); });
+    const selectHeadline = ()=>{ state.selectedHeadline = parseInt(el.getAttribute('data-headline'),10); render(); };
+    el.addEventListener('click', selectHeadline);
+    el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); selectHeadline(); } });
   });
   document.querySelectorAll('[data-strengthen-open]').forEach(el=>{
     el.addEventListener('click', ()=>{
@@ -2732,6 +3188,13 @@ function attachHandlers(){
       if(box) box.style.display = 'none';
     });
   });
+  document.querySelectorAll('[data-copy-kit]').forEach(el=>{
+    el.addEventListener('click', ()=>copyKitSection(el.getAttribute('data-copy-kit')));
+  });
+  const editLinkedinAbout = document.getElementById('editLinkedinAbout');
+  if(editLinkedinAbout) editLinkedinAbout.addEventListener('click', editAboutSection);
+  const downloadKit = document.getElementById('downloadKit'); if(downloadKit) downloadKit.addEventListener('click', downloadApplicationKit);
+  const regenerateKit = document.getElementById('regenerateKit'); if(regenerateKit) regenerateKit.addEventListener('click', buildKit);
 
   // dashboard
   const backToKit = document.getElementById('backToKit'); if(backToKit) backToKit.addEventListener('click', ()=>{ state.screen='kit'; render(); });
@@ -2764,6 +3227,74 @@ function attachHandlers(){
   if(retryBtn) retryBtn.addEventListener('click', ()=>{ const retry = state.errorRetry; state.errorMsg=''; state.errorRetry=null; state.errorRetryLabel=null; if(retry) retry(); });
 }
 
+function kitSectionText(section){
+  if(!state.kit) return '';
+  if(section === 'resume') return (state.kit.resumeBullets||[]).map(b=>`• ${typeof b === 'string' ? b : b.text}`).join('\n');
+  if(section === 'headline') return ((state.kit.linkedinHeadlines||[])[state.selectedHeadline]||{}).text || '';
+  if(section === 'about') return state.kit.linkedinAbout || '';
+  return '';
+}
+
+async function copyKitSection(section){
+  const text = kitSectionText(section);
+  const status = document.getElementById('copyStatus');
+  if(!text){ if(status) status.textContent = 'Nothing to copy yet.'; return; }
+  try{
+    await navigator.clipboard.writeText(text);
+    if(status) status.textContent = 'Copied to clipboard.';
+  }catch(e){
+    if(status) status.textContent = 'Copy was blocked by the browser. Select the text and copy manually.';
+  }
+}
+
+function editAboutSection(){
+  const about = document.getElementById('linkedinAboutText');
+  const button = document.getElementById('editLinkedinAbout');
+  if(!about || !button) return;
+  const editing = about.getAttribute('contenteditable') === 'true';
+  if(editing){
+    state.kit.linkedinAbout = about.textContent.trim();
+    about.setAttribute('contenteditable','false');
+    button.textContent = 'Edit';
+    saveProfileToStorage(state);
+  }else{
+    about.setAttribute('contenteditable','true');
+    about.focus();
+    button.textContent = 'Save edit';
+  }
+}
+
+function downloadApplicationKit(){
+  if(!state.kit) return;
+  const headline = kitSectionText('headline');
+  const allHeadlines = (state.kit.linkedinHeadlines||[]).map((h,i)=>`${i===state.selectedHeadline ? 'SELECTED: ' : ''}${h.style}\n${h.text}`).join('\n\n');
+  const strengthen = (state.kit.resumeBullets||[]).filter(b=>b && typeof b==='object' && b.strengthen).map(b=>`• ${b.strengthen}`).join('\n');
+  const gapQuestions = (state.kit.resumeBulletGaps||[]).map(g=>`• ${g.strengthen}`).join('\n');
+  const searchTerms = kitSearchTermsForDisplay().map(t=>`• ${t}`).join('\n');
+  const text = `iFindWorth Application Kit\n\nTARGET DIRECTION\n${state.chosenPath ? state.chosenPath.title : ''}\n\nRÉSUMÉ BULLETS\n${kitSectionText('resume') || '(None yet — add more concrete examples to your story)'}\n${strengthen ? `\n\nOPTIONAL DETAIL PROMPTS\n${strengthen}` : ''}${gapQuestions ? `\n\nADDITIONAL STRENGTHEN QUESTIONS\n${gapQuestions}` : ''}\n\nLINKEDIN HEADLINE OPTIONS\n${allHeadlines}\n\nSELECTED LINKEDIN HEADLINE\n${headline}\n\nLINKEDIN ABOUT\n${kitSectionText('about')}\n${searchTerms ? `\n\nSEARCH TERMS FOR THIS DIRECTION\n${searchTerms}` : ''}\n`;
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'iFindWorth-Application-Kit.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function routeToEvidenceStep(){
+  try{
+    const { gateRetainedEvidence } = await loadEvidenceGate();
+    const gate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
+    const concreteCount = (gate && gate.concretePastActions ? gate.concretePastActions.length : 0);
+    state.screen = concreteCount >= 3 ? 'paywall' : 'evidenceCheck';
+  }catch(e){
+    state.screen = 'evidenceCheck';
+  }
+  render();
+}
+
 /* ============================= VOICE INPUT ============================= */
 let recognition = null;
 function toggleVoice(){
@@ -2788,6 +3319,7 @@ function toggleVoice(){
       const wc = state.story.trim() ? state.story.trim().split(/\s+/).length : 0;
       const wcEl = document.querySelector('.wordcount'); if(wcEl) wcEl.textContent = wc + ' words';
       const btn = document.getElementById('submitStory'); if(btn) btn.disabled = wc < 8;
+      updateIntakePromptHelper();
     }
   };
   recognition.onerror = ()=>{
@@ -2813,7 +3345,7 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     state.screen = 'skills';
   }catch(err){
     logDiag('analyzeSkills', 'final_failure', err.message || String(err));
-    state.errorMsg = "We couldn't analyze your story just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't analyze your story just now. Nothing was lost. You can try again.";
     state.errorRetry = analyzeSkills; state.screen = 'skills';
   }finally{
     state.busy = false; render();
@@ -2822,55 +3354,117 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
 
 async function discoverPaths(){
   if(state.busy) return;
+
+  const myGen = ++state.pathsDiscoveryGeneration;
   state.busy = true;
-  state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; render();
+  state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; state.errorRetry=null; render();
+
+  const isActive = () => myGen === state.pathsDiscoveryGeneration;
+  let copyTimer = null;
+  let timeoutTimer = null;
+  let timedOut = false;
+
+  function clearDiscoverPathsTimers(){
+    if(copyTimer != null){ clearTimeout(copyTimer); copyTimer = null; }
+    if(timeoutTimer != null){ clearTimeout(timeoutTimer); timeoutTimer = null; }
+  }
+
+  copyTimer = setTimeout(() => {
+    if(!isActive() || timedOut) return;
+    state.loadingMsg = DISCOVER_PATHS_COPY_MESSAGE;
+    render();
+  }, DISCOVER_PATHS_COPY_DELAY_MS);
+
+  timeoutTimer = setTimeout(() => {
+    if(!isActive() || timedOut) return;
+    timedOut = true;
+    invalidateDiscoverPathsGeneration(myGen, () => state.pathsDiscoveryGeneration, (g) => { state.pathsDiscoveryGeneration = g; });
+    logDiag('discoverPaths', 'timeout', `exceeded ${DISCOVER_PATHS_TIMEOUT_MS}ms`);
+    state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
+    state.errorRetry = discoverPaths;
+    state.loadingMsg = '';
+    state.screen = 'paths';
+    if(shouldClearDiscoverPathsBusy(myGen, state.pathsDiscoveryGeneration)) state.busy = false;
+    clearDiscoverPathsTimers();
+    render();
+  }, DISCOVER_PATHS_TIMEOUT_MS);
+
+  // Macrotask yield: cached dynamic imports resolve in microtasks without
+  // processing setTimeout callbacks; prep through prompt build can run in the
+  // same turn and starve the 30s/90s watchdog until the API call yields.
+  await yieldToMainThread();
+  if(!isActive() || timedOut) return;
+
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
-  const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
+
+  try{
+    const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+    const pathValidation = await loadPathValidation();
+    if(!isActive() || timedOut) throw new DiscoverPathsStaleError();
+    await yieldToMainThread();
+    if(!isActive() || timedOut) throw new DiscoverPathsStaleError();
+    const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+    const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+    const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds);
+    const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+    const system = `You are the career path engine inside iFindWorth. Given a user's story and retained story skills, generate realistic career path options.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Rules:
-1) Return 4 to 5 high-quality paths (quality over quantity) across categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path". Aim to cover: the strongest employment path, one strong alternative, one growth direction, and one independent/freelance/entrepreneurship path when plausible. A 5th path is fine only if it adds real variety.
+1) Path count rule: follow the EVIDENCE-SUPPORTED PATH COUNT block in the user message for the target range. Return only that many distinct paths — never pad beyond what evidence supports. Do not create filler paths or near-duplicate titles to satisfy a number. When evidence supports them, prefer direct-fit, adjacent, and longer-term directions. Categories (use exact strings): "Strong Evidence", "Worth Exploring", "Growth Path", "Independent Path".
 2) Never say someone is unqualified — note what's uncertain instead.
 3) Career-level calibration: for each path give an entryPoint (realistic first title, max 5 words) and a progression (next-level title, max 5 words) rather than one senior title.
 4) Do not use unverified market-hype claims (e.g. "rare", "in high demand") unless the user's own text supports it. Prefer neutral evidence-based language.
 5) transfers must ONLY use skill names copied exactly from the "Retained story skills" list below — never a rejected skill, never a skill you infer independently from the story, never a paraphrase.
 6) workEnvironment describes the day-to-day nature of the role (pace, team structure, desk-based vs. hands-on) — never state or imply remote/hybrid/on-site availability, since that varies by employer and is not something you can verify. Keep it to a few words.
-7) title = the entryPoint; why max 18 words, evidence-based, no filler; transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
-  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`;
-  try{
-    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, validatePathsResult, normalizePathsResult, PATHS_REPAIR_HINT);
-    let paths = result.paths;
-    // Defense-in-depth (runs on a repaired result exactly the same as a first-try
-    // one — no shortcut around these checks either way): strip any rejected
-    // skill from transfers and scrub rejected-skill mentions out of freeform
-    // reasoning text before this ever reaches the UI.
-    paths = paths.map(p => ({
+7) title = the entryPoint; why max 18 words, evidence-based, citing a specific story-supported skill or action (never generic filler); transfers = 2-3 exact names from the retained story skills list; gaps = 1-2 short phrases (max 5 words); transition is REQUIRED on every single path and must be exactly one of "Strong" | "Moderate" | "Developing" | "Needs More Information" — never omit it, and never leave it blank. fitEvidence is optional and, if included, uses the same four values. Do NOT generate interest or lifestyle fit — the user hasn't given preference data yet, so those are filled in later (after the results conversation and reranking), not here. Keep every field concise. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.
+8) Discovery balance: include at least one Strong or Moderate direct-fit path even when familiar. Include adjacent or less-obvious paths only when retained skills support them. Do not return only paths the user already named when evidence supports other occupational families — but if evidence genuinely supports only the named direction, return the strongest evidence-based path(s) for that direction without inventing unrelated alternatives. Reject near-duplicate job titles (e.g. "Administrative Coordinator" vs "Senior Administrative Coordinator") unless entry points and evidence differ meaningfully. No random novelty, exaggerated titles, unsupported salary claims, or fabricated qualifications.${rejectedSkillsClause()}`;
+    const userPrompt = pathValidation.appendEvidencePathCountBlock(
+      `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}`,
+      pathCountRule
+    );
+    const tierProgressFn = (tier) => {
+      if(!isActive() || timedOut) return;
+      if(tier === 'reshape' || tier === 'repair'){
+        state.loadingMsg = DISCOVER_PATHS_COPY_MESSAGE;
+        render();
+      }
+    };
+    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, undefined, tierProgressFn);
+    if(!isActive()) throw new DiscoverPathsStaleError();
+    let nextPaths = result.paths;
+    nextPaths = pathValidation.enforcePathDiscoveryBalance(nextPaths, fullStoryText(), retainedStorySkills, evidenceGate);
+    nextPaths = pathValidation.annotatePathsWithEvidenceNotes(nextPaths, fullStoryText(), retainedStorySkills);
+    nextPaths = nextPaths.map(p => ({
       ...p,
       transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
-      // Filled in client-side, not generated: no preference data exists yet
-      // at this point in the flow, so there's nothing real to compute here —
-      // rerankPaths() replaces these with real values once the user has told
-      // us something. Setting them now (rather than asking the model to) is
-      // both more honest and saves the exact output budget that was causing
-      // the truncation this fix addresses.
       fitInterest: 'Needs More Information',
       fitLifestyle: 'Needs More Information',
     }));
-    paths = purgeRejectedFromObject(paths, rejected);
+    const paths = purgeRejectedFromObject(nextPaths, rejected);
+    if(!isActive() || timedOut) return;
     state.paths = paths;
+    state.pathFeedback = {};
+    state.pathRegenerationCount = 0;
+    regenCapHintTitle = null;
     state.reranked = false; state.changeSummary='';
+    state.loadingMsg = '';
     state.screen = 'paths';
   }catch(err){
+    if(err instanceof DiscoverPathsStaleError) return;
+    if(!isActive() || timedOut) return;
+    invalidateDiscoverPathsGeneration(myGen, () => state.pathsDiscoveryGeneration, (g) => { state.pathsDiscoveryGeneration = g; });
     logDiag('discoverPaths', 'final_failure', err.message || String(err));
-    state.errorMsg = "We couldn't map career paths just now. Nothing was lost — you can try again.";
-    state.errorRetry = discoverPaths; state.screen = 'paths';
+    state.errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
+    state.errorRetry = discoverPaths;
+    state.loadingMsg = '';
+    state.screen = 'paths';
   }finally{
-    state.busy = false; render();
+    if(!timedOut) clearDiscoverPathsTimers();
+    if(!timedOut && shouldClearDiscoverPathsBusy(myGen, state.pathsDiscoveryGeneration)) state.busy = false;
+    if(!timedOut) render();
   }
 }
 
@@ -2904,7 +3498,7 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
     // after one retry) shows the "couldn't process" message — a usable reply
     // never reaches this branch.
     logDiag('sendConvo', 'final_failure', err.message || String(err));
-    state.convo.push({who:'ai', text: "I couldn't process that just now — want to try rephrasing, or continue to choosing a direction?"});
+    state.convo.push({who:'ai', text: "I couldn't process that just now. Want to try rephrasing, or continue to choosing a direction?"});
     state.convoBusy = false; render();
     const focusInput = document.getElementById('convoInput'); if(focusInput) focusInput.focus();
     return;
@@ -2939,6 +3533,103 @@ Reply in 2-4 sentences of plain text only — no markdown, no JSON, no preamble,
   }
 }
 
+function handlePathFeedback(title, feedback){
+  if(!title || !feedback) return;
+  const prev = state.pathFeedback[title];
+  const togglingOff = prev === feedback;
+  state.pathFeedback[title] = togglingOff ? undefined : feedback;
+  if(feedback === 'not_interested'){
+    const dislikeLabel = `Not interested in ${title}`;
+    if(togglingOff){
+      state.preferences.dislikes = state.preferences.dislikes.filter(d => d !== dislikeLabel);
+    } else {
+      if(!state.preferences.dislikes.includes(dislikeLabel)) state.preferences.dislikes.push(dislikeLabel);
+      if(state.chosenPath && state.chosenPath.title === title) state.chosenPath = null;
+    }
+  }
+  saveProfileToStorage(state);
+  if(feedback === 'known' && state.pathFeedback[title] === 'known'){
+    if(state.pathRegenerationCount < 2 && !state.busy){
+      regenCapHintTitle = null;
+      regenerateLessObviousPaths();
+      return;
+    }
+    if(state.pathRegenerationCount >= 2){
+      regenCapHintTitle = title;
+    }
+  } else if(regenCapHintTitle === title){
+    regenCapHintTitle = null;
+  }
+  render();
+}
+
+async function regenerateLessObviousPaths(){
+  if(state.busy) return;
+  if(state.pathRegenerationCount >= 2) return;
+  state.busy = true;
+  const priorPaths = state.paths;
+  const knownTitles = Object.entries(state.pathFeedback).filter(([,v]) => v === 'known').map(([t]) => t);
+  const notInterested = Object.entries(state.pathFeedback).filter(([,v]) => v === 'not_interested').map(([t]) => t);
+  state.pathRegenerationCount++;
+  state.screen = 'analyzing'; state.loadingMsg = 'Finding less obvious directions…'; state.errorMsg=''; render();
+  const retainedStorySkills = getRetainedStorySkills();
+  const rejected = getRejectedSkillNames();
+  const retainedSkillNames = retainedStorySkills.map(s=>s.name);
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+  const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds, { mode: 'lessObvious' });
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed career paths and marked some as "already knew" — meaning those directions felt too obvious. Regenerate DIFFERENT evidence-supported career path options that are less obvious but still honestly supported by retained story skills.
+${NO_INVENTION_RULE}
+${VERIFIED_INFO_RULE}
+Critical rules for this regeneration:
+1) Path count rule: follow the EVIDENCE-SUPPORTED PATH COUNT block in the user message for the target range. Return only that many distinct paths — never pad beyond what evidence supports.
+2) Introduce DIFFERENT path titles — do NOT return the same titles the user already saw unless absolutely unavoidable. This is NOT a reorder — it is new candidate generation.
+3) Prioritize paths with moderate/developing evidence fit that still have real story support — adjacent and unexpected directions over the most literal match.
+4) Evidence still governs: never inflate fit because the user wants surprise. Preference never overrides evidence.
+5) Omit paths the user marked as not interested: ${notInterested.join(', ') || 'none'}.
+6) Avoid paths the user already knew (too obvious): ${knownTitles.join(', ') || 'none'} — replace with genuinely different directions.
+7) Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+8) transfers must ONLY use skill names from Retained story skills. transition required on every path. fitInterest and fitLifestyle required.
+9) changeSummary (max 25 words): explain that less obvious, still evidence-supported directions were surfaced.${rejectedSkillsClause()}`;
+  const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
+  const userPrompt = pathValidation.appendEvidencePathCountBlock(
+    `User's story:\n${filteredStoryContext}\n\nRetained story skills:\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (DO NOT repeat these titles — generate different ones):\n${JSON.stringify(compactPrior)}\n\nPaths user already knew (too obvious): ${knownTitles.join(', ') || 'none'}\nPaths user is not interested in: ${notInterested.join(', ') || 'none'}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}`,
+    pathCountRule
+  );
+  try{
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    let paths = result.paths.map(p => ({
+      ...p,
+      transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
+    }));
+    paths = purgeRejectedFromObject(paths, rejected);
+    const priorTitleSet = new Set(priorPaths.map(p => p.title));
+    const newTitleCount = paths.filter(p => !priorTitleSet.has(p.title)).length;
+    if(newTitleCount === 0){
+      state.pathRegenerationCount = Math.max(0, state.pathRegenerationCount - 1);
+    }
+    state.paths = paths;
+    state.changeSummary = purgeRejectedMentions(result.changeSummary, rejected);
+    state.reranked = true;
+    if (state.chosenPath && !paths.some(p => p.title === state.chosenPath.title)) {
+      state.chosenPath = null;
+    }
+    state.screen = 'paths';
+    saveProfileToStorage(state);
+  }catch(err){
+    logDiag('regenerateLessObviousPaths', 'final_failure', err.message || String(err));
+    state.paths = priorPaths;
+    state.pathRegenerationCount = Math.max(0, state.pathRegenerationCount - 1);
+    state.errorMsg = "We couldn't surface less obvious directions just now. Nothing was lost. You can try again.";
+    state.errorRetry = regenerateLessObviousPaths; state.screen = 'paths';
+  }finally{
+    state.busy = false; render();
+  }
+}
+
 async function refinePaths(){
   if(state.busy) return;
   state.busy = true;
@@ -2947,7 +3638,13 @@ async function refinePaths(){
   const retainedStorySkills = getRetainedStorySkills();
   const rejected = getRejectedSkillNames();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
-  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of 4-5 realistic career path options. You MAY introduce new paths and you do NOT need to keep every original path.
+  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
+  const pathValidation = await loadPathValidation();
+  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
+  const pathBounds = pathValidation.getEvidencePathBounds(fullStoryText(), retainedStorySkills, evidenceGate);
+  const pathCountRule = pathValidation.formatEvidencePathCountInstruction(pathBounds, { mode: 'refinement' });
+  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
+  const system = `You are the career path refinement engine inside iFindWorth. The user reviewed initial career paths and stated what they want more and less of. Regenerate a fresh set of evidence-supported career path options based on preferences. You MAY introduce new paths and you do NOT need to keep every original path.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
 Keep these dimensions separate:
@@ -2957,7 +3654,7 @@ Keep these dimensions separate:
 - gaps: honest development areas still to strengthen (short phrases).
 
 Refinement rules:
-1) Return 4-5 paths. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
+1) Path count rule: follow the EVIDENCE-SUPPORTED PATH COUNT block in the user message for the target range. Return only that many distinct paths — never pad beyond what evidence supports. Do not create filler paths or near-duplicate titles to satisfy a number. Each category MUST be exactly one of: "Best Paths to Explore First", "Strong Alternatives", "Growth Directions", "Longer-Term / Independent Paths", "Lower Interest Based on What You Told Us".
 2) You MAY introduce NEW paths when retained story skills reasonably support them AND stated interests make them relevant.
 3) You MAY omit original paths the user explicitly rejected. If kept, place rejected directions in "Lower Interest Based on What You Told Us" — never in "Best Paths to Explore First" or "Strong Alternatives".
 4) transfers must ONLY use skill names copied exactly from the Retained story skills list below — never rejected skills, never names inferred only from preferences.
@@ -2967,12 +3664,12 @@ Refinement rules:
 8) User interest is NOT evidence. Use ONLY the provenance-filtered story evidence below — never infer careers from excluded rejected-only evidence.${rejectedSkillsClause()}`;
   const compactPrior = priorPaths.map(p => ({ title: p.title, category: p.category, why: p.why, transfers: p.transfers }));
   const convoPrefs = state.convo.filter(c => c.who === 'user').map(c => c.text).join('\n');
-  const { gateRetainedEvidence, formatDownstreamStoryForPaths } = await loadEvidenceGate();
-  const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const filteredStoryContext = formatDownstreamStoryForPaths(evidenceGate);
-  const userPrompt = `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`;
+  const userPrompt = pathValidation.appendEvidencePathCountBlock(
+    `User's story:\n${filteredStoryContext}\n\nRetained story skills (supported by the user's story — the only names allowed in "transfers"):\n${skillsSummaryStr(retainedStorySkills)}\n\nPrevious paths shown (context — may replace, omit, or re-rank):\n${JSON.stringify(compactPrior)}\n\nStated interests: ${state.preferences.interests.join(', ') || 'none yet'}\nStated dislikes: ${state.preferences.dislikes.join(', ') || 'none yet'}\nPriorities: ${state.priorities.join(', ') || 'not specified yet'}\n\nPreference messages from conversation:\n${convoPrefs || 'none'}`,
+    pathCountRule
+  );
   try{
-    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, validateRefinePathsResult, normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
+    const result = await callStructured('refinePaths', system, userPrompt, refinePathsTool, TOKEN_BUDGETS.paths, (r)=>validateRefinePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizeRefinePathsResult, REFINE_PATHS_REPAIR_HINT);
     let paths = result.paths.map(p => ({
       ...p,
       transfers: filterToValidatedNames(p.transfers, retainedSkillNames),
@@ -2988,7 +3685,7 @@ Refinement rules:
   }catch(err){
     logDiag('refinePaths', 'final_failure', err.message || String(err));
     state.paths = priorPaths;
-    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost. You can try again.";
     state.errorRetry = refinePaths; state.screen = 'paths';
   }finally{
     state.busy = false; render();
@@ -3034,7 +3731,7 @@ Rules:
     state.screen = 'paths';
   }catch(err){
     logDiag('rerankPaths', 'final_failure', err.message || String(err));
-    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost — you can try again.";
+    state.errorMsg = "We couldn't update your recommendations just now. Nothing was lost. You can try again.";
     state.errorRetry = rerankPaths; state.screen = 'paths';
   }finally{
     state.busy = false; render();
@@ -3048,6 +3745,35 @@ Rules:
 // "checkout" or touch paymentStatus a second time; it just makes sure
 // roadmap generation is (re)started, which is exactly what a legitimate
 // retry should do anyway.
+async function continueEvidenceCheck(addNewDetail){
+  const input = document.getElementById('evidenceDetailInput');
+  const detail = input ? input.value.trim() : '';
+  const error = document.getElementById('evidenceDetailError');
+  if(addNewDetail){
+    if(detail.length < 25){
+      if(error){
+        error.style.display = 'block';
+        error.textContent = 'Please add one specific action you took. A short sentence is enough.';
+      }
+      return;
+    }
+    state.additionalExperiences.push(detail);
+  }
+
+  const { gateRetainedEvidence } = await loadEvidenceGate();
+  const gate = gateRetainedEvidence(fullStoryText(), getRetainedStorySkills(), getRejectedSkills());
+  if(!gate.allowResumeBullets){
+    if(error){
+      error.style.display = 'block';
+      error.textContent = 'We still need one real action before offering résumé language. Tell us something you organized, managed, created, solved, or helped complete.';
+    }
+    return;
+  }
+  saveProfileToStorage(state);
+  state.screen = 'paywall';
+  render();
+}
+
 function handleCheckout(){
   if(state.paymentStatus !== 'paid'){
     state.paymentStatus = 'paid';
@@ -3101,8 +3827,10 @@ async function buildRoadmapFoundation(){
   const system = `You are the roadmap engine inside iFindWorth, building the Career Foundation section: where the user stands today, what already transfers, and what's still uncertain.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only — never call self-described abilities or traits "demonstrated strengths." 2) transfers: 2-3 skill names from the list below. 3) needsMoreInfo: 1-3 short phrases naming what's still unclear about fit. 4) gaps: 1-3 short phrases naming what may need strengthening. Use conditional language when only self-described abilities exist (e.g. organizing/coordinating) — do not imply the user already performs those tasks.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps already noted: ${(state.chosenPath.gaps||[]).join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, office, or corporate setting as a weakness, gap, validation problem, or reason the experience is less professional. Name only practical gaps such as a tool, task, domain concept, evidence example, or verified requirement.
+Do not use em dashes or en dashes. Use natural sentences and punctuation.
+Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only. Never call self-described abilities or traits demonstrated strengths. 2) transfers: 2 to 3 skill names from the list below. 3) needsMoreInfo: 1 to 3 short phrases naming what is still unclear about fit. 4) gaps: 1 to 3 practical skills or knowledge areas that may need strengthening. Use conditional language when only self-described abilities exist.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point): ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nPractical gaps already noted: ${respectfulGaps().join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}\n\nRetained story skills: ${skillsSummaryStr(retainedStorySkills)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapFoundation', system, userPrompt, roadmapFoundationTool, TOKEN_BUDGETS.roadmapFoundation, validateRoadmapFoundationResult, undefined, undefined, signal),
@@ -3123,7 +3851,7 @@ Rules: 1) whereYouAre: 2 sentences max, grounded in concrete past actions only �
     if(myGen !== state.roadmapSectionGeneration.foundation) return false; // stale failure — ignore
     logDiag('buildRoadmapFoundation', 'final_failure', err.message || String(err));
     state.roadmapSections.foundation = 'failed';
-    state.roadmapSectionError.foundation = "Good news first: your demo unlock is complete — no card was required and no real payment is collected during this private beta. We just couldn't build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
+    state.roadmapSectionError.foundation = "Your Starter package is unlocked and no real payment is collected during this private beta. We just could not build the foundation of your roadmap this time. Your profile, path, and preferences are all still saved.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.foundation) state.busy = false;
@@ -3146,7 +3874,9 @@ async function buildRoadmapActionPlan(){
   const system = `You are the roadmap engine inside iFindWorth, building the Action Plan section: a concrete 7/30/60/90-day sequence of steps.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the gaps and priorities below, not generic filler. Each action item must be a short phrase (max ~12 words) — not a full sentence or explanation. nextBestStep: one concrete sentence. All four arrays are required even if brief. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists — use conditional steps such as "Review past responsibilities for real organizing examples; if none, treat as an area to build."`;
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, or corporate setting as a weakness, gap, or validation problem.
+Do not use em dashes or en dashes. Use natural sentences and punctuation.
+Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days61to90 (2-3) — personalized to the evidence, gaps, and priorities below, never generic filler. Every time band must advance to a new observable outcome; do not repeat "practice," "research," or "continue" across multiple bands. Include a target-role job-description review, one portfolio/evidence artifact, an application-ready milestone, and a measurable search/application milestone when appropriate. Each action item must be a short phrase (max ~14 words). nextBestStep: one concrete action that can be completed today. Do not recommend a certificate until the user verifies target postings actually require or value it. Do not instruct "List daily tasks you already handle" for organizing/coordinating/listening unless concrete_past_action evidence exists.`;
   const gapsForPrompt = (state.roadmap && state.roadmap.strengthen) ? state.roadmap.strengthen : (state.chosenPath.gaps||[]);
   const userPrompt = `Chosen path: ${state.chosenPath.title}\nGaps to address: ${gapsForPrompt.join(', ') || 'none noted'}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
@@ -3167,7 +3897,7 @@ Rules: first7Days (3-4 concrete actions), days8to30 (3-4), days31to60 (3), days6
     if(myGen !== state.roadmapSectionGeneration.actionPlan) return false;
     logDiag('buildRoadmapActionPlan', 'final_failure', err.message || String(err));
     state.roadmapSections.actionPlan = 'failed';
-    state.roadmapSectionError.actionPlan = "We couldn't build your action plan this time — your demo unlock and everything else already generated are safe. Retry just this section below.";
+    state.roadmapSectionError.actionPlan = "We could not build your action plan this time. Your Starter unlock and everything else already generated are safe. Retry just this section below.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.actionPlan) state.busy = false;
@@ -3189,11 +3919,13 @@ async function buildRoadmapDirection(){
   const retainedStorySkills = getRetainedStorySkills();
   const { gateRetainedEvidence, formatEvidenceGateForRoadmapPrompt } = await loadEvidenceGate();
   const evidenceGate = gateRetainedEvidence(fullStoryText(), retainedStorySkills, getRejectedSkills());
-  const system = `You are the roadmap engine inside iFindWorth, building the Direction & Learning section: a Now/Next/Later career sequence, a learning strategy, search terms, and positioning guidance.
+  const system = `You are the roadmap engine inside iFindWorth, building a career sequence, learning strategy, search terms, and positioning guidance.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progression, later = a longer-term or independent direction consistent with priorities (each: short title, one-sentence desc, max 16 words). 2) learningStrategy: a ladder that does NOT default to expensive education — only include a "Formal Education" level if genuinely useful or required, otherwise omit it; this field is required even if it ends up empty. 3) searchTerms: 2-4 short terms (a few words each, not phrases). 4) positioning: 2 sentences max on how to describe this experience professionally — never call self-described abilities or traits "demonstrated strengths" and never imply performed organizing/coordinating/listening tasks unless concrete_past_action evidence exists; if only self_described_ability exists, say the user identifies those strengths in themselves while building concrete examples. Every item must be a short phrase, not a paragraph — this response must stay compact.${rejectedSkillsClause()}`;
-  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point) — ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nGaps: ${((state.roadmap && state.roadmap.strengthen) || state.chosenPath.gaps||[]).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, office, or corporate setting as a weakness, gap, or validation problem. Never use "formal employer context," "formal operations role," "professional setting," or "outside a traditional employer context." Name only practical gaps such as a tool, task, domain concept, evidence example, or verified requirement.
+Do not use em dashes or en dashes. Use natural sentences and punctuation.
+Rules: 1) careerSequence: now is the chosen entry point, next is realistic progression, and later is a broader responsibility level or adjacent leadership direction. Do not merely add a seniority word. Each description is one sentence with at most 18 words. 2) learningStrategy: give each level a distinct outcome. Do not repeat job posting review, software research, credential research, or practice across levels. Never default to education or certificates. 3) searchTerms: 3 to 5 separate, correctly spaced job titles, including one adjacent title. 4) positioning: 2 confident sentences connecting actual actions to target requirements without pretending the target role was already held.${rejectedSkillsClause()}`;
+  const userPrompt = `Chosen path: ${state.chosenPath.title} (entry point): ${state.chosenPath.why}\nProgression: ${state.chosenPath.progression||''}\nPractical gaps: ${((state.roadmap && state.roadmap.strengthen) || respectfulGaps()).filter(isRespectfulGap).join(', ')}\nPriorities: ${state.priorities.join(', ') || 'not specified'}\nInterests: ${state.preferences.interests.join(', ')}\nDislikes: ${state.preferences.dislikes.join(', ')}\n\n${formatEvidenceGateForRoadmapPrompt(evidenceGate)}`;
   try{
     const result = await runCancelable(
       (signal) => callStructured('buildRoadmapDirection', system, userPrompt, roadmapDirectionTool, TOKEN_BUDGETS.roadmapDirection, validateRoadmapDirectionResult, undefined, DIRECTION_REPAIR_HINT, signal),
@@ -3208,13 +3940,14 @@ Rules: 1) careerSequence: now = the chosen entry point, next = a realistic progr
       searchTerms: clean.searchTerms,
       positioning: clean.positioning,
     });
+    await refreshApplicationKitSearchTerms(evidenceGate);
     state.roadmapSections.direction = 'ready';
     return true;
   }catch(err){
     if(myGen !== state.roadmapSectionGeneration.direction) return false;
     logDiag('buildRoadmapDirection', 'final_failure', err.message || String(err));
     state.roadmapSections.direction = 'failed';
-    state.roadmapSectionError.direction = "We couldn't map your next steps this time — your demo unlock and everything else already generated are safe. Retry just this section below.";
+    state.roadmapSectionError.direction = "We could not map your next steps this time. Your Starter unlock and everything else already generated are safe. Retry just this section below.";
     return false;
   }finally{
     if(myGen === state.roadmapSectionGeneration.direction) state.busy = false;
@@ -3279,17 +4012,20 @@ async function buildKit(){
   const system = `You are the Application Kit builder inside iFindWorth. Translate a user's real past experience into professional resume and LinkedIn language for a specific target path they are moving toward.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
+Respect nontraditional experience. Never describe the absence of a traditional employer, formal title, office, or corporate setting as a weakness or validation problem. Never use "formal employer context," "formal operations role," "professional setting," or similar language.
+Do not use em dashes or en dashes. Write concise, confident human language.
 Rules:
-1) Resume bullets: zero to four bullets, one line each, action-verb led, using ONLY the concrete past-action sources listed in the user message — never traits, preferences, or self-descriptions upgraded into performance. Each bullet MUST include sourceQuote: the exact verbatim concrete_past_action quote it is grounded in. If the application evidence gate lists NONE for resume bullets, return resumeBullets: [] — the gate cannot be overridden. For traits or thin evidence, prefer zero bullets and/or a "strengthen" question asking for a concrete example — otherwise omit "strengthen".
-2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused" (keyword-forward toward the target path — signal transition/building when evidence is thin), "Career Transition-Focused" (names the transition explicitly toward the target path), "Professional Brand-Focused" (reads as a personal brand statement grounded in self-described qualities — not people-heavy if preferences conflict). Transition headlines may name the target direction as aspiration — never as past employment. Preserve evidence category semantics: self_described_ability and trait language must not upgrade into performed duties, strong coordinator language, scheduling, prioritizing, reliability, thriving, team-performance claims, or universal every-task scope unless explicitly evidenced.
-3) One linkedinAbout: 3-4 sentences, first person, warm but professional, grounded only in given evidence categories. Clearly separate existing self-described qualities from the role the user is moving toward. Do not write thrive, work well across teams, reliable presence, every interaction/task, or keep things running smoothly unless explicitly in allowed evidence.
+1) Resume bullets: zero to four bullets, one line each, action verb led, using ONLY the concrete past action sources listed in the user message. Never write "helped manage" when the evidence states the actions directly. When three or more distinct concrete sources exist, produce 3 or 4 useful bullets. Each bullet MUST include sourceQuote copied exactly from one listed source. If the evidence gate says NONE, return an empty array. Use a strengthen question only when a material detail is genuinely missing.
+2) Provide exactly 3 linkedinHeadlines, each under 20 words, with distinct styles: "Recruiter Search-Focused", "Career Transition-Focused", and "Professional Brand-Focused". Never use "aspiring." Prefer credible truthful language such as "Administrative Support Candidate" or "Building Toward Administrative Support," followed by evidence-supported keywords. Transition headlines may name the target direction as a future direction, never as past employment. Preserve evidence category semantics.
+3) One linkedinAbout: 3 to 4 sentences, first person, warm, confident, and grounded only in given evidence categories. End by connecting existing experience to the target direction. Do not imply that independent experience becomes valid only inside a company. Do not write thrive, work well across teams, reliable presence, every interaction or task, or keep things running smoothly unless explicitly supported.
 4) Only draw on the retained story skills and evidence gate classifications below — do not upgrade self_described_ability, trait, or preference items into resume bullets.${rejectedSkillsClause()}`;
   const userPrompt = `Target path: ${state.chosenPath.title}\nOriginal story (for tone/context only): ${state.story}\n\n${formatEvidenceGateForPrompt(evidenceGate)}\n\nResume bullets — ONLY these concrete past-action sources (exact quotes; no other source is valid):\n${formatResumeBulletSources(evidenceGate)}\n\nLinkedIn positioning — may use these non-action items (NOT for resume bullets):\n${formatLinkedInEvidenceContext(evidenceGate)}\n\n${formatLinkedInRulesForPrompt(evidenceGate)}\n\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}${preferenceContext ? `\n\nCareer Intelligence Profile:\n${preferenceContext}` : ''}`;
   try{
-    const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText));
+    const result = await callStructured('buildKit', system, userPrompt, kitTool, TOKEN_BUDGETS.kit, (r)=>validateKitResult(r, evidenceText, evidenceGate));
     const resumeGated = applyResumeBulletGate(result, evidenceGate);
     const gated = applyLinkedInGate(resumeGated, evidenceGate, state.chosenPath.title);
     state.kit = purgeRejectedFromObject(gated, rejected);
+    await refreshApplicationKitSearchTerms(evidenceGate);
     state.evidenceLibrary = retainedStorySkills.map(s=>({theme:s.name, evidence:s.evidence}));
     state.screen = 'kit';
   }catch(err){
@@ -3352,7 +4088,7 @@ Rules: 1) Only include skills with real textual evidence. 2) evidence: a close p
     addedNames.forEach(name => {
       delete state.skillValidation[name];
     });
-    state.changeSummary = addedNames.length ? `New experience added — we found: ${addedNames.join(', ')}.` : 'New experience added — it reinforced skills you already had.';
+    state.changeSummary = addedNames.length ? `New experience added. We found: ${addedNames.join(', ')}.` : 'New experience added. It reinforced skills you already had.';
     state.reranked = false;
     state.screen = 'skills';
   }catch(err){
@@ -3380,7 +4116,8 @@ async function buildStoryBank(){
   const rejected = getRejectedSkillNames();
   const system = `You build an interview Story Bank inside iFindWorth, using only the user's real, story-supported experience.
 ${NO_INVENTION_RULE}
-For each of these fixed categories, in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of" — either write a short story draft (2-3 sentences, first person, grounded only in given evidence) with status "ready", or if there isn't enough evidence, set status "needs_more" with a short prompt (max 14 words) asking for the missing detail. Only draw on the "Retained story skills" list below — the story text is provided for tone/context, but any skill or activity the user has rejected must not be used as evidence for a story.${rejectedSkillsClause()}`;
+Treat the Retained story skills in the user message only as story-supported context; never turn a skill label into an incident or outcome.
+For each fixed category, either write a 2-3 sentence first-person draft using only actions and outcomes explicitly stated by the user, or return status "needs_more" with one short question. Never convert "I help," "people depend on me," or a skill label into a specific incident, resolution, system, outcome, emotion, or achievement the user did not describe. If the evidence does not contain a beginning, action, and outcome for that category, it is not interview-ready: ask for detail. Use the categories in this exact order: "Problem I solved", "Difficult customer", "Time I took initiative", "Time I organized something", "Time I led or coordinated people", "Time something went wrong", "Achievement I'm proud of".${rejectedSkillsClause()}`;
   const userPrompt = `Story: ${fullStoryText()}\nRetained story skills: ${retainedStorySkills.map(s=>`${s.name}: ${s.evidence}`).join(' | ')}`;
   try{
     const result = await callStructured('buildStoryBank', system, userPrompt, storyBankTool, TOKEN_BUDGETS.storyBank, validateStoryBankResult);
@@ -3442,10 +4179,27 @@ Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text
 }
 
 /* ============================= INIT ============================= */
+function applyEntryRoute(pathname){
+  const normalizedPath = String(pathname || '/').replace(/\/+$/, '') || '/';
+  if(normalizedPath === '/start' && state.screen === 'landing'){
+    state.screen = 'intake';
+  }
+}
+
+(function initDebugBuildBadge(){
+  const badge = document.getElementById('debugBuildBadge');
+  if(!badge) return;
+  const debugOn = new URLSearchParams(window.location.search).has('debug');
+  if(!debugOn) return;
+  badge.hidden = false;
+  badge.removeAttribute('aria-hidden');
+  badge.textContent = 'build ' + (document.body.dataset.build || 'unknown');
+})();
 try{
   const savedProfile = loadProfileFromStorage();
   if(savedProfile) applyHydratedState(hydrateProfile(savedProfile));
 }catch(e){}
+applyEntryRoute(window.location.pathname);
 render();
 </script>
 </body>
