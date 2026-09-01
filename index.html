@@ -4179,6 +4179,13 @@ Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text
 }
 
 /* ============================= INIT ============================= */
+function applyEntryRoute(pathname){
+  const normalizedPath = String(pathname || '/').replace(/\/+$/, '') || '/';
+  if(normalizedPath === '/start' && state.screen === 'landing'){
+    state.screen = 'intake';
+  }
+}
+
 (function initDebugBuildBadge(){
   const badge = document.getElementById('debugBuildBadge');
   if(!badge) return;
@@ -4192,6 +4199,7 @@ try{
   const savedProfile = loadProfileFromStorage();
   if(savedProfile) applyHydratedState(hydrateProfile(savedProfile));
 }catch(e){}
+applyEntryRoute(window.location.pathname);
 render();
 </script>
 </body>
