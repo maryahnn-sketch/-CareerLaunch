@@ -356,7 +356,9 @@ function showBetaGate(mode = 'invite', initialError = '') {
   const error = document.getElementById('ifwBetaError');
   const submit = document.getElementById('ifwBetaSubmit');
 
-  document.getElementById('ifwBetaCancel')?.addEventListener('click', closeBetaGate);
+  document.getElementById('ifwBetaCancel')?.addEventListener('click', () => {
+    window.location.assign('https://ifindworth.com');
+  });
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
