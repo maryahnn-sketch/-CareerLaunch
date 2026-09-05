@@ -385,6 +385,13 @@ function main() {
   );
 
   assert(
+    'analyzeJd server prompt requires names-only matches and software-only gaps',
+    jdPrompt.includes('never a strength label in parentheses') &&
+      jdPrompt.includes('ERP or order-management software familiarity') &&
+      !jdPrompt.includes('shouldStrengthen = 2-3 gaps between the posting and the user\'s retained story skills')
+  );
+
+  assert(
     'buildKit prompt references application evidence gate',
     kitPrompt.includes('Application evidence gate rule') &&
       kitPrompt.includes('concrete_past_action')

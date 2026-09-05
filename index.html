@@ -843,6 +843,11 @@ function loadPathValidation(){
   if(!pathValidationModulePromise) pathValidationModulePromise = import('/js/path-validation.mjs');
   return pathValidationModulePromise;
 }
+let jdAnalysisModulePromise = null;
+function loadJdAnalysis(){
+  if(!jdAnalysisModulePromise) jdAnalysisModulePromise = import('/js/jd-analysis.mjs');
+  return jdAnalysisModulePromise;
+}
 function syncKitSearchTermsFallback(){
   const terms = [];
   const seen = new Set();
@@ -2273,10 +2278,15 @@ function validateStoryBankResult(result){
   return { ok:true };
 }
 
-function validateJdResult(result){
+function validateJdResult(result, retainedSkillNames){
+  // Structural fallback if the JD module has not been loaded; analyzeJd uses validateJdAnalysis.
   if(!result || !Array.isArray(result.marketAsks) || result.marketAsks.length === 0) return { ok:false, reason:'marketAsks missing or empty' };
   if(!Array.isArray(result.youAlreadyHave) || !Array.isArray(result.shouldStrengthen)) return { ok:false, reason:'youAlreadyHave/shouldStrengthen must be arrays' };
   if(!['Strong Match','Worth Considering','Stretch Opportunity','Needs More Information'].includes(result.overallFit)) return { ok:false, reason:`invalid overallFit value: ${result.overallFit}` };
+  if(Array.isArray(retainedSkillNames) && result.overallFit === 'Strong Match'){
+    const have = result.youAlreadyHave.filter(item => retainedSkillNames.map(n=>String(n).toLowerCase()).includes(String(item).toLowerCase()));
+    if(!have.length) return { ok:false, kind:'semantic', reason:'Strong Match requires at least one retained skill name in youAlreadyHave' };
+  }
   return { ok:true };
 }
 
@@ -4188,13 +4198,14 @@ async function analyzeJd(){
   const retainedStorySkills = getRetainedStorySkills();
   const retainedSkillNames = retainedStorySkills.map(s=>s.name);
   const rejected = getRejectedSkillNames();
+  const { normalizeJdResult, validateJdAnalysis, formatJdRetainedSkillNames } = await loadJdAnalysis();
   const system = `You compare a single pasted job description against a user's retained story skills inside iFindWorth. Base "marketAsks" only on what's actually in the pasted text below — that specific posting is a legitimate source for itself, but never generalize it into a claim about the wider market, other employers, salary, or demand.
 ${NO_INVENTION_RULE}
 ${VERIFIED_INFO_RULE}
-Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text itself. youAlreadyHave = ONLY skill names copied exactly from the "Retained story skills" list below that genuinely match something in the posting — never a rejected skill, never one inferred from outside the posting. shouldStrengthen = 2-3 gaps between the posting and the user's retained story skills. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information".${rejectedSkillsClause()}`;
-  const userPrompt = `Job description:\n${state.jdText}\n\nRetained story skills (the only names allowed in "youAlreadyHave"): ${skillsSummaryStr(retainedStorySkills)}`;
+Rules: marketAsks = 4-6 short requirements/keywords pulled from the posting text itself. youAlreadyHave = ONLY skill names copied exactly from the Retained story skills name list below that genuinely match something in the posting — never a rejected skill, never a paraphrase, never a strength label in parentheses, never one inferred from outside the posting. shouldStrengthen names ONLY the unsupported portion of a posting requirement. If the user already has inventory or order-management evidence but not the software, write a software-only gap such as "ERP or order-management software familiarity" — never "Experience with inventory, ERP, or order-management software". Do not list a retained evidenced capability as missing. overallFit = one of "Strong Match","Worth Considering","Stretch Opportunity","Needs More Information". Strong Match requires at least one exact retained skill name in youAlreadyHave.${rejectedSkillsClause()}`;
+  const userPrompt = `Job description:\n${state.jdText}\n\nRetained story skills (the only names allowed in "youAlreadyHave" — copy the name only, not a strength label):\n${formatJdRetainedSkillNames(retainedStorySkills)}`;
   try{
-    const result = await callStructured('analyzeJd', system, userPrompt, jdTool, TOKEN_BUDGETS.jd, validateJdResult);
+    const result = await callStructured('analyzeJd', system, userPrompt, jdTool, TOKEN_BUDGETS.jd, (r)=>validateJdAnalysis(r, retainedSkillNames), normalizeJdResult);
     const cleaned = purgeRejectedFromObject(result, rejected);
     cleaned.youAlreadyHave = filterToValidatedNames(cleaned.youAlreadyHave, retainedSkillNames);
     state.jdAnalysis = cleaned;
