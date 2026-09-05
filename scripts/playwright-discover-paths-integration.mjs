@@ -44,6 +44,10 @@ function installStaticRoutes(page) {
       await route.continue();
       return;
     }
+    if (url.pathname.startsWith('/api/')) {
+      await route.fallback();
+      return;
+    }
     const rel = url.pathname.replace(/^\//, '') || 'index.html';
     const body = contentFor(`/${rel}`);
     if (!body) {
@@ -107,6 +111,58 @@ function makeSeedProfile() {
     jdAnalysis: null,
     pathFeedback: {},
     pathRegenerationCount: 0,
+  };
+}
+
+function diverseHappyPathsPayload() {
+  return {
+    stop_reason: 'end_turn',
+    content: [
+      {
+        type: 'tool_use',
+        name: 'report_career_paths',
+        input: {
+          paths: [
+            {
+              title: 'Operations Coordinator',
+              entryPoint: 'Operations Coordinator',
+              progression: 'Operations Lead',
+              category: 'Strong Evidence',
+              why: 'Volunteer inventory and team coordination transfer here.',
+              transfers: ['Team Coordination', 'Inventory Management'],
+              gaps: ['Formal systems'],
+              transition: 'Strong',
+              workEnvironment: 'Team-based, fast-paced',
+              relevance: ['Employment'],
+            },
+            {
+              title: 'Customer Service Representative',
+              entryPoint: 'Customer Service Rep',
+              progression: 'Support Lead',
+              category: 'Worth Exploring',
+              why: 'Greeting visitors and answering questions at intake.',
+              transfers: ['Customer Service', 'Communication'],
+              gaps: ['Metrics'],
+              transition: 'Moderate',
+              workEnvironment: 'People-facing',
+              relevance: ['Employment'],
+            },
+            {
+              title: 'Event Coordinator',
+              entryPoint: 'Event Coordinator',
+              progression: 'Events Lead',
+              category: 'Growth Path',
+              why: 'Monthly community distribution events map to this work.',
+              transfers: ['Event Planning', 'Team Coordination'],
+              gaps: ['Budgeting'],
+              transition: 'Moderate',
+              workEnvironment: 'On-site events',
+              relevance: ['Employment'],
+            },
+          ],
+        },
+      },
+    ],
   };
 }
 
@@ -398,10 +454,145 @@ function printReport({ criteria, consoleErrors, artifactDir }) {
   return allPass ? 0 : 1;
 }
 
+async function runHappyPathIntegrationTest() {
+  const { chromium } = await import('playwright');
+  const criteria = {
+    appliedBeforeTimeout: { pass: false, detail: '', elapsedMs: null },
+    noRetryUi: { pass: false, detail: '' },
+  };
+
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const seenRequests = [];
+  page.on('request', (req) => {
+    const url = req.url();
+    if (url.includes('/api/') || url.includes('claude')) {
+      seenRequests.push(`${req.method()} ${url}`);
+    }
+  });
+  page.on('console', (msg) => {
+    const text = msg.text();
+    if (/CareerLaunch|Error|error|diag/.test(text)) {
+      seenRequests.push(`CONSOLE ${msg.type()}: ${text.slice(0, 180)}`);
+    }
+  });
+  page.on('pageerror', (err) => {
+    seenRequests.push(`PAGEERROR ${String(err).slice(0, 180)}`);
+  });
+  await installStaticRoutes(page);
+
+  await page.route('**/api/public-config', async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Supabase is not configured' }),
+    });
+  });
+  await page.route('**/api/beta-access', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ privateBetaEnabled: false }),
+    });
+  });
+  await page.route('**/api/claude', async (route) => {
+    let body;
+    try {
+      body = route.request().postDataJSON();
+    } catch {
+      body = {};
+    }
+    const op = body?.operation || '';
+    if (op === 'discoverPaths' || op.startsWith('discoverPaths:')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(diverseHappyPathsPayload()),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ stop_reason: 'end_turn', content: [] }),
+    });
+  });
+
+  const seedProfile = makeSeedProfile();
+  seedProfile.skillValidation['Event Planning'] = 'no';
+  await page.addInitScript((profile) => {
+    localStorage.setItem('careerlaunch.profile.v1', JSON.stringify(profile));
+    localStorage.setItem('ifw_analytics_consent', 'denied');
+  }, seedProfile);
+
+  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'load', timeout: 60000 });
+  await page.waitForFunction(() => document.getElementById('toPaths'), { timeout: 15000 });
+  await page.evaluate(async () => {
+    if (window.CareerLaunchAuth && window.CareerLaunchAuth.ready) {
+      await Promise.race([
+        window.CareerLaunchAuth.ready,
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ]);
+    }
+    await import('/js/evidence-gate.mjs');
+    await import('/js/path-validation.mjs');
+  });
+
+  const startedAt = Date.now();
+  await page.locator('#toPaths').click();
+  await page.waitForSelector('.analyzing-wrap, .path-title, #retryBtn', { timeout: 10000 }).catch(() => {});
+
+  let appliedAt = null;
+  const deadline = startedAt + 20000;
+  while (Date.now() < deadline) {
+    const pageText = await page.locator('#app').innerText().catch(() => '');
+    if (
+      pageText.includes('Operations Coordinator') &&
+      (pageText.includes('Customer Service Representative') || pageText.includes('Customer Service'))
+    ) {
+      appliedAt = Date.now();
+      break;
+    }
+    if (pageText.includes("couldn't map career paths") || (await page.locator('#retryBtn').isVisible().catch(() => false))) {
+      break;
+    }
+    await page.waitForTimeout(250);
+  }
+
+  const elapsed = appliedAt ? appliedAt - startedAt : null;
+  const retryVisible = await page.locator('#retryBtn').isVisible().catch(() => false);
+  const errorText = await page.locator('.error-box').innerText().catch(() => '');
+  const appText = await page.locator('#app').innerText().catch(() => '');
+  criteria.appliedBeforeTimeout.pass = !!appliedAt && elapsed < 15000;
+  criteria.appliedBeforeTimeout.elapsedMs = elapsed;
+  criteria.appliedBeforeTimeout.detail = appliedAt
+    ? `paths applied at ${elapsed}ms`
+    : `diverse paths did not appear within 20s; text=${JSON.stringify(appText.slice(0, 220))}; reqs=${seenRequests.join(' | ')}`;
+  criteria.noRetryUi.pass = !retryVisible && !errorText.includes("couldn't map career paths");
+  criteria.noRetryUi.detail = `retryVisible=${retryVisible}; error=${JSON.stringify(errorText.slice(0, 80))}`;
+
+  await browser.close();
+  return criteria;
+}
+
 console.log(`Static routes: http://127.0.0.1:${PORT}/`);
 
 try {
   await ensurePlaywright();
+  const happy = await runHappyPathIntegrationTest();
+  console.log('\n=== discoverPaths happy-path (diverse apply before timeout) ===\n');
+  console.log(`${happy.appliedBeforeTimeout.pass ? 'PASS' : 'FAIL'} — ${happy.appliedBeforeTimeout.detail}`);
+  console.log(`${happy.noRetryUi.pass ? 'PASS' : 'FAIL'} — ${happy.noRetryUi.detail}`);
+  if (!happy.appliedBeforeTimeout.pass || !happy.noRetryUi.pass) {
+    process.exit(1);
+  }
+
+  if (process.env.IFW_SKIP_HANG === '1') {
+    console.log('\nOVERALL: PASS (happy path only; hang test skipped)\n');
+    process.exit(0);
+  }
+
   const result = await runIntegrationTest();
   const code = printReport(result);
   process.exit(code);

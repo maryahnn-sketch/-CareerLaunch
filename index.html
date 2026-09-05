@@ -486,6 +486,7 @@
 /* ============================= STATE (Career Intelligence Profile) ============================= */
 const DISCOVER_PATHS_TIMEOUT_MS = 90000;
 const DISCOVER_PATHS_COPY_DELAY_MS = 30000;
+const DISCOVER_PATHS_MIN_TIER_MS = 25000;
 const DISCOVER_PATHS_COPY_MESSAGE = 'Still working — checking a fuller set of directions…';
 
 class DiscoverPathsStaleError extends Error {
@@ -955,12 +956,13 @@ if (window.location.protocol === 'file:') {
 // (b) dev-console diagnostics categorized by failure type, and (c) deciding
 // whether a partial/invalid result is worth showing back to the model to fix.
 class StructuredCallError extends Error {
-  constructor(code, category, detail, partial){
+  constructor(code, category, detail, partial, validationKind){
     super(`${code}: ${detail}`);
     this.code = code;           // NETWORK_ERROR | API_ERROR | RESPONSE_PARSE_ERROR | TRUNCATED_OUTPUT | NO_STRUCTURED_OUTPUT | SCHEMA_VALIDATION_FAILED
     this.category = category;   // network | http | parse | schema
     this.detail = detail;
     this.partial = partial || null;
+    this.validationKind = validationKind || null; // 'structural' | 'semantic' | null
   }
 }
 
@@ -1313,7 +1315,21 @@ function runCancelable(buildPromise, ms){
   return Promise.race([buildPromise(undefined), timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
-async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal, tierProgressFn){
+async function callStructured(operation, system, userPrompt, tool, maxTokens, validateFn, normalizeFn, extraRepairHint, signal, tierProgressFn, deadlineAt){
+  function remainingMs(){
+    if(deadlineAt == null || !Number.isFinite(deadlineAt)) return Infinity;
+    return Math.max(0, deadlineAt - Date.now());
+  }
+  function assertCanStartTier(tierName){
+    const remaining = remainingMs();
+    if(remaining < DISCOVER_PATHS_MIN_TIER_MS){
+      throw new StructuredCallError('TIMEOUT', 'network', `Insufficient time remaining to start ${tierName} (${remaining}ms).`);
+    }
+  }
+  function shouldReshapeStructuredFailure(err){
+    return !!(err && err.category === 'schema' && err.partial && err.validationKind !== 'semantic');
+  }
+
   function runValidation(rawResult){
     let result = rawResult;
     if(normalizeFn) result = normalizeFn(result);
@@ -1324,7 +1340,10 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
       // items entirely, and a repair call needs to see what was actually
       // there (e.g. a skill's evidence text minus its missing name) to fix
       // it, not just the items that already survived filtering.
-      if(!check.ok) throw new StructuredCallError('SCHEMA_VALIDATION_FAILED', 'schema', check.reason, rawResult);
+      if(!check.ok){
+        const kind = check.kind === 'semantic' ? 'semantic' : 'structural';
+        throw new StructuredCallError('SCHEMA_VALIDATION_FAILED', 'schema', check.reason, rawResult, kind);
+      }
     }
     return result;
   }
@@ -1339,11 +1358,11 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
     logDiag(operation, err.category || 'unknown', err.message || String(err));
   }
 
-  // Tier 2 — only makes sense when tier 1 actually produced a structured (if
-  // non-compliant) result to reshape. A network/http/truncation/unparseable
-  // failure has nothing usable to send here, so it skips straight to tier 3.
-  if(tier1Err.category === 'schema' && tier1Err.partial){
+  // Tier 2 — format-only reshape. Semantic evidence/balance failures cannot
+  // be fixed by reshaping (Do NOT invent new paths), so they skip to repair.
+  if(shouldReshapeStructuredFailure(tier1Err)){
     try{
+      assertCanStartTier('reshape');
       if(tierProgressFn) tierProgressFn('reshape');
       let reshapeSystem = `You are a strict data formatter for iFindWorth. You will be given content that was already generated but does not match the required schema exactly (reason it failed: ${tier1Err.detail || tier1Err.message}). Reshape it to match the schema EXACTLY — fix field names, enum wording/casing, and string-vs-array mismatches, and restructure as needed. Use ONLY the substance already present in the given content. Do NOT invent new career paths, skills, reasoning, gaps, or any other fact. Do NOT change the meaning of any field — only its format.`;
       if(extraRepairHint) reshapeSystem += ` ${extraRepairHint}`;
@@ -1355,6 +1374,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
       safeLog('warn', `[CareerLaunch][${operation}][repair_succeeded] Format-only reshape recovered a valid result (original content preserved) after: ${tier1Err.code}`);
       return result;
     }catch(tier2Err){
+      if(tier2Err && tier2Err.code === 'TIMEOUT') throw tier2Err;
       logDiag(operation, 'reshape_failed', tier2Err.message || String(tier2Err));
       // fall through to tier 3
     }
@@ -1364,6 +1384,7 @@ async function callStructured(operation, system, userPrompt, tool, maxTokens, va
   // size-related, with the invalid/partial content included so the model is
   // fixing its own last answer rather than starting blind.
   try{
+    assertCanStartTier('repair');
     if(tierProgressFn) tierProgressFn('repair');
     let repairNote = `Your previous response was invalid (${tier1Err.code || 'ERROR'}): ${tier1Err.detail || tier1Err.message}. Call the SAME tool again with a corrected, COMPLETE result that matches the schema and instructions exactly — every required field must be present, and every enum field must match one of its allowed values EXACTLY (same wording and capitalization).`;
     if(extraRepairHint) repairNote += ` ${extraRepairHint}`;
@@ -2085,9 +2106,9 @@ const ACTION_PLAN_REPAIR_HINT = `The schema requires ALL FOUR time-period arrays
 const DIRECTION_REPAIR_HINT = `The schema requires learningStrategy as an array (it may be empty if there's genuinely nothing to add, but the field itself must always be present) — never omit it. Also always required: careerSequence with now/next/later, searchTerms, and positioning. Keep every item short (learning items max ~70 characters, sequence descriptions max ~90) so the complete response fits.`;
 
 function validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
-  if(!result || !Array.isArray(result.paths)) return { ok:false, reason:'paths array is missing' };
+  if(!result || !Array.isArray(result.paths)) return { ok:false, kind:'structural', reason:'paths array is missing' };
   for(const p of result.paths){
-    if(!isValidPathItem(p)) return { ok:false, reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
+    if(!isValidPathItem(p)) return { ok:false, kind:'structural', reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
   }
   return pathValidation.validatePathsResult(result, storyText, retainedSkills, evidenceGate);
 }
@@ -2095,10 +2116,10 @@ function validatePathsResultWithStructure(result, storyText, retainedSkills, pat
 function validateRefinePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
   const pathCheck = validatePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate);
   if(!pathCheck.ok) return pathCheck;
-  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, reason:'changeSummary is missing' };
+  if(!isNonEmptyStr(result.changeSummary)) return { ok:false, kind:'structural', reason:'changeSummary is missing' };
   for(const p of result.paths){
     if(!RERANK_CATEGORY_ENUM.includes(p.category)){
-      return { ok:false, reason:`refinement category invalid for path "${p.title}"` };
+      return { ok:false, kind:'structural', reason:`refinement category invalid for path "${p.title}"` };
     }
   }
   return { ok:true };
@@ -2532,6 +2553,13 @@ const TIER_DESCRIPTIONS = {
   'Adjacent opportunities': 'Realistic stretch directions that build on what you bring, with honest gaps noted. Often the most actionable next step.',
   'Longer-term possibilities': 'Evidence-supported options that may not match your first guess. Worth exploring when the story supports them, without forcing novelty.',
 };
+function pathStrengthScore(val){
+  if(val === 'Strong') return 4;
+  if(val === 'Moderate') return 3;
+  if(val === 'Developing') return 2;
+  if(val === 'Needs More Information') return 1;
+  return 1;
+}
 function pathObviousnessScore(category){
   const c = (category || '').toLowerCase();
   if(c.includes('strong evidence') || c.includes('best paths')) return 4;
@@ -3356,6 +3384,7 @@ async function discoverPaths(){
   if(state.busy) return;
 
   const myGen = ++state.pathsDiscoveryGeneration;
+  const deadlineAt = Date.now() + DISCOVER_PATHS_TIMEOUT_MS;
   state.busy = true;
   state.screen = 'analyzing'; state.loadingMsg = 'Mapping your skills to possible directions…'; state.errorMsg=''; state.errorRetry=null; render();
 
@@ -3432,7 +3461,7 @@ Rules:
         render();
       }
     };
-    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, undefined, tierProgressFn);
+    const result = await callStructured('discoverPaths', system, userPrompt, pathsTool, TOKEN_BUDGETS.paths, (r)=>validatePathsResultWithStructure(r, fullStoryText(), retainedStorySkills, pathValidation, evidenceGate), normalizePathsResult, PATHS_REPAIR_HINT, undefined, tierProgressFn, deadlineAt);
     if(!isActive()) throw new DiscoverPathsStaleError();
     let nextPaths = result.paths;
     nextPaths = pathValidation.enforcePathDiscoveryBalance(nextPaths, fullStoryText(), retainedStorySkills, evidenceGate);

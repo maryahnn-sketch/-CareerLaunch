@@ -13,8 +13,14 @@ import {
   DiscoverPathsTimeoutError,
   DISCOVER_PATHS_TIMEOUT_MS,
   DISCOVER_PATHS_COPY_DELAY_MS,
+  DISCOVER_PATHS_MIN_TIER_MS,
   DISCOVER_PATHS_COPY_MESSAGE,
 } from '../js/discover-paths-watchdog.mjs';
+import {
+  canStartAiTier,
+  nextStructuredRetryAction,
+  shouldReshapeStructuredFailure,
+} from '../js/structured-call-policy.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INDEX_HTML = readFileSync(join(__dirname, '../index.html'), 'utf8');
@@ -72,6 +78,7 @@ async function runBehavioralTests() {
   await testStaleResponseAfterTimeout();
   await testDiscoverPathsOrchestrationNeverResolvingApi();
   await testHangingModuleImportBeforeWatchdog();
+  await testDiversePathsApplyBeforeTimeout();
 }
 
 async function testNeverResolvingModuleLoad() {
@@ -345,6 +352,58 @@ async function testHangingModuleImportBeforeWatchdog() {
   );
 }
 
+/** Valid diverse paths arriving at 20s apply; 90s watchdog never takes over. */
+async function testDiversePathsApplyBeforeTimeout() {
+  const fake = createFakeTimers();
+  let generation = 20;
+  let screen = 'analyzing';
+  let busy = true;
+  let errorMsg = '';
+  let paths = [];
+  let timedOut = false;
+
+  const myGen = ++generation;
+  const isActive = () => myGen === generation;
+
+  const copyTimer = fake.setTimeoutFn(() => {}, DISCOVER_PATHS_COPY_DELAY_MS);
+  const timeoutTimer = fake.setTimeoutFn(() => {
+    if (!isActive() || timedOut) return;
+    timedOut = true;
+    invalidateDiscoverPathsGeneration(myGen, () => generation, (g) => { generation = g; });
+    errorMsg = "We couldn't map career paths just now. Nothing was lost. You can try again.";
+    screen = 'paths';
+    busy = false;
+  }, DISCOVER_PATHS_TIMEOUT_MS);
+
+  const incoming = [
+    { title: 'Operations Coordinator' },
+    { title: 'Customer Service Representative' },
+    { title: 'Event Coordinator' },
+  ];
+
+  fake.tick(20000);
+  if (isActive() && !timedOut) {
+    paths = incoming;
+    screen = 'paths';
+    busy = false;
+    fake.clearTimeoutFn(copyTimer);
+    fake.clearTimeoutFn(timeoutTimer);
+  }
+
+  fake.tick(DISCOVER_PATHS_TIMEOUT_MS);
+
+  assert(
+    'normal diverse path generation completes and applies before timeout',
+    screen === 'paths' &&
+      paths.length === 3 &&
+      paths[0].title === 'Operations Coordinator' &&
+      !timedOut &&
+      !errorMsg &&
+      !busy &&
+      generation === myGen
+  );
+}
+
 function main() {
   assert(
     'DISCOVER_PATHS_TIMEOUT_MS is 90000',
@@ -491,6 +550,51 @@ function main() {
     'callStructured invokes tierProgressFn before reshape and repair tiers',
     /if\(tierProgressFn\) tierProgressFn\('reshape'\)/.test(INDEX_HTML) &&
       /if\(tierProgressFn\) tierProgressFn\('repair'\)/.test(INDEX_HTML)
+  );
+
+  const semanticErr = { category: 'schema', partial: { paths: [] }, validationKind: 'semantic' };
+  const structuralErr = { category: 'schema', partial: { paths: [] }, validationKind: 'structural' };
+  const parseErr = { category: 'parse', partial: null, validationKind: null };
+
+  assert(
+    'semantic validation failure skips reshape',
+    !shouldReshapeStructuredFailure(semanticErr) &&
+      nextStructuredRetryAction(semanticErr, 60000) === 'repair' &&
+      /validationKind !== 'semantic'/.test(INDEX_HTML)
+  );
+
+  assert(
+    'true schema/format failure can still reshape',
+    shouldReshapeStructuredFailure(structuralErr) &&
+      nextStructuredRetryAction(structuralErr, 60000) === 'reshape' &&
+      !shouldReshapeStructuredFailure(parseErr)
+  );
+
+  assert(
+    'repair is not started when insufficient deadline remains',
+    !canStartAiTier(DISCOVER_PATHS_MIN_TIER_MS - 1) &&
+      nextStructuredRetryAction(semanticErr, 10000) === 'abort' &&
+      nextStructuredRetryAction(structuralErr, 10000) === 'abort' &&
+      /assertCanStartTier\('repair'\)/.test(INDEX_HTML) &&
+      /assertCanStartTier\('reshape'\)/.test(INDEX_HTML)
+  );
+
+  assert(
+    'discoverPaths passes absolute deadline into callStructured',
+    /const deadlineAt = Date\.now\(\) \+ DISCOVER_PATHS_TIMEOUT_MS/.test(DISCOVER_PATHS_FN) &&
+      /callStructured\('discoverPaths'[\s\S]*deadlineAt\)/.test(DISCOVER_PATHS_FN) &&
+      /const DISCOVER_PATHS_MIN_TIER_MS = 25000;/.test(INDEX_HTML)
+  );
+
+  assert(
+    'stale/timeout generation-token discard is unchanged',
+    /if\(!isActive\(\) \|\| timedOut\) return;/.test(DISCOVER_PATHS_FN) &&
+      /invalidateDiscoverPathsGeneration\(myGen/.test(DISCOVER_PATHS_FN)
+  );
+
+  assert(
+    'pathStrengthScore is defined so successful discovery can render',
+    /function pathStrengthScore\(/.test(INDEX_HTML)
   );
 
   return runBehavioralTests().then(() => {

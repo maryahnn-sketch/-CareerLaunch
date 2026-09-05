@@ -46,6 +46,7 @@ import {
   appendEvidencePathCountBlock,
   pathTitlesAreNearDuplicate,
   findNearDuplicatePathPairs,
+  pathOccupationalFamily,
 } from '../js/path-validation.mjs';
 import {
   getConfirmedSkills,
@@ -1347,6 +1348,74 @@ function main() {
     'index.html hides empty discovery tier sections',
     INDEX_HTML.includes('if(!paths || !paths.length) return') &&
       !/donorTier/.test(INDEX_HTML)
+  );
+
+  assert(
+    'domain coordinator titles classify by domain, not generic admin',
+    pathOccupationalFamily('Operations Coordinator') === 'operations' &&
+      pathOccupationalFamily('Event Coordinator') === 'events' &&
+      pathOccupationalFamily('Inventory Coordinator') === 'operations' &&
+      pathOccupationalFamily('Vendor Coordinator') === 'sales' &&
+      pathOccupationalFamily('Administrative Coordinator') === 'admin' &&
+      pathOccupationalFamily('Office Coordinator') === 'admin'
+  );
+
+  const sevenSkillStory =
+    'I helped run a small clothing business. I answered customer messages, handled complaints, ordered products from vendors, tracked inventory, organized deliveries, coordinated pop-up events, trained new staff, and handled day-to-day business problems.';
+  const sevenSkills = [
+    { name: 'Customer Service', strength: 'Strong', evidence: 'You described answering customer messages and handling complaints.' },
+    { name: 'Vendor Coordination', strength: 'Strong', evidence: 'You described ordering products from vendors.' },
+    { name: 'Inventory Tracking', strength: 'Moderate', evidence: 'You described tracking inventory for the clothing business.' },
+    { name: 'Event Coordination', strength: 'Moderate', evidence: 'You described coordinating pop-up events.' },
+    { name: 'Staff Training', strength: 'Moderate', evidence: 'You described training new staff.' },
+    { name: 'Problem Solving', strength: 'Strong', evidence: 'You described handling day-to-day business problems.' },
+    { name: 'Organization', strength: 'Moderate', evidence: 'You described organizing deliveries and keeping operations moving.' },
+  ];
+  const rejectedTraining = [sevenSkills[4]];
+  const retainedSix = sevenSkills.filter((s) => s.name !== 'Staff Training');
+  const sevenGate = gateRetainedEvidence(sevenSkillStory, retainedSix, rejectedTraining);
+  const sevenPrompt = buildPathPromptStoryContext(sevenSkillStory, retainedSix, rejectedTraining);
+  const sevenBounds = getEvidencePathBounds(sevenSkillStory, retainedSix, sevenGate);
+  const diverseSevenPaths = {
+    paths: [
+      { title: 'Customer Service Representative', entryPoint: 'Customer Service Rep', progression: 'Support Lead', category: 'Strong Evidence', why: 'Complaint handling and customer messages', transfers: ['Customer Service'], gaps: ['metrics'], transition: 'Strong', workEnvironment: 'People-facing' },
+      { title: 'Operations Coordinator', entryPoint: 'Operations Coordinator', progression: 'Operations Lead', category: 'Worth Exploring', why: 'Inventory and delivery organization', transfers: ['Inventory Tracking', 'Organization'], gaps: ['systems'], transition: 'Moderate', workEnvironment: 'Process-driven' },
+      { title: 'Event Coordinator', entryPoint: 'Event Coordinator', progression: 'Events Lead', category: 'Growth Path', why: 'Pop-up event coordination', transfers: ['Event Coordination'], gaps: ['budgeting'], transition: 'Moderate', workEnvironment: 'On-site events' },
+    ],
+  };
+  const sameFamilyOpsOnly = {
+    paths: [
+      { title: 'Operations Coordinator', entryPoint: 'Operations Coordinator', progression: 'Operations Lead', category: 'Strong Evidence', why: 'Inventory and delivery organization', transfers: ['Organization'], gaps: ['systems'], transition: 'Strong', workEnvironment: 'Process-driven' },
+      { title: 'Inventory Specialist', entryPoint: 'Inventory Specialist', progression: 'Inventory Lead', category: 'Worth Exploring', why: 'Tracked clothing inventory', transfers: ['Inventory Tracking'], gaps: ['software'], transition: 'Moderate', workEnvironment: 'Warehouse pace' },
+      { title: 'Logistics Coordinator', entryPoint: 'Logistics Coordinator', progression: 'Logistics Lead', category: 'Growth Path', why: 'Organized deliveries', transfers: ['Organization'], gaps: ['routing'], transition: 'Moderate', workEnvironment: 'Dispatch desk' },
+    ],
+  };
+
+  assert(
+    '7 skills + one Not Quite still produces a valid downstream prompt',
+    sevenSkills.length === 7 &&
+      rejectedTraining.length === 1 &&
+      retainedSix.length === 6 &&
+      typeof sevenPrompt === 'string' &&
+      sevenPrompt.length > 40 &&
+      sevenBounds.min >= 1 &&
+      !sevenPrompt.startsWith('(no story evidence after rejected-skill filtering)')
+  );
+
+  assert(
+    'semantic path failures are tagged semantic and do not loosen diversity',
+    validatePathsResult({}, sevenSkillStory, retainedSix, sevenGate).kind === 'structural' &&
+      !validatePathsResult(paddedAdminPaths, adminNamedStory, adminNamedSkills).ok &&
+      validatePathsResult(paddedAdminPaths, adminNamedStory, adminNamedSkills).kind === 'semantic' &&
+      validatePathsResult(diverseSevenPaths, sevenSkillStory, retainedSix, sevenGate).ok
+  );
+
+  assert(
+    'same-family operations variants still fail the diversity requirement',
+    richPathGate &&
+      getEvidencePathBounds(richAdminStory, adminNamedSkills, richPathGate).richEvidence &&
+      !validatePathsResult(sameFamilyOpsOnly, richAdminStory, adminNamedSkills, richPathGate).ok &&
+      validatePathsResult(sameFamilyOpsOnly, richAdminStory, adminNamedSkills, richPathGate).kind === 'semantic'
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

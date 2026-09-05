@@ -2,6 +2,7 @@
 
 export const DISCOVER_PATHS_TIMEOUT_MS = 90000;
 export const DISCOVER_PATHS_COPY_DELAY_MS = 30000;
+export const DISCOVER_PATHS_MIN_TIER_MS = 25000;
 export const DISCOVER_PATHS_COPY_MESSAGE =
   'Still working — checking a fuller set of directions…';
 
