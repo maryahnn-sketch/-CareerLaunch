@@ -72,17 +72,27 @@ export function findPathClaimViolations(path) {
   return violations;
 }
 
+const PATH_DOMAIN_FAMILIES = [
+  { family: 'operations', pattern: /\b(operations|logistics|supply|warehouse|inventory)\b/i },
+  { family: 'events', pattern: /\b(events?)\b/i },
+  { family: 'customer', pattern: /\b(customer|support|service|help desk|concierge)\b/i },
+  { family: 'care', pattern: /\b(care|caregiv|nurs|health|patient|medical)\b/i },
+  { family: 'sales', pattern: /\b(sales|retail|merchant|vendor|business)\b/i },
+  { family: 'tech', pattern: /\b(tech|software|data|analyst|developer|it)\b/i },
+  { family: 'education', pattern: /\b(teacher|education|tutor|school|instruction)\b/i },
+  { family: 'creative', pattern: /\b(creative|design|marketing|content|media|social)\b/i },
+  { family: 'community', pattern: /\b(community|nonprofit|volunteer|outreach)\b/i },
+  { family: 'admin', pattern: /\b(admin|office|clerk|reception|scheduling)\b/i },
+];
+
+const GENERIC_ROLE_WORDS = /\b(coordinator|assistant)\b/i;
+
 export function pathOccupationalFamily(title) {
   const t = String(title || '').toLowerCase();
-  if (/\b(admin|office|coordinator|assistant|clerk|reception)\b/.test(t)) return 'admin';
-  if (/\b(customer|support|service|help desk|concierge)\b/.test(t)) return 'customer';
-  if (/\b(care|caregiv|nurs|health|patient|medical)\b/.test(t)) return 'care';
-  if (/\b(sales|retail|merchant|vendor|business)\b/.test(t)) return 'sales';
-  if (/\b(tech|software|data|analyst|developer|it)\b/.test(t)) return 'tech';
-  if (/\b(teacher|education|tutor|school|instruction)\b/.test(t)) return 'education';
-  if (/\b(operations|logistics|supply|warehouse|inventory)\b/.test(t)) return 'operations';
-  if (/\b(creative|design|marketing|content|media|social)\b/.test(t)) return 'creative';
-  if (/\b(community|nonprofit|volunteer|outreach)\b/.test(t)) return 'community';
+  for (const { family, pattern } of PATH_DOMAIN_FAMILIES) {
+    if (pattern.test(t)) return family;
+  }
+  if (GENERIC_ROLE_WORDS.test(t)) return 'admin';
   return 'general';
 }
 
@@ -342,6 +352,7 @@ function rejectNearDuplicateWithoutDifference(paths) {
     if (!pathsHaveMeaningfulDifference(pathA, pathB)) {
       return {
         ok: false,
+        kind: 'semantic',
         reason: `near-duplicate paths "${titleA}" and "${titleB}" are not meaningfully different discoveries`,
       };
     }
@@ -372,7 +383,7 @@ export function enforcePathDiscoveryBalance(paths, storyText, retainedSkills = [
 
 export function validatePathsResult(result, storyText, retainedSkills = [], evidenceGate = null) {
   if (!result || !Array.isArray(result.paths)) {
-    return { ok: false, reason: 'paths array is missing' };
+    return { ok: false, kind: 'structural', reason: 'paths array is missing' };
   }
 
   for (const path of result.paths) {
@@ -380,6 +391,7 @@ export function validatePathsResult(result, storyText, retainedSkills = [], evid
     if (claimViolations.length) {
       return {
         ok: false,
+        kind: 'semantic',
         reason: `path "${path.title}" contains unsupported market or qualification claims`,
       };
     }
@@ -391,6 +403,7 @@ export function validatePathsResult(result, storyText, retainedSkills = [], evid
   if (result.paths.length < required) {
     return {
       ok: false,
+      kind: 'semantic',
       reason: `only ${result.paths.length} valid path(s) found — need at least ${required} based on evidence-supported directions (never pad with weak or duplicate paths)`,
     };
   }
@@ -407,6 +420,7 @@ export function validatePathsResult(result, storyText, retainedSkills = [], evid
   ) {
     return {
       ok: false,
+      kind: 'semantic',
       reason:
         'rich evidence supports multiple occupational families — paths look like padded variations of one field',
     };
@@ -429,6 +443,7 @@ export function validatePathsResult(result, storyText, retainedSkills = [], evid
     if (allMatchNamed || lacksAlternativeFamily) {
       return {
         ok: false,
+        kind: 'semantic',
         reason:
           'paths must include evidence-supported alternatives beyond the career the user already named when retained skills support other occupational families',
       };
@@ -442,7 +457,7 @@ export function validateRefinePathsResult(result, storyText, retainedSkills = []
   const pathCheck = validatePathsResult(result, storyText, retainedSkills, evidenceGate);
   if (!pathCheck.ok) return pathCheck;
   if (!result.changeSummary || !String(result.changeSummary).trim()) {
-    return { ok: false, reason: 'changeSummary is missing' };
+    return { ok: false, kind: 'structural', reason: 'changeSummary is missing' };
   }
   return { ok: true };
 }
