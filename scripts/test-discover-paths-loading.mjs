@@ -597,6 +597,14 @@ function main() {
     /function pathStrengthScore\(/.test(INDEX_HTML)
   );
 
+  assert(
+    'discoverPaths filters transfers before annotatePathsWithEvidenceNotes',
+    DISCOVER_PATHS_FN.indexOf('filterTransfersToRetainedSkills') >= 0 &&
+      DISCOVER_PATHS_FN.indexOf('filterTransfersToRetainedSkills') <
+        DISCOVER_PATHS_FN.indexOf('annotatePathsWithEvidenceNotes') &&
+      /validatePathsResult\([\s\S]*getRejectedSkills\(\)/.test(INDEX_HTML)
+  );
+
   return runBehavioralTests().then(() => {
     console.log(`\nResults: ${passed} passed, ${failed} failed`);
     process.exit(failed ? 1 : 0);

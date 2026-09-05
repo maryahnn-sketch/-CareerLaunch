@@ -2110,7 +2110,7 @@ function validatePathsResultWithStructure(result, storyText, retainedSkills, pat
   for(const p of result.paths){
     if(!isValidPathItem(p)) return { ok:false, kind:'structural', reason:`a path is missing a required field: ${firstInvalidPathField(p)}` };
   }
-  return pathValidation.validatePathsResult(result, storyText, retainedSkills, evidenceGate);
+  return pathValidation.validatePathsResult(result, storyText, retainedSkills, evidenceGate, getRejectedSkills());
 }
 
 function validateRefinePathsResultWithStructure(result, storyText, retainedSkills, pathValidation, evidenceGate){
@@ -3465,6 +3465,7 @@ Rules:
     if(!isActive()) throw new DiscoverPathsStaleError();
     let nextPaths = result.paths;
     nextPaths = pathValidation.enforcePathDiscoveryBalance(nextPaths, fullStoryText(), retainedStorySkills, evidenceGate);
+    nextPaths = pathValidation.filterTransfersToRetainedSkills(nextPaths, retainedStorySkills);
     nextPaths = pathValidation.annotatePathsWithEvidenceNotes(nextPaths, fullStoryText(), retainedStorySkills);
     nextPaths = nextPaths.map(p => ({
       ...p,

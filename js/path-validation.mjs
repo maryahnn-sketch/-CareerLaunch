@@ -3,7 +3,7 @@
  * Keep in sync with regression tests in scripts/test-evidence-quality.mjs.
  */
 
-import { gateRetainedEvidence } from './evidence-gate.mjs';
+import { gateRetainedEvidence, sourceQuoteIsCitedInText } from './evidence-gate.mjs';
 
 /** @deprecated Use getRequiredPathCount — kept for callers expecting a constant ceiling. */
 export const MIN_VALID_PATHS = 1;
@@ -326,14 +326,94 @@ export function hasEvidenceSupportedAlternativeDirections(storyText, retainedSki
   return false;
 }
 
+export function retainedSkillNames(retainedSkills = []) {
+  return (retainedSkills || [])
+    .map((skill) => (typeof skill === 'string' ? skill : skill?.name))
+    .map((name) => String(name || '').trim())
+    .filter(Boolean);
+}
+
+/** Keep only transfers that exactly match a retained skill name (yes or unmarked). */
+export function filterTransfersToRetainedSkills(paths, retainedSkills = []) {
+  const allowed = new Set(retainedSkillNames(retainedSkills).map((name) => name.toLowerCase()));
+  return (paths || []).map((path) => ({
+    ...path,
+    transfers: Array.isArray(path.transfers)
+      ? path.transfers.filter((item) => allowed.has(String(item).toLowerCase()))
+      : path.transfers,
+  }));
+}
+
+function rejectedSkillNamesFrom(rejectedSkills = [], evidenceGate = null) {
+  const names = new Set();
+  for (const skill of rejectedSkills || []) {
+    const name = typeof skill === 'string' ? skill : skill?.name;
+    if (name) names.add(String(name).trim());
+  }
+  if (evidenceGate?.provenance) {
+    for (const entry of evidenceGate.provenance.values()) {
+      for (const name of entry.rejected || []) {
+        if (name) names.add(String(name).trim());
+      }
+    }
+  }
+  return [...names].filter(Boolean);
+}
+
+function textCitesExactSkillName(text, skillName) {
+  const raw = String(text || '');
+  const name = String(skillName || '').trim();
+  if (!raw || !name) return false;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${esc}\\b`, 'i').test(raw);
+}
+
+function textCitesRejectedOnlySource(text, evidenceGate) {
+  for (const item of evidenceGate?.rejectedOnlyStory || []) {
+    if (sourceQuoteIsCitedInText(item?.source, text)) return true;
+  }
+  return false;
+}
+
+/**
+ * Identity-based rejected-skill check. Does not fuzzy-match generic words
+ * shared with a rejected skill (e.g. "event" in Event Coordinator).
+ */
+export function findRejectedSkillIntegrityViolations(path, evidenceGate = null, rejectedSkills = []) {
+  const rejectedNames = rejectedSkillNamesFrom(rejectedSkills, evidenceGate);
+  const violations = [];
+  const pathText = [path?.title, path?.entryPoint, path?.why, path?.progression, path?.evidenceNote]
+    .filter(Boolean)
+    .join('\n');
+
+  for (const transfer of path?.transfers || []) {
+    if (rejectedNames.some((name) => String(transfer).trim().toLowerCase() === name.toLowerCase())) {
+      violations.push(`rejected-skill-transfer:${transfer}`);
+    }
+  }
+
+  for (const name of rejectedNames) {
+    if (textCitesExactSkillName(pathText, name)) {
+      violations.push(`rejected-skill-name:${name}`);
+    }
+  }
+
+  if (textCitesRejectedOnlySource(pathText, evidenceGate)) {
+    violations.push('rejected-only-source-cite');
+  }
+
+  return violations;
+}
+
 export function annotatePathsWithEvidenceNotes(paths, storyText, retainedSkills = []) {
   const namedCareers = extractUserNamedCareers(storyText);
+  const filtered = filterTransfersToRetainedSkills(paths, retainedSkills);
   const allNamed =
-    namedCareers.length > 0 && (paths || []).every((path) => pathMatchesNamedCareer(path, namedCareers));
+    namedCareers.length > 0 && filtered.every((path) => pathMatchesNamedCareer(path, namedCareers));
   const singleDirectionSupported =
     allNamed && !hasEvidenceSupportedAlternativeDirections(storyText, retainedSkills, namedCareers);
 
-  return (paths || []).map((path) => {
+  return filtered.map((path) => {
     const transfers = (path.transfers || []).slice(0, 2).join(' and ');
     let note = transfers ? `Supported by your ${transfers} experience.` : '';
     if (singleDirectionSupported && pathMatchesNamedCareer(path, namedCareers)) {
@@ -381,7 +461,13 @@ export function enforcePathDiscoveryBalance(paths, storyText, retainedSkills = [
   return kept;
 }
 
-export function validatePathsResult(result, storyText, retainedSkills = [], evidenceGate = null) {
+export function validatePathsResult(
+  result,
+  storyText,
+  retainedSkills = [],
+  evidenceGate = null,
+  rejectedSkills = []
+) {
   if (!result || !Array.isArray(result.paths)) {
     return { ok: false, kind: 'structural', reason: 'paths array is missing' };
   }
@@ -393,6 +479,18 @@ export function validatePathsResult(result, storyText, retainedSkills = [], evid
         ok: false,
         kind: 'semantic',
         reason: `path "${path.title}" contains unsupported market or qualification claims`,
+      };
+    }
+    const rejectedViolations = findRejectedSkillIntegrityViolations(
+      path,
+      evidenceGate,
+      rejectedSkills
+    );
+    if (rejectedViolations.length) {
+      return {
+        ok: false,
+        kind: 'semantic',
+        reason: `path "${path.title}" uses a rejected skill or rejected-only evidence (${rejectedViolations[0]})`,
       };
     }
   }
@@ -453,8 +551,14 @@ export function validatePathsResult(result, storyText, retainedSkills = [], evid
   return { ok: true };
 }
 
-export function validateRefinePathsResult(result, storyText, retainedSkills = [], evidenceGate = null) {
-  const pathCheck = validatePathsResult(result, storyText, retainedSkills, evidenceGate);
+export function validateRefinePathsResult(
+  result,
+  storyText,
+  retainedSkills = [],
+  evidenceGate = null,
+  rejectedSkills = []
+) {
+  const pathCheck = validatePathsResult(result, storyText, retainedSkills, evidenceGate, rejectedSkills);
   if (!pathCheck.ok) return pathCheck;
   if (!result.changeSummary || !String(result.changeSummary).trim()) {
     return { ok: false, kind: 'structural', reason: 'changeSummary is missing' };

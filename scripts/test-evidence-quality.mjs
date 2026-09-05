@@ -13,6 +13,8 @@ import {
 import {
   classifyEvidenceText,
   classifyStoryClauses,
+  extractClauses,
+  splitParallelActivityList,
   gateRetainedEvidence,
   applyResumeBulletGate,
   validateResumeBulletSources,
@@ -39,6 +41,8 @@ import {
   hasEvidenceSupportedAlternativeDirections,
   enforcePathDiscoveryBalance,
   annotatePathsWithEvidenceNotes,
+  filterTransfersToRetainedSkills,
+  findRejectedSkillIntegrityViolations,
   findPathClaimViolations,
   getRequiredPathCount,
   getEvidencePathBounds,
@@ -1416,6 +1420,215 @@ function main() {
       getEvidencePathBounds(richAdminStory, adminNamedSkills, richPathGate).richEvidence &&
       !validatePathsResult(sameFamilyOpsOnly, richAdminStory, adminNamedSkills, richPathGate).ok &&
       validatePathsResult(sameFamilyOpsOnly, richAdminStory, adminNamedSkills, richPathGate).kind === 'semantic'
+  );
+
+  const activityList =
+    'I answered customer messages, handled complaints, ordered products from vendors, tracked inventory, organized deliveries, handled business events and social media promotion, trained new staff, and handled day-to-day business problems.';
+  const activityClauses = extractClauses(activityList);
+  assert(
+    'parallel activity lists split into separate action clauses',
+    activityClauses.some((c) => /answered customer messages/i.test(c)) &&
+      activityClauses.some((c) => /^handled complaints$/i.test(c)) &&
+      activityClauses.some((c) => /ordered products from vendors/i.test(c)) &&
+      activityClauses.some((c) => /tracked inventory/i.test(c)) &&
+      activityClauses.some((c) => /handled business events and social media promotion/i.test(c)) &&
+      activityClauses.some((c) => /trained new staff/i.test(c))
+  );
+
+  const intactCommaSentences = [
+    'On May 3, 2024 I started volunteering at the pantry.',
+    'In Austin, Texas I managed a clothing shop.',
+    'After the meeting, I updated the inventory spreadsheet.',
+    'I worked at a large, busy store.',
+    'I live in Chicago, Illinois.',
+  ];
+  assert(
+    'normal comma-containing sentences are not incorrectly broken',
+    intactCommaSentences.every((sentence) => extractClauses(sentence).length === 1) &&
+      splitParallelActivityList('After the meeting, I updated the inventory spreadsheet.').length === 1 &&
+      splitParallelActivityList('On May 3, 2024 I started volunteering at the pantry.').length === 1
+  );
+
+  const previewStory =
+    'I helped run a small clothing business. I answered customer messages, handled complaints, ordered products from vendors, tracked inventory, organized deliveries, handled business events and social media promotion, trained new staff, and handled day-to-day business problems.';
+  const previewRejectedName = 'Social Media & Event Marketing';
+  const previewSkills = [
+    { name: 'Customer Service', strength: 'Strong', evidence: 'You described answering customer messages and handling complaints.' },
+    { name: 'Vendor Coordination', strength: 'Strong', evidence: 'You described ordering products from vendors.' },
+    { name: 'Inventory Tracking', strength: 'Moderate', evidence: 'You described tracking inventory for the clothing business.' },
+    { name: previewRejectedName, strength: 'Moderate', evidence: 'You described handling business events and social media promotion.' },
+    { name: 'Staff Training', strength: 'Moderate', evidence: 'You described training new staff.' },
+    { name: 'Problem Solving', strength: 'Strong', evidence: 'You described handling day-to-day business problems.' },
+    { name: 'Organization', strength: 'Moderate', evidence: 'You described organizing deliveries and keeping operations moving.' },
+  ];
+  const previewValidation = {
+    'Customer Service': 'yes',
+    [previewRejectedName]: 'no',
+  };
+  const previewConfirmed = getConfirmedSkills(previewSkills, previewValidation);
+  const previewUnmarked = getUnconfirmedStorySkills(previewSkills, previewValidation);
+  const previewRetained = getRetainedStorySkills(previewSkills, previewValidation);
+  const previewRejectedNames = getRejectedSkillNames(previewSkills, previewValidation);
+  const previewRejected = previewSkills.filter((s) => previewRejectedNames.includes(s.name));
+  const previewGate = gateRetainedEvidence(previewStory, previewRetained, previewRejected);
+  const previewPrompt = buildPathPromptStoryContext(previewStory, previewRetained, previewRejected);
+
+  assert(
+    'preview fixture is 1 yes + 1 not quite + 5 unmarked',
+    previewSkills.length === 7 &&
+      previewConfirmed.map((s) => s.name).join() === 'Customer Service' &&
+      previewRejectedNames.join() === previewRejectedName &&
+      previewUnmarked.length === 5 &&
+      previewRetained.length === 6 &&
+      previewUnmarked.every((s) => previewRetained.includes(s))
+  );
+
+  assert(
+    'unmarked skills remain eligible after rejected-skill filtering',
+    previewRetained.some((s) => s.name === 'Vendor Coordination') &&
+      previewRetained.some((s) => s.name === 'Inventory Tracking') &&
+      previewRetained.some((s) => s.name === 'Organization') &&
+      !previewRetained.some((s) => s.name === previewRejectedName)
+  );
+
+  assert(
+    'rejected skill name never appears in downstream path prompt',
+    !previewPrompt.includes(previewRejectedName)
+  );
+
+  assert(
+    'rejected-only event/social-media evidence is removed from path prompt',
+    !/social media promotion/i.test(previewPrompt) &&
+      !/business events and social media/i.test(previewPrompt) &&
+      previewGate.rejectedOnlyStory.some((item) => /social media promotion/i.test(item.source))
+  );
+
+  assert(
+    'retained customer/orders/inventory evidence from the same sentence is preserved',
+    /customer messages/i.test(previewPrompt) &&
+      /ordered products from vendors/i.test(previewPrompt) &&
+      /tracked inventory/i.test(previewPrompt)
+  );
+
+  const rawRejectedTransferPath = {
+    title: 'Event Coordinator',
+    entryPoint: 'Event Coordinator',
+    progression: 'Events Lead',
+    category: 'Growth Path',
+    why: 'Handling business events and social media promotion for the shop.',
+    transfers: [previewRejectedName, 'Customer Service'],
+    gaps: ['budgeting'],
+    transition: 'Moderate',
+    workEnvironment: 'On-site events',
+  };
+  const cleanEventPath = {
+    title: 'Event Coordinator',
+    entryPoint: 'Event Coordinator',
+    progression: 'Events Lead',
+    category: 'Growth Path',
+    why: 'Inventory tracking and vendor orders support shop-day coordination.',
+    transfers: ['Inventory Tracking', 'Vendor Coordination'],
+    gaps: ['budgeting'],
+    transition: 'Moderate',
+    workEnvironment: 'On-site events',
+  };
+  const previewValidPaths = {
+    paths: [
+      {
+        title: 'Customer Service Representative',
+        entryPoint: 'Customer Service Rep',
+        progression: 'Support Lead',
+        category: 'Strong Evidence',
+        why: 'Answered customer messages and handled complaints.',
+        transfers: ['Customer Service'],
+        gaps: ['metrics'],
+        transition: 'Strong',
+        workEnvironment: 'People-facing',
+      },
+      {
+        title: 'Operations Coordinator',
+        entryPoint: 'Operations Coordinator',
+        progression: 'Operations Lead',
+        category: 'Worth Exploring',
+        why: 'Tracked inventory and organized deliveries.',
+        transfers: ['Inventory Tracking', 'Organization'],
+        gaps: ['systems'],
+        transition: 'Moderate',
+        workEnvironment: 'Process-driven',
+      },
+      cleanEventPath,
+    ],
+  };
+
+  assert(
+    'raw path using rejected skill transfer fails integrity before apply',
+    findRejectedSkillIntegrityViolations(rawRejectedTransferPath, previewGate, previewRejected).some((v) =>
+      v.startsWith('rejected-skill-transfer')
+    ) &&
+      !validatePathsResult(
+        { paths: [rawRejectedTransferPath, previewValidPaths.paths[0], previewValidPaths.paths[1]] },
+        previewStory,
+        previewRetained,
+        previewGate,
+        previewRejected
+      ).ok &&
+      validatePathsResult(
+        { paths: [rawRejectedTransferPath, previewValidPaths.paths[0], previewValidPaths.paths[1]] },
+        previewStory,
+        previewRetained,
+        previewGate,
+        previewRejected
+      ).kind === 'semantic'
+  );
+
+  const rejectedEvidenceWhyPath = {
+    ...cleanEventPath,
+    why: 'Handling business events and social media promotion for the shop.',
+    transfers: ['Customer Service'],
+  };
+  assert(
+    'raw path citing rejected-only source evidence fails integrity',
+    findRejectedSkillIntegrityViolations(rejectedEvidenceWhyPath, previewGate, previewRejected).includes(
+      'rejected-only-source-cite'
+    ) &&
+      !validatePathsResult(
+        { paths: [rejectedEvidenceWhyPath, previewValidPaths.paths[0], previewValidPaths.paths[1]] },
+        previewStory,
+        previewRetained,
+        previewGate,
+        previewRejected
+      ).ok
+  );
+
+  assert(
+    'generic event wording without rejected identity still validates',
+    findRejectedSkillIntegrityViolations(cleanEventPath, previewGate, previewRejected).length === 0 &&
+      validatePathsResult(previewValidPaths, previewStory, previewRetained, previewGate, previewRejected).ok
+  );
+
+  const annotatedPreview = annotatePathsWithEvidenceNotes(
+    [{ ...rawRejectedTransferPath }],
+    previewStory,
+    previewRetained
+  );
+  const filteredPreview = filterTransfersToRetainedSkills(
+    [{ ...rawRejectedTransferPath }],
+    previewRetained
+  );
+  assert(
+    'support text is never constructed from an explicitly rejected skill',
+    filteredPreview[0].transfers.includes('Customer Service') &&
+      !filteredPreview[0].transfers.includes(previewRejectedName) &&
+      !annotatedPreview[0].evidenceNote.includes(previewRejectedName) &&
+      /Customer Service/.test(annotatedPreview[0].evidenceNote)
+  );
+
+  assert(
+    'index.html validates raw paths against rejected skills before apply',
+    INDEX_HTML.includes('filterTransfersToRetainedSkills') &&
+      INDEX_HTML.includes('getRejectedSkills()') &&
+      INDEX_HTML.indexOf('filterTransfersToRetainedSkills') <
+        INDEX_HTML.indexOf('annotatePathsWithEvidenceNotes')
   );
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

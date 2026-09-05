@@ -174,6 +174,96 @@ export function listStoryClauses(storyText) {
   return clauses;
 }
 
+const ACTIVITY_LIST_COMMA = new RegExp(
+  `,\\s+(?:and\\s+)?(?=(?:I\\s+)?(?:${ACTION_VERB_STEM})\\b)`,
+  'gi'
+);
+const ACTIVITY_CLAUSE_START = new RegExp(`^(?:I\\s+)?(?:${ACTION_VERB_STEM})\\b`, 'i');
+const ACTIVITY_VERB_IN_TEXT = new RegExp(`\\b(?:${ACTION_VERB_STEM})\\b`, 'i');
+
+function segmentLooksLikeActivityClause(segment) {
+  const s = String(segment || '').replace(/^[,;\s]+/, '').trim();
+  if (!s) return false;
+  if (ACTIVITY_CLAUSE_START.test(s)) return true;
+  return /\bI\s+/i.test(s) && ACTIVITY_VERB_IN_TEXT.test(s);
+}
+
+function segmentLooksLikeEvidenceClause(segment) {
+  const s = String(segment || '').replace(/^[,;\s]+/, '').trim();
+  if (!s) return false;
+  if (/^I\b/i.test(s)) return true;
+  return segmentLooksLikeActivityClause(s);
+}
+
+/** Split ", I …" only when the left side is already an evidence clause, not an intro. */
+function splitIndependentEvidenceClauses(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+  const parts = [];
+  let start = 0;
+  const splitter = new RegExp(CLAUSE_INDEPENDENT_START.source, 'gi');
+  let match;
+  while ((match = splitter.exec(raw)) !== null) {
+    const left = raw.slice(start, match.index);
+    if (segmentLooksLikeEvidenceClause(left)) {
+      const piece = left.trim();
+      if (piece) parts.push(piece);
+      start = match.index + match[0].length;
+    }
+  }
+  const tail = raw.slice(start).trim();
+  if (tail) parts.push(tail);
+  return parts.length ? parts : [raw];
+}
+
+export function sourceQuoteIsCitedInText(quote, text) {
+  const haystack = normalizeSourceQuote(text).toLowerCase();
+  const q = normalizeSourceQuote(quote).toLowerCase();
+  if (!haystack || !q || q.length < 12) return false;
+  if (haystack.includes(q)) return true;
+  const stripLeadVerb = (value) =>
+    value.replace(new RegExp(`^(?:i\\s+)?(?:${ACTION_VERB_STEM})\\s+`, 'i'), '').trim();
+  const quoteTail = stripLeadVerb(q);
+  return quoteTail.length >= 12 && haystack.includes(quoteTail);
+}
+
+/**
+ * Split parallel activity lists ("I answered X, handled Y, ordered Z") without
+ * breaking dates, places, introductions, or ordinary grammatical commas.
+ * A comma is a list cut only when the following token is an action verb and
+ * the preceding comma-segment is already an activity clause.
+ */
+export function splitParallelActivityList(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+
+  const cuts = [];
+  const splitter = new RegExp(ACTIVITY_LIST_COMMA.source, 'gi');
+  let match;
+  let segmentStart = 0;
+
+  while ((match = splitter.exec(raw)) !== null) {
+    const segment = raw.slice(segmentStart, match.index);
+    if (segmentLooksLikeActivityClause(segment)) {
+      cuts.push({ index: match.index, length: match[0].length });
+      segmentStart = match.index + match[0].length;
+    }
+  }
+
+  if (!cuts.length) return [raw];
+
+  const parts = [];
+  let start = 0;
+  for (const cut of cuts) {
+    const piece = raw.slice(start, cut.index).trim();
+    if (piece) parts.push(piece);
+    start = cut.index + cut.length;
+  }
+  const tail = raw.slice(start).trim();
+  if (tail) parts.push(tail);
+  return parts.length ? parts : [raw];
+}
+
 /** Split a sentence into independent evidence clauses for separate classification. */
 export function extractClauses(text) {
   const raw = String(text || '').trim();
@@ -188,12 +278,7 @@ export function extractClauses(text) {
       .filter(Boolean)
   );
 
-  clauses = clauses.flatMap((clause) =>
-    clause
-      .split(CLAUSE_INDEPENDENT_START)
-      .map((part) => part.trim())
-      .filter(Boolean)
-  );
+  clauses = clauses.flatMap((clause) => splitIndependentEvidenceClauses(clause));
 
   clauses = clauses.flatMap((clause) =>
     clause
@@ -201,6 +286,8 @@ export function extractClauses(text) {
       .map((part) => part.trim())
       .filter(Boolean)
   );
+
+  clauses = clauses.flatMap((clause) => splitParallelActivityList(clause));
 
   return clauses
     .map((part) => part.replace(/^[,;\s]+|[,;\s]+$/g, '').trim())
